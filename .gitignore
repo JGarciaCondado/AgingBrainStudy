@@ -6,11 +6,15 @@ __pycache__/
 # C extensions
 *.so
 
+# OS or Editor folders
+.DS_Store
+
 # Distribution / packaging
 .Python
 build/
 develop-eggs/
 dist/
+data/
 downloads/
 eggs/
 .eggs/
