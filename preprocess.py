@@ -58,11 +58,21 @@ df_cog.rename(columns={'BID': 'IID'}, inplace=True)
 df_cog = df_cog[df_cog['VISCODE'] == 1]
 df_cog.drop(columns=['VISCODE'], inplace=True)
 
+# Obtain amyloid status
+df_apoe = pd.read_csv('data/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
+df_apoe.rename(columns={'BID': 'IID', 'overall_score': 'Amyloid'}, inplace=True)
+
+# Obtain genetics status
+df_subjinfo = pd.read_csv('data/SUBJINFO.csv', usecols=['BID', 'APOEGN'])
+df_subjinfo.rename(columns={'BID': 'IID'}, inplace=True)
+
 # Merge all dataframes
 df = pd.merge(df, df_ptau, on='IID', how='outer')
 df = pd.merge(df, df_cog, on='IID', how='outer')
 df = pd.merge(df, df_ab, on='IID', how='outer')
 df = pd.merge(df, df_roche, on='IID', how='outer')
+df = pd.merge(df, df_apoe, on='IID', how='outer')
+df = pd.merge(df, df_subjinfo, on='IID', how='outer')
 
 # Save dataframe
 df.to_csv('data/processed_data.csv', index=False)
