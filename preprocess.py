@@ -22,6 +22,11 @@ for prs_type in prs_types:
         df = pd.merge(df, df_prs, on='IID', how='outer')
 
 
+# Obtain subjectinfo
+df_info = pd.read_csv('data/SUBJINFO.csv', usecols=['BID', 'AGEYR', 'SEX'])
+df_info.rename(columns={'BID': 'IID'}, inplace=True)
+
+
 # Obrain pTAU data make BID coulmn index and only extract ORRES column
 df_ptau = pd.read_csv('data/plasma/biomarker_pTau217.csv', usecols=['BID', 'VISCODE', 'ORRES'])
 df_ptau.rename(columns={'ORRES': 'pTau217', 'BID': 'IID'}, inplace=True)
@@ -67,6 +72,7 @@ df_subjinfo = pd.read_csv('data/SUBJINFO.csv', usecols=['BID', 'APOEGN'])
 df_subjinfo.rename(columns={'BID': 'IID'}, inplace=True)
 
 # Merge all dataframes
+df = pd.merge(df, df_info, on='IID', how='outer')
 df = pd.merge(df, df_ptau, on='IID', how='outer')
 df = pd.merge(df, df_cog, on='IID', how='outer')
 df = pd.merge(df, df_ab, on='IID', how='outer')
