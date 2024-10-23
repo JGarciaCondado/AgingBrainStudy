@@ -1,3 +1,6 @@
+# Ignor virtual environment
+.geneticsbrainage
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -2,12 +2,14 @@ import pandas as pd
 
 # Define PRS type
 prs_types = ['gm', 'wm', 'fc']
+prs_threshold = 0.5 # 0.001, 0.05 0.1, 0.2, 0.3, 0.4, 0.5
 
 # Create PRS data dataframe
 for prs_type in prs_types:
-    file_path = 'data/{}_prs.profile'.format(prs_type)
+    file_path = 'data/new_scores/{}/prs2.pT{}.sscore'.format(prs_type, prs_threshold)
     df_prs = pd.read_csv(file_path, delim_whitespace=True)
-    df_prs = df_prs[['IID', 'SCORE']]
+    df_prs = df_prs[['IID', 'SCORE1_AVG']]
+    df_prs.rename(columns={'SCORE1_AVG': 'SCORE'}, inplace=True)
 
     # Convert SCORE to z-score
     df_prs['ZSCORE'] = (df_prs['SCORE'] - df_prs['SCORE'].mean()) / df_prs['SCORE'].std()
@@ -81,4 +83,4 @@ df = pd.merge(df, df_apoe, on='IID', how='outer')
 df = pd.merge(df, df_subjinfo, on='IID', how='outer')
 
 # Save dataframe
-df.to_csv('data/processed_data.csv', index=False)
+df.to_csv(f'data/processed_data_{prs_threshold}.csv', index=False)
