@@ -96,6 +96,8 @@ df_ab = df_ab.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
 df_ab = df_ab.pivot(index='BID', columns='LBTESTCD', values='LBORRES')
 # Convert to floats
 df_ab = df_ab.apply(pd.to_numeric, errors='coerce')
+# Only keep TP42/TP40 and FP42/FP40
+df_ab = df_ab[['TP42/TP40', 'FP42/FP40']]
 # Save AB test data
 df_ab.to_csv('data/ageml/factors/AB_test.csv')
 
@@ -105,9 +107,11 @@ df_roche = pd.read_csv('data/plasma/biomarker_Plasma_Roche_Results.csv', usecols
 # Pivot to wide dataframe and remove duplicates
 df_roche = df_roche.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
 df_roche = df_roche.pivot(index='BID', columns='LBTESTCD', values='LABRESN')
-# Convert to floats
 df_roche = df_roche.apply(pd.to_numeric, errors='coerce')
-# Remove apoe4 column
+# Calculate the ratio of AB42/AB40
+df_roche['AB42/AB40'] = df_roche['AMYLB42'] / df_roche['AMYLB40']
+df_roche.drop(columns=['AMYLB42', 'AMYLB40'], inplace=True)
+# Remove apoe4 column as this will only have for apoe4 status
 df_roche.drop(columns=['APOE4'], inplace=True)
 # Save Roche data
 df_roche.to_csv('data/ageml/factors/roche.csv')
@@ -119,3 +123,30 @@ df_cog = df_cog[df_cog['BID'].isin(id_features)]
 df_cog = df_cog[df_cog['VISCODE'] == 1]
 df_cog.drop(columns=['VISCODE'], inplace=True)
 df_cog.to_csv('data/ageml/factors/cognition.csv', index=False)
+
+# Load PET data Amyloid
+df_pet_amyl = pd.read_csv('data/pet_imaging/imaging_SUVR_amyloid.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_cer'])
+df_pet_amyl = df_pet_amyl[df_pet_amyl['BID'].isin(id_features)]
+df_pet_amyl = df_pet_amyl[df_pet_amyl['VISCODE'] == 2]
+df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
+df_pet_amyl = df_pet_amyl.dropna(subset=['suvr_cer'])
+df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
+df_pet_amyl = df_pet_amyl.pivot(index='BID', columns='brain_region', values='suvr_cer')
+df_pet_amyl = df_pet_amyl.apply(pd.to_numeric, errors='coerce')
+df_pet_amyl.to_csv('data/ageml/factors/pet_amyloid.csv')
+
+# Load PET data Tau
+df_pet_tau = pd.read_csv('data/pet_imaging/imaging_SUVR_tau.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_crus'])
+df_pet_tau = df_pet_tau[df_pet_tau['VISCODE'] == 4]
+df_pet_tau = df_pet_tau.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
+df_pet_tau = df_pet_tau.dropna(subset=['suvr_crus'])
+df_pet_tau = df_pet_tau.pivot(index='BID', columns='brain_region', values='suvr_crus')
+df_pet_tau = df_pet_tau.apply(pd.to_numeric, errors='coerce')
+df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv')
+
+# Add Age to create age model
+df_age = df_subinfo[['BID', 'AGE']]
+df_pet_tau = pd.merge(df_pet_tau, df_age, on='BID')
+bid_outliers = ['B77992958', 'B63693427', 'B64289110']
+df_pet_tau = df_pet_tau[~df_pet_tau['BID'].isin(bid_outliers)]
+df_pet_tau.to_csv('data/ageml/tau_features.csv', index=False)
