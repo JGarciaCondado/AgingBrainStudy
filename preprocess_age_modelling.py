@@ -135,18 +135,13 @@ df_pet_amyl = df_pet_amyl.pivot(index='BID', columns='brain_region', values='suv
 df_pet_amyl = df_pet_amyl.apply(pd.to_numeric, errors='coerce')
 df_pet_amyl.to_csv('data/ageml/factors/pet_amyloid.csv')
 
-# Load PET data Tau
-df_pet_tau = pd.read_csv('data/pet_imaging/imaging_SUVR_tau.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_crus'])
-df_pet_tau = df_pet_tau[df_pet_tau['VISCODE'] == 4]
-df_pet_tau = df_pet_tau.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
-df_pet_tau = df_pet_tau.dropna(subset=['suvr_crus'])
-df_pet_tau = df_pet_tau.pivot(index='BID', columns='brain_region', values='suvr_crus')
-df_pet_tau = df_pet_tau.apply(pd.to_numeric, errors='coerce')
-df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv')
+# Load PET Tau PETSurfer
+df_pet_tau = pd.read_csv('data/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
+df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in col]]
+df_pet_tau = df_pet_tau[df_pet_tau['BID'].isin(id_features)]
+df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv', index=False)
 
 # Add Age to create age model
 df_age = df_subinfo[['BID', 'AGE']]
 df_pet_tau = pd.merge(df_pet_tau, df_age, on='BID')
-bid_outliers = ['B77992958', 'B63693427', 'B64289110']
-df_pet_tau = df_pet_tau[~df_pet_tau['BID'].isin(bid_outliers)]
 df_pet_tau.to_csv('data/ageml/tau_features.csv', index=False)
