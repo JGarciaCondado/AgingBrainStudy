@@ -32,19 +32,16 @@ df_freesurfer = df_freesurfer[~df_freesurfer['BID'].isin(outliers)]
 
 # Merge subject info and freeSurfer data to create features
 df_features = pd.merge(df_subinfo[['BID', 'AGE']], df_freesurfer, on='BID')
-id_features = set(df_features['BID'].to_list())
 
 # Save without index
 df_features.to_csv('data/ageml/features.csv', index=False)
 
 # Save covariates
 df_covariates = df_subinfo[['BID', 'SEX']]
-df_covariates = df_covariates[df_covariates['BID'].isin(id_features)]
 df_covariates.to_csv('data/ageml/covariates.csv', index=False)
 
 # Create clinical files for gender, one column is Female = 1 and Male = 2
-df_sex = df_subinfo[['BID', 'SEX']]
-df_sex = df_sex[df_sex['BID'].isin(id_features)]
+df_sex = df_subinfo[['BID', 'SEX']].copy()
 df_sex['Female'] = (df_sex['SEX'] == 1).astype(int)
 df_sex['Male'] = (df_sex['SEX'] == 2).astype(int)
 df_sex.drop(columns='SEX', inplace=True)
@@ -56,7 +53,6 @@ df_sex.to_csv('data/ageml/clinical/sex.csv', index=False)
 df_status = pd.read_csv('data/pet_imaging/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
 df_status.rename(columns={'overall_score': 'Amyloid'}, inplace=True)
 df_status = pd.merge(df_status, df_subinfo[['BID', 'APOEGN']], on='BID').dropna()
-df_status = df_status[df_status['BID'].isin(id_features)]
 df_status['Amyloid'] = (df_status['Amyloid'] == 'positive').astype(int)
 df_status['e4'] = df_status['APOEGN'].str.contains('E4').astype(int)
 
@@ -119,14 +115,12 @@ df_roche.to_csv('data/ageml/factors/roche.csv')
 # Load Cognitive data
 df_cog = pd.read_csv('data/cognition/PACC.csv', usecols=['BID', 'VISCODE', 'PACC.raw', "FCTOTAL96.z","LDELTOTAL.z","DIGITTOTAL.z","MMSCORE.z"])
 df_cog.rename(columns={'PACC.raw': 'PACC', 'FCTOTAL96.z': 'FCTOTAL96', 'LDELTOTAL.z': 'LDELTOTAL', 'DIGITTOTAL.z': 'DIGITTOTAL', 'MMSCORE.z': 'MMSCORE'}, inplace=True)
-df_cog = df_cog[df_cog['BID'].isin(id_features)]
 df_cog = df_cog[df_cog['VISCODE'] == 1]
 df_cog.drop(columns=['VISCODE'], inplace=True)
 df_cog.to_csv('data/ageml/factors/cognition.csv', index=False)
 
 # Load PET data Amyloid
 df_pet_amyl = pd.read_csv('data/pet_imaging/imaging_SUVR_amyloid.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_cer'])
-df_pet_amyl = df_pet_amyl[df_pet_amyl['BID'].isin(id_features)]
 df_pet_amyl = df_pet_amyl[df_pet_amyl['VISCODE'] == 2]
 df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
 df_pet_amyl = df_pet_amyl.dropna(subset=['suvr_cer'])
@@ -138,10 +132,37 @@ df_pet_amyl.to_csv('data/ageml/factors/pet_amyloid.csv')
 # Load PET Tau PETSurfer
 df_pet_tau = pd.read_csv('data/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
 df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in col]]
-df_pet_tau = df_pet_tau[df_pet_tau['BID'].isin(id_features)]
 df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv', index=False)
 
 # Add Age to create age model
 df_age = df_subinfo[['BID', 'AGE']]
 df_pet_tau = pd.merge(df_pet_tau, df_age, on='BID')
 df_pet_tau.to_csv('data/ageml/tau_features.csv', index=False)
+
+# Define PRS type
+prs_types = ['gm', 'wm', 'fc']
+prs_threshold = 0.5 # 0.001, 0.05 0.1, 0.2, 0.3, 0.4, 0.5
+
+# Create PRS data dataframe
+for prs_type in prs_types:
+    file_path = 'data/new_scores/{}/prs2.pT{}.sscore'.format(prs_type, prs_threshold)
+    df_prs = pd.read_csv(file_path, sep='\s+')
+    df_prs = df_prs[['IID', 'SCORE1_AVG']]
+    df_prs.rename(columns={'SCORE1_AVG': 'SCORE'}, inplace=True)
+
+    # Convert SCORE to z-score
+    df_prs['ZSCORE'] = (df_prs['SCORE'] - df_prs['SCORE'].mean()) / df_prs['SCORE'].std()
+
+    # Rename columns
+    df_prs.rename(columns={'SCORE': '{}_SCORE'.format(prs_type.upper()), 'ZSCORE': '{}_ZSCORE'.format(prs_type.upper())}, inplace=True)
+
+    # Merge dataframes
+    if prs_type == 'gm':
+        df = df_prs
+    else:
+        df = pd.merge(df, df_prs, on='IID', how='outer')
+
+# Dorp score columns
+df.drop(columns=['GM_SCORE', 'WM_SCORE', 'FC_SCORE'], inplace=True)
+df.rename(columns={'IID': 'BID'}, inplace=True)
+df.to_csv(f'data/ageml/factors/prs_{prs_threshold}.csv', index=False)
