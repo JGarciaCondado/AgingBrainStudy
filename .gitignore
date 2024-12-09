@@ -15,6 +15,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 analysis/
+results/
 build/
 develop-eggs/
 dist/

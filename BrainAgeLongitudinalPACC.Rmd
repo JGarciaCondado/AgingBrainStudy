@@ -1,0 +1,135 @@
+---
+title: "Brain Age Longitudinal PACC"
+author: "Jorge Garcia Condado"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+knit: (
+  function(inputFile, encoding) { 
+    rmarkdown::render('BrainAgeLongitudinalPACC.Rmd',
+      output_file = paste('results/BrainAgeLongitudinalPACC', '.html', sep=''))
+      })
+---
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot)
+
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+theme_set(theme_bw())
+```
+
+# Brain Age Longitudinal PACC
+
+We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model.
+
+## A4
+```{r}
+
+# Load data
+data_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/cognition/PACC.csv')
+
+# Filter subjects with less than 2 data points
+data_A4 <- data_A4 %>% 
+  arrange(BID, VISCODE) %>%  
+  group_by(BID) %>% 
+  filter(VISCODE >= 0 & VISCODE <= 100) %>%
+  add_tally(name = 'nTimePoints', wt = !is.na(PACC.raw)) %>%
+  filter(nTimePoints >= 2)
+
+# Calculate time form base line
+data_A4 <- data_A4 %>% 
+  arrange(BID, VISCODE) %>% 
+  group_by(BID) %>% 
+  mutate(time_from_bl = as.numeric(VISCODE - min(VISCODE, na.rm = TRUE)))
+
+# Load deltas
+delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/baseline/ageml/model_age/predicted_age.csv')
+
+# Merge the two datasets
+data_A4 <- merge(data_A4, delta_A4, by = 'BID')
+
+# Arragne by visitcode
+data_A4 <- data_A4 %>% 
+  arrange(BID, VISCODE)
+
+# Create new variable delta_group where is 0 below younger and older above zero
+data_A4 <- data_A4 %>% 
+  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older')) 
+```
+
+Plot PACC trajectories with spaghetti plot
+
+```{r}
+ggplot(data_A4, aes(x = time_from_bl, y = PACC.raw, group = BID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
+  theme_minimal()
+
+```
+
+Linear mixed effects models with delta at baseline
+
+```{r}
+lmm_results <- lme(PACC.raw ~time_from_bl*delta_all, data = data_A4, random = ~time_from_bl|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+```
+
+## HABS
+
+```{r}
+
+# Load data
+load(file='~/Documents/Projects/geneticsbrainage/data/HABS/data.RData')
+data_habs <- data
+
+# Filter subjects with less than 2 data points
+data_habs <- data_habs %>% 
+  arrange(SubjIDshort, NP_SessionDate) %>%  
+  group_by(SubjIDshort) %>% 
+  add_tally(name = 'nTimePoints', wt = !is.na(NP_PACC_PACC5)) %>%
+  filter(nTimePoints >= 2)
+
+# Calculate time form base line
+data_habs <- data_habs %>% 
+  group_by(SubjIDshort) %>% 
+  mutate(time_from_bl = as.numeric(NP_SessionDate - min(NP_SessionDate, na.rm = TRUE))/365.25)
+
+# Create baseline data set
+baseline_habs <- data_habs %>% 
+  group_by(SubjIDshort) %>%
+  arrange(NP_SessionDate) %>%
+  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
+  rename(BL_Age = NP_Age) %>%
+  ungroup()
+
+# Add age at baseline of subjects
+data_habs <- data_habs %>%
+  left_join(baseline_habs %>% select(SubjIDshort, BL_Age), by = 'SubjIDshort')
+
+# Load csv file 
+deltas_habs <- read.csv('~/Documents/Projects/geneticsbrainage/data/HABS/predicted_age.csv')
+
+# Merge the two datasets
+data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort')
+```
+
+Linear mixed effects models with delta at baseline
+  
+```{r}
+lmm_results <- lme(NP_PACC_PACC5 ~time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+```
+
+Linear mixed effects models with delta at baslien, basline age, sex and e4 status
+
+```{r}
+lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*BL_Age + time_from_bl*YrsEd + time_from_bl*SEX + time_from_bl*E4_Status + time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+```
