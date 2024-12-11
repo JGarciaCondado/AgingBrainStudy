@@ -4,37 +4,49 @@ import pandas as pd
 df_subinfo = pd.read_csv('data/SUBJINFO.csv', usecols=['BID', 'AGEYR', 'SEX', 'APOEGN'])
 df_subinfo = df_subinfo.rename(columns={'AGEYR': 'AGE'})
 
-# Load freeSurfer data
+# Load freeSurfer volume data
 df_freesurfer = pd.read_csv('data/freesurfer/aseg_stats.txt', sep='\t')
 df_freesurfer = df_freesurfer.rename(columns={'Measure:volume': 'BID'})
 
 # Keep only specific volume columns and divide by total intracranial volume
-vols = ['Left-Lateral-Ventricle', 'Left-Inf-Lat-Vent',
-       'Left-Cerebellum-White-Matter', 'Left-Cerebellum-Cortex',
-       'Left-Thalamus', 'Left-Caudate', 'Left-Putamen', 'Left-Pallidum',
-       '3rd-Ventricle', '4th-Ventricle', 'Brain-Stem', 'Left-Hippocampus',
-       'Left-Amygdala', 'CSF', 'Left-Accumbens-area', 'Left-VentralDC',
-       'Left-vessel', 'Left-choroid-plexus', 'Right-Lateral-Ventricle',
-       'Right-Inf-Lat-Vent', 'Right-Cerebellum-White-Matter',
-       'Right-Cerebellum-Cortex', 'Right-Thalamus', 'Right-Caudate',
-       'Right-Putamen', 'Right-Pallidum', 'Right-Hippocampus',
-       'Right-Amygdala', 'Right-Accumbens-area', 'Right-VentralDC',
-       'Right-vessel', 'Right-choroid-plexus', 'CC_Posterior', 'CC_Mid_Posterior', 'CC_Central',
-       'CC_Mid_Anterior', 'CC_Anterior', 'lhCortexVol', 'rhCortexVol', 'CortexVol',
-       'lhCerebralWhiteMatterVol', 'rhCerebralWhiteMatterVol', 'CerebralWhiteMatterVol',
-       'SubCortGrayVol', 'TotalGrayVol', 'SupraTentorialVol']
-df_freesurfer = df_freesurfer[vols + ['BID']]
+vols = [ 'Left-Hippocampus', 'Left-Amygdala', 'Right-Hippocampus', 'Right-Amygdala', 'EstimatedTotalIntraCranialVol']
+df_freesurfer = df_freesurfer[['BID'] + vols]
+# Combine left and right volumes
+df_freesurfer['bi_hippocampus'] = df_freesurfer['Left-Hippocampus'] + df_freesurfer['Right-Hippocampus']
+df_freesurfer['bi_amygdala'] = df_freesurfer['Left-Amygdala'] + df_freesurfer['Right-Amygdala']
+def normalize_mri(mri_col, icv_col):
+    from sklearn.linear_model import LinearRegression
+    b = LinearRegression().fit(icv_col.values.reshape(-1,1), mri_col).coef_[0]
+    adj_mri = mri_col - b * (icv_col - icv_col.mean())
+    return adj_mri
+# Normalize volumes by total intracranial volume
+df_freesurfer['bi_hippocampus'] = normalize_mri(df_freesurfer['bi_hippocampus'], df_freesurfer['EstimatedTotalIntraCranialVol'])
+df_freesurfer['bi_amygdala'] = normalize_mri(df_freesurfer['bi_amygdala'], df_freesurfer['EstimatedTotalIntraCranialVol'])
+df_freesurfer.drop(columns=vols, inplace=True)
+
+# Load thickness right and left
+df_thickness_lh = pd.read_csv('data/freesurfer/thickness_lh_stats.txt', sep='\t').rename(columns={'lh.aparc.thickness': 'BID'})
+df_thickness_rh = pd.read_csv('data/freesurfer/thickness_rh_stats.txt', sep='\t').rename(columns={'rh.aparc.thickness': 'BID'})
+df_thickness = pd.merge(df_thickness_lh, df_thickness_rh, on='BID', suffixes=('_lh', '_rh'))
+# Keep only specific thickness columns
+thickness = ['inferiortemporal', 'inferiorparietal', 'fusiform', 'middletemporal', 'entorhinal', 'parahippocampal']
+# Contains some of this words
+df_thickness = df_thickness[['BID'] + [col for col in df_thickness.columns if any([t in col for t in thickness])]]
+# Combine left and right thickness
+for t in thickness:
+    df_thickness['bi_' + t] = df_thickness['lh_'+t+'_thickness'] + df_thickness['rh_'+t+'_thickness']
+    df_thickness.drop(columns=['lh_'+t+'_thickness', 'rh_'+t+'_thickness'], inplace=True)
+df_freesurfer = pd.merge(df_freesurfer, df_thickness, on='BID')
 
 # Remove outliers
 outliers = ['B83014615', 'B16568072', 'B11279364', 'B65897427', 'B19132670', 'B49144285', 'B12659422', 'B65278081', 'B87879018']
 df_freesurfer = df_freesurfer[~df_freesurfer['BID'].isin(outliers)]
 
-
 # Merge subject info and freeSurfer data to create features
 df_features = pd.merge(df_subinfo[['BID', 'AGE']], df_freesurfer, on='BID')
 
 # Save without index
-df_features.to_csv('data/ageml/features.csv', index=False)
+df_features.to_csv('data/A4/structural_features.csv', index=False)
 
 # Save covariates
 df_covariates = df_subinfo[['BID', 'SEX']]
@@ -46,8 +58,8 @@ df_sex['Female'] = (df_sex['SEX'] == 1).astype(int)
 df_sex['Male'] = (df_sex['SEX'] == 2).astype(int)
 df_sex.drop(columns='SEX', inplace=True)
 # Rename Male to Control
-df_sex.rename(columns={'Female': 'CN'}, inplace=True)
-df_sex.to_csv('data/ageml/clinical/sex.csv', index=False)
+df_sex.rename(columns={'Male': 'CN'}, inplace=True)
+df_sex.to_csv('data/ageml/clinical/sex_male.csv', index=False)
 
 # Obtain amyloid status and ApoGen
 df_status = pd.read_csv('data/pet_imaging/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
@@ -55,6 +67,7 @@ df_status.rename(columns={'overall_score': 'Amyloid'}, inplace=True)
 df_status = pd.merge(df_status, df_subinfo[['BID', 'APOEGN']], on='BID').dropna()
 df_status['Amyloid'] = (df_status['Amyloid'] == 'positive').astype(int)
 df_status['e4'] = df_status['APOEGN'].str.contains('E4').astype(int)
+df_status.to_csv('data/A4/status.csv', index=False)
 
 # Create clinical file with type of Amyloid and ApoE4
 df_clinical = df_status.copy()
@@ -132,12 +145,15 @@ df_pet_amyl.to_csv('data/ageml/factors/pet_amyloid.csv')
 # Load PET Tau PETSurfer
 df_pet_tau = pd.read_csv('data/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
 df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in col]]
+# Only interested in specifci features
+tau_features = ['bi_inferiortemporal', 'bi_inferiorparietal', 'bi_fusiform', 'bi_middletemporal', 'bi_entorhinal', 'bi_Amygdala', 'bi_parahippocampal']
+df_pet_tau = df_pet_tau[['BID'] + tau_features]
 df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv', index=False)
 
 # Add Age to create age model
 df_age = df_subinfo[['BID', 'AGE']]
-df_pet_tau = pd.merge(df_pet_tau, df_age, on='BID')
-df_pet_tau.to_csv('data/ageml/tau_features.csv', index=False)
+df_pet_tau = pd.merge(df_age, df_pet_tau, on='BID')
+df_pet_tau.to_csv('data/A4/tau_features.csv', index=False)
 
 # Define PRS type
 prs_types = ['gm', 'wm', 'fc']
