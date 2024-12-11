@@ -1,0 +1,279 @@
+---
+title: "A4 Pet BrainAge"
+author: "Jorge Garcia Condado"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+knit: (
+  function(inputFile, encoding) { 
+    rmarkdown::render('A4PETBrainAge.Rmd',
+      output_file = paste('results/PETA4BrainAge', '.html', sep=''))
+      })
+---
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2); library(ggpubr); library(dplyr);
+
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+theme_set(theme_bw())
+```
+
+# PET BrainAge modelling in A4/Elearn study
+
+```{r, include = FALSE}
+# Load data
+delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/pet_brainage/ageml/model_age/predicted_age.csv')
+ptau_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/ptau217.csv')
+roche_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/roche.csv')
+cog_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/cognition.csv')
+a_e4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/clinical/a_e4.csv')
+pet_amyloid <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_amyloid.csv')
+
+# Obtain status of amyloid and e4
+a_e4$amyloid <- ifelse(a_e4$CN == 1 | a_e4$A.e4..1 == 1 , 'negative', 'positivie')
+a_e4$e4 <- ifelse(a_e4$CN == 1 | a_e4$A.e4. == 1 , 'negative', 'positive')
+
+# Merge data
+data_A4 <- merge(delta_A4, ptau_A4, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, roche_A4, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, a_e4, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, pet_amyloid, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, cog_A4, by = 'BID', all.x = TRUE)
+```
+
+## Delta differences {.tabset}
+
+### E4 status
+```{r}
+ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by E4 status',
+       x = 'E4 status',
+       y = 'Delta')
+```
+
+### Amyloid status
+```{r}
+ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'Amyloid status',
+       y = 'Delta')
+```
+
+
+## Cognition {.tabset}
+
+### PACC
+
+```{r}
+ggplot(data_A4, aes(x = PACC, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'PACC vs Delta',
+       x = 'PACC',
+       y = 'Delta')
+```
+
+### FCTOTAL96
+
+```{r}
+ggplot(data_A4, aes(x = FCTOTAL96, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'FCTOTAL96 vs Delta',
+       x = 'FCTOTAL96',
+       y = 'Delta')
+```
+
+### MMSE
+
+```{r}
+ggplot(data_A4, aes(x = MMSCORE, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'MMSE vs Delta',
+       x = 'MMSE',
+       y = 'Delta')
+```
+
+### Digit
+
+```{r}
+ggplot(data_A4, aes(x = DIGITTOTAL, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Digit vs Delta',
+       x = 'Digit',
+       y = 'Delta')
+```
+
+### LDL
+
+```{r}
+ggplot(data_A4, aes(x = LDELTOTAL, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'LDL vs Delta',
+       x = 'LDL',
+       y = 'Delta')
+```
+
+
+## Blood Biomarkers {.tabset}
+
+### pTau217
+
+```{r}
+ggplot(data_A4, aes(x = pTau217, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'pTau217 vs Delta',
+       x = 'pTau217',
+       y = 'Delta')
+```
+
+### tpp181
+
+```{r}
+ggplot(data_A4, aes(x = TPP181, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'tpp181 vs Delta',
+       x = 'tpp181',
+       y = 'Delta')
+```
+
+### NFL
+
+```{r}
+ggplot(data_A4, aes(x = NF.L, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'NFL vs Delta',
+       x = 'NFL',
+       y = 'Delta')
+```
+
+### GFAP
+
+```{r}
+ggplot(data_A4, aes(x = GFAP, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'GFAP vs Delta',
+       x = 'GFAP',
+       y = 'Delta')
+```
+
+### AB42/40
+
+```{r}
+ggplot(data_A4, aes(x = AB42.AB40, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'AB42/40 vs Delta',
+       x = 'AB42/40',
+       y = 'Delta')
+```
+
+## PET Amyloid {.tabset}
+
+### Frontal Cortex
+
+```{r}
+ggplot(data_A4, aes(x = xlaal_frontal_med_orb, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Frontal Cortex vs Delta',
+       x = 'Frontal Cortex',
+       y = 'Delta')
+```
+
+### Temporal Cortex
+
+```{r}
+ggplot(data_A4, aes(x = new_temporal_2, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Temporal Cortex vs Delta',
+       x = 'Temporal Cortex',
+       y = 'Delta')
+```
+
+### Precuneus
+
+```{r}
+ggplot(data_A4, aes(x = lprecuneus_gm, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Precuneus vs Delta',
+       x = 'Precuneus',
+       y = 'Delta')
+```
+
+### Parietal cortex
+
+```{r}
+ggplot(data_A4, aes(x = lnew_parietal, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Parietal Cortex vs Delta',
+       x = 'Parietal Cortex',
+       y = 'Delta')
+```
+
+### Posterior cingulate
+
+```{r}
+ggplot(data_A4, aes(x = llposterior_cingulate_2, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Posterior Cingulate vs Delta',
+       x = 'Posterior Cingulate',
+       y = 'Delta')
+```
+
+### Anterior cingulate
+
+```{r}
+ggplot(data_A4, aes(x = lanterior_cingulate_2, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Anterior Cingulate vs Delta',
+       x = 'Anterior Cingulate',
+       y = 'Delta')
+```
+
+### Composite
+
+```{r}
+ggplot(data_A4, aes(x = Composite_Summary, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Composite vs Delta',
+       x = 'Composite',
+       y = 'Delta')
+```
