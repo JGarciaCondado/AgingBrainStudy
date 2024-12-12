@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -25,25 +25,74 @@ theme_set(theme_bw())
 
 ```{r, include = FALSE}
 # Load data
-delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/baseline/ageml/model_age/predicted_age.csv')
+delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+
+# Cognition biomarkers
+cog_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/cognition.csv')
+data_A4 <- merge(delta_A4, cog_A4, by = 'BID', all.x = TRUE)
+
+# Blood biomarkers
 ptau_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/ptau217.csv')
 roche_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/roche.csv')
-cog_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/cognition.csv')
-a_e4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/clinical/a_e4.csv')
-pet_tau <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_tau.csv')
-pet_amyloid <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_amyloid.csv')
-
-# Obtain status of amyloid and e4
-a_e4$amyloid <- ifelse(a_e4$CN == 1 | a_e4$A.e4..1 == 1 , 'negative', 'positivie')
-a_e4$e4 <- ifelse(a_e4$CN == 1 | a_e4$A.e4. == 1 , 'negative', 'positive')
-
-# Merge data
-data_A4 <- merge(delta_A4, ptau_A4, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, ptau_A4, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, roche_A4, by = 'BID', all.x = TRUE)
-data_A4 <- merge(data_A4, a_e4, by = 'BID', all.x = TRUE)
+
+# Amyloid status
+status <- read.csv('~/Documents/Projects/geneticsbrainage/data/A4/status.csv')
+status$Amyloid <- ifelse(status$Amyloid == 1, 'positive', 'negative')
+status$e4 <- ifelse(status$e4 == 1, 'carrier', 'non-carrier')
+data_A4 <- merge(data_A4, status, by = 'BID', all.x = TRUE)
+
+# PET biomarkers
+pet_tau <- read.csv('~/Documents/Projects/geneticsbrainage/data/A4/tau_features.csv')
+pet_amyloid <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_amyloid.csv')
 data_A4 <- merge(data_A4, pet_tau, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, pet_amyloid, by = 'BID', all.x = TRUE)
-data_A4 <- merge(data_A4, cog_A4, by = 'BID', all.x = TRUE)
+
+# Demographics
+demographics <- read.csv('~/Documents/Projects/geneticsbrainage/data/SUBJINFO.csv')
+demographics <- demographics %>%
+  rename(YearsEd = EDCCNTU)
+data_A4 <- merge(data_A4, demographics, by = 'BID', all.x = TRUE)
+
+```
+
+``` {r}
+regression_analysis <- function(data, x, y, covars) {
+  
+  # Filter nan values
+  data <- data[complete.cases(data[, c(x, y, covars)]), ]
+  
+  # Scatter plot with correlation
+  scatter_plot <- ggplot(data, aes(x = !!sym(y), y = !!sym(x))) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
+    
+  # Create a formula for the regression model
+  covar_formula <- paste(covars, collapse = " + ")
+  full_formula <- as.formula(paste(x, "~", y, "+", covar_formula))
+  
+  # Linear regression model
+  ols_results <- lm(full_formula, data = data)
+  
+  # Model summary
+  model_summary <- summary(ols_results)
+  
+  # Plot model
+  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE)
+  
+  # Return a list with all results
+  return(list(
+    scatter_plot = scatter_plot,
+    regression_model = ols_results,
+    model_summary = model_summary,
+    predicted_values_plot = pred_plot
+  ))
+}
 ```
 
 ## Delta differences {.tabset}
@@ -60,7 +109,7 @@ ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
 
 ### Amyloid status
 ```{r}
-ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = delta_all)) +
+ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'Delta differences by Amyloid status',
@@ -73,60 +122,31 @@ ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = delta_all)) +
 ### PACC
 
 ```{r}
-ggplot(data_A4, aes(x = PACC, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'PACC vs Delta',
-       x = 'PACC',
-       y = 'Delta')
+regression_analysis(data_A4, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
 ```
 
 ### FCTOTAL96
 
 ```{r}
-ggplot(data_A4, aes(x = FCTOTAL96, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'FCTOTAL96 vs Delta',
-       x = 'FCTOTAL96',
-       y = 'Delta')
+regression_analysis(data_A4, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
 ```
 
 ### MMSE
 
 ```{r}
-ggplot(data_A4, aes(x = MMSCORE, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'MMSE vs Delta',
-       x = 'MMSE',
-       y = 'Delta')
+regression_analysis(data_A4, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
 ```
 
 ### Digit
 
 ```{r}
-ggplot(data_A4, aes(x = DIGITTOTAL, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Digit vs Delta',
-       x = 'Digit',
-       y = 'Delta')
+regression_analysis(data_A4, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
 ```
+
 ### LDL
 
 ```{r}
-ggplot(data_A4, aes(x = LDELTOTAL, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'LDL vs Delta',
-       x = 'LDL',
-       y = 'Delta')
+regression_analysis(data_A4, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
 ```
 
 
@@ -142,6 +162,16 @@ ggplot(data_A4, aes(x = pTau217, y = delta_all)) +
   labs(title = 'pTau217 vs Delta',
        x = 'pTau217',
        y = 'Delta')
+
+ols_results <- lm(pTau217 ~ delta_all + SEX + YearsEd + e4, data = data_A4)
+summary(ols_results)
+plot_model(ols_results, type = c('pred'), terms = c('delta_all'), show.values = TRUE)
+
+ols_results <- lm(pTau217 ~ delta_all + TPP181 + NF.L + GFAP + AB42.AB40, data = data_A4)
+summary(ols_results)
+plot_model(ols_results, type = c('pred'), terms = c('delta_all'), show.values = TRUE)
+
+regression_analysis(data_A4, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
 ```
 
 ### tpp181
@@ -192,76 +222,8 @@ ggplot(data_A4, aes(x = AB42.AB40, y = delta_all)) +
        y = 'Delta')
 ```
 
-## PET Amyloid {.tabset}
+## PET Amyloid
 
-### Frontal Cortex
-
-```{r}
-ggplot(data_A4, aes(x = xlaal_frontal_med_orb, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Frontal Cortex vs Delta',
-       x = 'Frontal Cortex',
-       y = 'Delta')
-```
-
-### Temporal Cortex
-
-```{r}
-ggplot(data_A4, aes(x = new_temporal_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Temporal Cortex vs Delta',
-       x = 'Temporal Cortex',
-       y = 'Delta')
-```
-### Precuneus
-
-```{r}
-ggplot(data_A4, aes(x = lprecuneus_gm, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Precuneus vs Delta',
-       x = 'Precuneus',
-       y = 'Delta')
-```
-
-### Parietal cortex
-
-```{r}
-ggplot(data_A4, aes(x = lnew_parietal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Parietal Cortex vs Delta',
-       x = 'Parietal Cortex',
-       y = 'Delta')
-```
-### Posterior cingulate
-
-```{r}
-ggplot(data_A4, aes(x = llposterior_cingulate_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Posterior Cingulate vs Delta',
-       x = 'Posterior Cingulate',
-       y = 'Delta')
-```
-### Anterior cingulate
-
-```{r}
-ggplot(data_A4, aes(x = lanterior_cingulate_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Anterior Cingulate vs Delta',
-       x = 'Anterior Cingulate',
-       y = 'Delta')
-```
 ### Composite
 
 ```{r}
@@ -273,6 +235,7 @@ ggplot(data_A4, aes(x = Composite_Summary, y = delta_all)) +
        x = 'Composite',
        y = 'Delta')
 ```
+
 ## PET Tau {.tabset}
 
 ### Inferior temporal
@@ -286,3 +249,80 @@ ggplot(data_A4, aes(x = bi_inferiortemporal, y = delta_all)) +
        x = 'Inferior Temporal',
        y = 'Delta')
 ```
+
+### Inferior parietal
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_inferiorparietal, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Inferior Parietal vs Delta',
+       x = 'Inferior Parietal',
+       y = 'Delta')
+```
+
+### Middle temporal
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_middletemporal, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Middle Temporal vs Delta',
+       x = 'Middle Temporal',
+       y = 'Delta')
+```
+
+### Entorhinal
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_entorhinal, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Entorhinal vs Delta',
+       x = 'Entorhinal',
+       y = 'Delta')
+```
+
+### Parahippocampal
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_parahippocampal, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Parahippocampal vs Delta',
+       x = 'Parahippocampal',
+       y = 'Delta')
+```
+
+### Fusiform
+
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_fusiform, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Fusiform vs Delta',
+       x = 'Fusiform',
+       y = 'Delta')
+```
+
+### Amygdala
+
+```{r}
+# plot corelation between delta and pet tau
+ggplot(data_A4, aes(x = bi_Amygdala, y = delta_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'Amygdala vs Delta',
+       x = 'Amygdala',
+       y = 'Delta')
+```
+
+
+

@@ -105,11 +105,12 @@ baseline_habs <- data_habs %>%
   arrange(NP_SessionDate) %>%
   slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
   rename(BL_Age = NP_Age) %>%
+  rename(BL_PACC = NP_PACC_PACC5) %>%
   ungroup()
 
 # Add age at baseline of subjects
 data_habs <- data_habs %>%
-  left_join(baseline_habs %>% select(SubjIDshort, BL_Age), by = 'SubjIDshort')
+  left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
 
 # Load csv file 
 deltas_habs <- read.csv('~/Documents/Projects/geneticsbrainage/data/HABS/predicted_age.csv')
@@ -124,6 +125,12 @@ Linear mixed effects models with delta at baseline
 lmm_results <- lme(NP_PACC_PACC5 ~time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
 plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+```
+
+```{r}
+lmm_results <- lme(NP_PACC_PACC5 ~time_from_bl*BL_PACC, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'BL_PACC'), show.values = TRUE)
 ```
 
 Linear mixed effects models with delta at baslien, basline age, sex and e4 status

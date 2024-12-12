@@ -31,6 +31,8 @@ roche_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/r
 cog_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/cognition.csv')
 a_e4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/clinical/a_e4.csv')
 pet_amyloid <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_amyloid.csv')
+delta_struct_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+names(delta_struct_A4)[names(delta_struct_A4) == 'delta_all'] <- 'delta_struct_all'
 
 # Obtain status of amyloid and e4
 a_e4$amyloid <- ifelse(a_e4$CN == 1 | a_e4$A.e4..1 == 1 , 'negative', 'positivie')
@@ -42,6 +44,19 @@ data_A4 <- merge(data_A4, roche_A4, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, a_e4, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, pet_amyloid, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, cog_A4, by = 'BID', all.x = TRUE)
+data_A4 <- merge(data_A4, delta_struct_A4, by = 'BID', all.x = TRUE)
+```
+
+## PET BrainAge vs Structural BrainAge
+
+```{r}
+ggplot(data_A4, aes(x = delta_all, y = delta_struct_all)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'PET BrainAge vs Structural BrainAge',
+       x = 'PET BrainAge',
+       y = 'Structural BrainAge')
 ```
 
 ## Delta differences {.tabset}
@@ -192,79 +207,9 @@ ggplot(data_A4, aes(x = AB42.AB40, y = delta_all)) +
        y = 'Delta')
 ```
 
-## PET Amyloid {.tabset}
+## PET Amyloid
 
-### Frontal Cortex
-
-```{r}
-ggplot(data_A4, aes(x = xlaal_frontal_med_orb, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Frontal Cortex vs Delta',
-       x = 'Frontal Cortex',
-       y = 'Delta')
-```
-
-### Temporal Cortex
-
-```{r}
-ggplot(data_A4, aes(x = new_temporal_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Temporal Cortex vs Delta',
-       x = 'Temporal Cortex',
-       y = 'Delta')
-```
-
-### Precuneus
-
-```{r}
-ggplot(data_A4, aes(x = lprecuneus_gm, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Precuneus vs Delta',
-       x = 'Precuneus',
-       y = 'Delta')
-```
-
-### Parietal cortex
-
-```{r}
-ggplot(data_A4, aes(x = lnew_parietal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Parietal Cortex vs Delta',
-       x = 'Parietal Cortex',
-       y = 'Delta')
-```
-
-### Posterior cingulate
-
-```{r}
-ggplot(data_A4, aes(x = llposterior_cingulate_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Posterior Cingulate vs Delta',
-       x = 'Posterior Cingulate',
-       y = 'Delta')
-```
-
-### Anterior cingulate
-
-```{r}
-ggplot(data_A4, aes(x = lanterior_cingulate_2, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Anterior Cingulate vs Delta',
-       x = 'Anterior Cingulate',
-       y = 'Delta')
-```
+We only use composites for PET Amyloid
 
 ### Composite
 
