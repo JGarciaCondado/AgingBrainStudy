@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr);library(sjPlot)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -25,63 +25,30 @@ theme_set(theme_bw())
 
 ```{r, include = FALSE}
 
-# Load required data
+# Load PRS
 prs_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/prs_0.5.csv')
-delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/baseline/ageml/model_age/predicted_age.csv')
+
+# Load delta
+delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+data_A4 <- merge(prs_A4, delta_A4, by = 'BID', all.x = TRUE)
+
+# Blood biomarkers
 ptau_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/ptau217.csv')
 roche_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/roche.csv')
-a_e4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/clinical/a_e4.csv')
-
-# Obtain status of amyloid
-a_e4$amyloid <- ifelse(a_e4$CN == 1 | a_e4$A.e4..1 == 1 , 'negative', 'positivie')
-a_e4$e4 <- ifelse(a_e4$CN == 1 | a_e4$A.e4. == 1 , 'negative', 'positive')
-
-# Merge data
-data_A4 <- merge(prs_A4, delta_A4, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, ptau_A4, by = 'BID', all.x = TRUE)
 data_A4 <- merge(data_A4, roche_A4, by = 'BID', all.x = TRUE)
-data_A4 <- merge(data_A4, a_e4, by = 'BID', all.x = TRUE)
-```
 
-## Correlation with BrainAge {.tabset}
+# Amyloid status
+status <- read.csv('~/Documents/Projects/geneticsbrainage/data/A4/status.csv')
+status$Amyloid <- ifelse(status$Amyloid == 1, 'positive', 'negative')
+status$e4 <- ifelse(status$e4 == 1, 'carrier', 'non-carrier')
+data_A4 <- merge(data_A4, status, by = 'BID', all.x = TRUE)
 
-Plot correlation of PRS Zscore with BrainAge delta
-
-### GM
-
-```{r}
-# GM
-ggplot(data_A4, aes(x = GM_ZSCORE, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm')+
-  stat_cor() +
-  labs(title = 'Comparison of PRS to BrainAge at Baseline',
-       x = 'PRS Zscore',
-       y = 'Delta (years)')
-```
-
-### WM
-
-```{r}
-ggplot(data_A4, aes(x = WM_ZSCORE, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm')+
-  stat_cor() +
-  labs(title = 'Comparison of PRS to BrainAge at Baseline',
-       x = 'PRS Zscore',
-       y = 'Delta (years)')
-```
-
-### FC
-
-```{r}
-ggplot(data_A4, aes(x = FC_ZSCORE, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm')+
-  stat_cor() +
-  labs(title = 'Comparison of PRS to BrainAge at Baseline',
-       x = 'PRS Zscore',
-       y = 'Delta (years)')
+# Demographics
+demographics <- read.csv('~/Documents/Projects/geneticsbrainage/data/SUBJINFO.csv')
+demographics <- demographics %>%
+  rename(YearsEd = EDCCNTU)
+data_A4 <- merge(data_A4, demographics, by = 'BID', all.x = TRUE)
 ```
 
 ## General Linear Models with Blood Biomarkers {.tabset}
@@ -92,42 +59,42 @@ We build a general linear model that predict blood biomarkers using PRS, Age and
 
 ```{r}
 # pTau217
-model_ptau <- glm(pTau217 ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_ptau <- glm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_ptau)
 ```
 
 ### tpp181
 ``` {r}
 # tpp181
-model_tpp <- glm(TPP181 ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_tpp <- glm(TPP181 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_tpp)
 ```
 
 ### NFL
 ``` {r}
 # NFL
-model_nfl <- glm(NF.L ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_nfl <- glm(NF.L ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_nfl)
 ```
 
 ### GFAP
 ``` {r}
 # GFAP
-model_gfap <- glm(GFAP ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_gfap <- glm(GFAP ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_gfap)
 ```
 ### AB42.AB40
 
 ``` {r}
 # AB42.AB40
-model_ab <- glm(AB42.AB40 ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_ab <- glm(AB42.AB40 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_ab)
 ```
 
 ### GFAP
 ``` {r}
 # GFAP
-model_gfap <- glm(GFAP ~ GM_ZSCORE + WM_ZSCORE + FC_ZSCORE + age + GM_ZSCORE:age + WM_ZSCORE:age + FC_ZSCORE:age, data = data_A4)
+model_gfap <- glm(GFAP ~GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
 summary(model_gfap)
 ```
 
@@ -173,7 +140,7 @@ ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = FC_ZSCORE)) +
 ```{r}
 # Create a boxplot grouping by Amyloid status
 
-ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = GM_ZSCORE)) +
+ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = GM_ZSCORE)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'PRS Zscore by Amyloid status',
@@ -184,7 +151,7 @@ ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = GM_ZSCORE)) +
 ### WM
 ```{r}
 # Create a boxplot grouping by Amyloid status
-ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = WM_ZSCORE)) +
+ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = WM_ZSCORE)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'PRS Zscore by Amyloid status',
@@ -195,7 +162,7 @@ ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = WM_ZSCORE)) +
 ### FC
 ```{r}
 # Create a boxplot grouping by Amyloid status
-ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = FC_ZSCORE)) +
+ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = FC_ZSCORE)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'PRS Zscore by Amyloid status',
@@ -203,3 +170,90 @@ ggplot(subset(data_A4, !is.na(amyloid)), aes(x = amyloid, y = FC_ZSCORE)) +
        y = 'PRS Zscore')
 ```
 
+## pTau217 analysis
+
+### Individual PRS {.tabset}
+
+#### GM
+``` {r}
+ggplot(subset(data_A4, !is.na(pTau217)), aes(x = GM_ZSCORE, y = pTau217)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'Comparison of PRS to pTau217 at Baseline',
+       x = 'PRS Zscore',
+       y = 'pTau217')
+
+model_ptau <- glm(pTau217 ~ GM_ZSCORE*age, data = data_A4)
+summary(model_ptau)
+```
+
+#### WM
+``` {r}
+ggplot(subset(data_A4, !is.na(pTau217)), aes(x = WM_ZSCORE, y = pTau217)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'Comparison of PRS to pTau217 at Baseline',
+       x = 'PRS Zscore',
+       y = 'pTau217')
+model_ptau <- glm(pTau217 ~ WM_ZSCORE*age, data = data_A4)
+summary(model_ptau)
+```
+
+#### FC
+``` {r}
+ggplot(subset(data_A4, !is.na(pTau217)), aes(x = FC_ZSCORE, y = pTau217)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'Comparison of PRS to pTau217 at Baseline',
+       x = 'PRS Zscore',
+       y = 'pTau217')
+model_ptau <- glm(pTau217 ~ FC_ZSCORE*age, data = data_A4)
+summary(model_ptau)
+```
+
+### General linear model plots
+
+
+```{r}
+# GLM
+model_ptau <- glm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data_A4)
+summary(model_ptau)
+plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE'), show.values = TRUE)
+plot_model(model_ptau, type = c('pred'), terms = c('age', 'WM_ZSCORE'), show.values = TRUE)
+```
+
+### Sensitivity analysis {.tabset}
+
+We cannot include Amyloid because pTau217 is only done in amyloid positive.
+
+#### Sex, e4 and YearsEd
+```{r}
+# Sensitivity analysis
+model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX + e4 + YearsEd, data = data_A4)
+summary(model_ptau)
+
+```
+
+#### Sex, e4 and YearsEd interaction with Age
+``` {r}
+# Include interaction with age
+model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX*age + e4*age + YearsEd*age, data = data_A4)
+summary(model_ptau)
+```
+
+#### Blood Biomarkers
+```{r}
+# Blood Biomarkers
+model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP + TPP181, data = data_A4)
+summary(model_ptau)
+```
+
+#### Blood biomarkers without tpp181
+```{r}
+# Blood Biomarkers
+model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP, data = data_A4)
+summary(model_ptau)
+```
