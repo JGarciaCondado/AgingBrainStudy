@@ -52,12 +52,13 @@ data_A4 <- merge(data_A4, pet_amyloid, by = 'BID', all.x = TRUE)
 # Demographics
 demographics <- read.csv('~/Documents/Projects/geneticsbrainage/data/SUBJINFO.csv')
 demographics <- demographics %>%
-  rename(YearsEd = EDCCNTU)
+  rename(YearsEd = EDCCNTU) %>%
+  rename(BL_Age = AGEYR)
 data_A4 <- merge(data_A4, demographics, by = 'BID', all.x = TRUE)
 
 ```
 
-``` {r}
+```{r}
 regression_analysis <- function(data, x, y, covars) {
   
   # Filter nan values
@@ -77,19 +78,28 @@ regression_analysis <- function(data, x, y, covars) {
   full_formula <- as.formula(paste(x, "~", y, "+", covar_formula))
   
   # Linear regression model
-  ols_results <- lm(full_formula, data = data)
+  ols_results <- lm(as.formula(paste(x, "~", y)), data = data)
+  ols_full_results <- lm(full_formula, data = data)
   
   # Model summary
   model_summary <- summary(ols_results)
+  model_full_summary <- summary(ols_full_results)
   
   # Plot model
-  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE)
+  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE) +
+    geom_point(data = data, aes(x = !!sym(y), y = !!sym(x)), 
+             inherit.aes = F) + 
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
   
   # Return a list with all results
   return(list(
     scatter_plot = scatter_plot,
-    regression_model = ols_results,
+    simple_model = ols_results,
+    regression_model = ols_full_results,
     model_summary = model_summary,
+    model_full_summary = model_full_summary,
     predicted_values_plot = pred_plot
   ))
 }
@@ -98,6 +108,7 @@ regression_analysis <- function(data, x, y, covars) {
 ## Delta differences {.tabset}
 
 ### E4 status
+
 ```{r}
 ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
   geom_boxplot() +
@@ -108,6 +119,7 @@ ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
 ```
 
 ### Amyloid status
+
 ```{r}
 ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
   geom_boxplot() +
@@ -122,104 +134,78 @@ ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
 ### PACC
 
 ```{r}
-regression_analysis(data_A4, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
+regression_analysis(data_A4, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### FCTOTAL96
 
 ```{r}
-regression_analysis(data_A4, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
+regression_analysis(data_A4, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### MMSE
 
 ```{r}
-regression_analysis(data_A4, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
+regression_analysis(data_A4, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Digit
 
 ```{r}
-regression_analysis(data_A4, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
+regression_analysis(data_A4, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### LDL
 
 ```{r}
-regression_analysis(data_A4, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid'))
+regression_analysis(data_A4, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
-
 
 ## Blood Biomarkers {.tabset}
 
 ### pTau217
 
 ```{r}
-ggplot(data_A4, aes(x = pTau217, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'pTau217 vs Delta',
-       x = 'pTau217',
-       y = 'Delta')
-
-ols_results <- lm(pTau217 ~ delta_all + SEX + YearsEd + e4, data = data_A4)
-summary(ols_results)
-plot_model(ols_results, type = c('pred'), terms = c('delta_all'), show.values = TRUE)
-
-ols_results <- lm(pTau217 ~ delta_all + TPP181 + NF.L + GFAP + AB42.AB40, data = data_A4)
-summary(ols_results)
-plot_model(ols_results, type = c('pred'), terms = c('delta_all'), show.values = TRUE)
+regression_analysis(data_A4, 'pTau217', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
 regression_analysis(data_A4, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
+
+regression_analysis(data_A4, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'TPP181'))
 ```
 
 ### tpp181
 
 ```{r}
-ggplot(data_A4, aes(x = TPP181, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'tpp181 vs Delta',
-       x = 'tpp181',
-       y = 'Delta')
+regression_analysis(data_A4, 'TPP181', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data_A4, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
+
+regression_analysis(data_A4, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'pTau217'))
 ```
 
 ### NFL
 
 ```{r}
-ggplot(data_A4, aes(x = NF.L, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'NFL vs Delta',
-       x = 'NFL',
-       y = 'Delta')
+regression_analysis(data_A4, 'NF.L', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data_A4, 'NF.L', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'GFAP'))
+
 ```
 
 ### GFAP
 
 ```{r}
-ggplot(data_A4, aes(x = GFAP, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'GFAP vs Delta',
-       x = 'GFAP',
-       y = 'Delta')
+regression_analysis(data_A4, 'GFAP', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data_A4, 'GFAP', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'NF.L'))
 ```
 
 ### AB42/40
 
 ```{r}
-ggplot(data_A4, aes(x = AB42.AB40, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'AB42/40 vs Delta',
-       x = 'AB42/40',
-       y = 'Delta')
+regression_analysis(data_A4, 'AB42.AB40', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data_A4, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L', 'GFAP'))
 ```
 
 ## PET Amyloid
@@ -227,102 +213,49 @@ ggplot(data_A4, aes(x = AB42.AB40, y = delta_all)) +
 ### Composite
 
 ```{r}
-ggplot(data_A4, aes(x = Composite_Summary, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Composite vs Delta',
-       x = 'Composite',
-       y = 'Delta')
+regression_analysis(data_A4, 'Composite_Summary', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 ```
 
 ## PET Tau {.tabset}
 
 ### Inferior temporal
+
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_inferiortemporal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Inferior Temporal vs Delta',
-       x = 'Inferior Temporal',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_inferiortemporal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Inferior parietal
+
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_inferiorparietal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Inferior Parietal vs Delta',
-       x = 'Inferior Parietal',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_inferiorparietal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Middle temporal
+
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_middletemporal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Middle Temporal vs Delta',
-       x = 'Middle Temporal',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_middletemporal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Entorhinal
+
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_entorhinal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Entorhinal vs Delta',
-       x = 'Entorhinal',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_entorhinal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Parahippocampal
+
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_parahippocampal, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Parahippocampal vs Delta',
-       x = 'Parahippocampal',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_parahippocampal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Fusiform
 
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_fusiform, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Fusiform vs Delta',
-       x = 'Fusiform',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_fusiform', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Amygdala
 
 ```{r}
-# plot corelation between delta and pet tau
-ggplot(data_A4, aes(x = bi_Amygdala, y = delta_all)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  stat_cor(method = 'pearson') +
-  labs(title = 'Amygdala vs Delta',
-       x = 'Amygdala',
-       y = 'Delta')
+regression_analysis(data_A4, 'bi_Amygdala', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
-
-
-
