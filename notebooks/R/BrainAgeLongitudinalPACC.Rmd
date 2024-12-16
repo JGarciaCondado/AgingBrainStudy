@@ -29,41 +29,38 @@ We will explore how baseline Brain Age delta moderates longitudinal PACC through
 ```{r}
 
 # Load data
-data_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/cognition/PACC.csv')
+data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/longitudinal_PACC.csv')
 
 # Filter subjects with less than 2 data points
 data_A4 <- data_A4 %>% 
-  arrange(BID, VISCODE) %>%  
+  arrange(BID, pacc_time) %>%  
   group_by(BID) %>% 
-  filter(VISCODE >= 0 & VISCODE <= 100) %>%
-  add_tally(name = 'nTimePoints', wt = !is.na(PACC.raw)) %>%
+  add_tally(name = 'nTimePoints', wt = !is.na(PACC)) %>%
   filter(nTimePoints >= 2)
 
-# Calculate time form base line
-data_A4 <- data_A4 %>% 
-  arrange(BID, VISCODE) %>% 
-  group_by(BID) %>% 
-  mutate(time_from_bl = as.numeric(VISCODE - min(VISCODE, na.rm = TRUE)))
-
 # Load deltas
-delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/baseline/ageml/model_age/predicted_age.csv')
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/baseline/ageml/model_age/predicted_age.csv')
 
 # Merge the two datasets
 data_A4 <- merge(data_A4, delta_A4, by = 'BID')
 
-# Arragne by visitcode
+# Arrange by pacc_time
 data_A4 <- data_A4 %>% 
-  arrange(BID, VISCODE)
+  arrange(BID, pacc_time)
 
 # Create new variable delta_group where is 0 below younger and older above zero
 data_A4 <- data_A4 %>% 
   mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older')) 
+
+# 
+data_placebo <- data_A4 %>% 
+  filter(TX == 'Placebo' | SUBSTUDY != 'A4')
 ```
 
 Plot PACC trajectories with spaghetti plot
 
 ```{r}
-ggplot(data_A4, aes(x = time_from_bl, y = PACC.raw, group = BID, colour = delta_group)) +
+ggplot(data_placebo, aes(x = pacc_time, y = PACC, group = BID, colour = delta_group)) +
   geom_line() +
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
@@ -74,9 +71,9 @@ ggplot(data_A4, aes(x = time_from_bl, y = PACC.raw, group = BID, colour = delta_
 Linear mixed effects models with delta at baseline
 
 ```{r}
-lmm_results <- lme(PACC.raw ~time_from_bl*delta_all, data = data_A4, random = ~time_from_bl|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC ~ pacc_time*delta_all, data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all'))
 ```
 
 ## HABS
