@@ -9,7 +9,7 @@ output:
 knit: (
   function(inputFile, encoding) { 
     rmarkdown::render('BrainAgeLongitudinalPACC.Rmd',
-      output_file = paste('results/BrainAgeLongitudinalPACC', '.html', sep=''))
+      output_file = paste('../../results/BrainAgeLongitudinalPACC', '.html', sep=''))
       })
 ---
 
@@ -25,7 +25,7 @@ theme_set(theme_bw())
 
 We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model.
 
-## A4
+## A4 Structural BrainAge
 ```{r}
 
 # Load data
@@ -39,20 +39,42 @@ data_A4 <- data_A4 %>%
   filter(nTimePoints >= 2)
 
 # Load deltas
-delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/baseline/ageml/model_age/predicted_age.csv')
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+delta_pet_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/pet_brainage/ageml/model_age/predicted_age.csv')
+delta_pet_A4 <- delta_pet_A4 %>% 
+  select(BID, delta_all) %>% 
+  rename(delta_pet = delta_all)
 
 # Merge the two datasets
 data_A4 <- merge(data_A4, delta_A4, by = 'BID')
+data_A4 <- merge(data_A4, delta_pet_A4, by = 'BID', all.x = TRUE)
 
-# Arrange by pacc_time
+# Arrange by pacc_time and calculate PACC_change_bl
 data_A4 <- data_A4 %>% 
-  arrange(BID, pacc_time)
+  arrange(BID, pacc_time) %>%
+  group_by(BID) %>%
+  mutate(PACC_bl = PACC[1]) %>%
+  mutate(PACC_change_bl = PACC - PACC_bl)
 
 # Create new variable delta_group where is 0 below younger and older above zero
 data_A4 <- data_A4 %>% 
-  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older')) 
+  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older')) %>%
+  mutate(delta_pet_group = ifelse(delta_pet < 0, 'younger', 'older'))
 
-# 
+# Create cohort variable
+data_A4 <- data_A4 %>%
+  group_by(BID) %>%
+  dplyr::mutate(Cohort = case_when(
+    SUBSTUDY == "SF" | SUBSTUDY == "LEARN" ~ "LEARN/SF",
+    SUBSTUDY == "A4" & TX == "Placebo" ~ "A4 Placebo",
+    SUBSTUDY == "A4" & TX == "Solanezumab" ~ "A4 Treated",
+    TRUE ~ NA))
+
+# Ensure variables are factors
+data_A4 <- data_A4 %>%
+  mutate_at(vars(SUBSTUDY, TX, Cohort, SEX, RACE, ETHNIC, APOE, APOEGN, QSVERSION_PACC), factor)
+
+# Placebo data
 data_placebo <- data_A4 %>% 
   filter(TX == 'Placebo' | SUBSTUDY != 'A4')
 ```
@@ -65,15 +87,111 @@ ggplot(data_placebo, aes(x = pacc_time, y = PACC, group = BID, colour = delta_gr
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
   theme_minimal()
+```
 
+
+```{r}
+ggplot(data_placebo, aes(x = pacc_time, y = PACC_change_bl, group = BID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
+  theme_minimal()
+```
+
+Linear mixed effects models with delta at baseline
+
+For our base model we will only use Learn and Placebo data and include as fixed effects the Cumulative Dose for those who opted into the treatmet at the end of the study and story version of the PACC as they are known to have an effect.
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ pacc_time*delta_all + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
+```
+
+### Sensitivity Analysis
+
+Linear mixed effects model with splines
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_all + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC, data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+```
+
+Linear mixed effects models with spline and Sex, Education Years, Basline Age, Apoe Status
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_all + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC + SEX*pacc_time + EDCCNTU*pacc_time + APOE*pacc_time + bl_pacc_age*pacc_time , data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit',control = lmeControl(opt = 'optim', msMaxIter = 100, msMaxEval = 100), method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+```
+
+Linear mixed effects models with spline and all groups
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_all + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = 'optim', msMaxIter = 100, msMaxEval = 100));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'Cohort'))
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+```
+
+Linear mixed effects models with spline and all groups and interactions
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_all + pacc_time*PACC_bl + pacc_time*Cohort + Cumulative_Dose_Scaled + QSVERSION_PACC + SEX*pacc_time + EDCCNTU*pacc_time + APOE*pacc_time + bl_pacc_age*pacc_time, data = data_A4, random = ~pacc_time|BID, na.action = 'na.omit',control = lmeControl(opt = 'optim', msMaxIter = 100, msMaxEval = 100), method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+```
+
+## A4 PET BrainAge
+
+Plot PACC trajectories with spaghetti plot
+
+```{r}
+ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PACC, group = BID, colour = delta_pet_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PACC_change_bl, group = BID, colour = delta_pet_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
+  theme_minimal()
 ```
 
 Linear mixed effects models with delta at baseline
 
 ```{r}
-lmm_results <- lme(PACC ~ pacc_time*delta_all, data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC_change_bl ~ pacc_time*delta_pet + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all'))
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]'))
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
+```
+
+### Sensitivity Analysis
+
+Linear mixed effects model with splines
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_pet + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC, data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]'))
+```
+
+Linear mixed effects models with spline and Sex, Education Years, Basline Age, Apoe Status
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_pet + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC + SEX*pacc_time + EDCCNTU*pacc_time + APOE*pacc_time + bl_pacc_age*pacc_time , data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit',control = lmeControl(opt = 'optim', msMaxIter = 100, msMaxEval = 100), method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]'))
 ```
 
 ## HABS
@@ -81,7 +199,7 @@ plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all'))
 ```{r}
 
 # Load data
-load(file='~/Documents/Projects/geneticsbrainage/data/HABS/data.RData')
+load(file='~/Documents/Projects/AgingBrainStudy/data/HABS/data.RData')
 data_habs <- data
 
 # Filter subjects with less than 2 data points
@@ -110,7 +228,7 @@ data_habs <- data_habs %>%
   left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
 
 # Load csv file 
-deltas_habs <- read.csv('~/Documents/Projects/geneticsbrainage/data/HABS/predicted_age.csv')
+deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/predicted_age.csv')
 
 # Merge the two datasets
 data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort')
