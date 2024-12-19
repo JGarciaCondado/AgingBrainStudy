@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 # Load features but ignore first column
 df_structural = pd.read_csv('data/HABS/raw/raw_features.csv', index_col='SubjIDshort')
@@ -77,3 +78,22 @@ df_a4_pet.columns = ['_'.join(col.split('_')[1:]) + '_bh' if 'bi_' in col else c
 df_pet = pd.concat([df_pet, df_a4_pet], axis=0)
 df_pet.index.name = 'SubjIDshort'
 df_pet.to_csv('data/HABS/processed/HABS_A4_pet_features.csv')
+
+# Load factors
+df_factors = pd.read_csv('data/HABS/raw/raw_factors.csv', index_col='SubjIDshort')
+
+# Create a FCTOTAL96 by adding all columns that start with NP_FCsrt_
+df_factors['FCTOTAL96'] = df_factors.filter(like='NP_FCsrt_').sum(axis=1)
+df_factors.drop(columns=df_factors.filter(like='NP_FCsrt_').columns, inplace=True)
+df_factors = df_factors[df_factors['FCTOTAL96'] != 0]
+
+# Save as csv
+df_factors.to_csv('data/HABS/processed/factors.csv')
+
+# Create clinical file with CN where 1 is E4_status is e4-
+df_clinical = df_factors[['E4_Status']].copy()
+df_clinical = df_clinical.dropna()
+df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
+df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
+df_clinical.drop(columns='E4_Status', inplace=True)
+df_clinical.to_csv('data/HABS/processed/e4_status.csv')

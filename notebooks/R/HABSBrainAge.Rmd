@@ -36,6 +36,15 @@ deltas_trained_wA4 <- deltas_trained_wA4 %>%
   rename(predicted_age_trained_wA4 = predicted_age_all, delta_wA4 = delta_all) %>%
   select(SubjIDshort, predicted_age_trained_wA4, delta_wA4)
 data <- merge(deltas, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
+
+# Load factors
+factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
+data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
+
+# Tau data
+tau <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/pet_features.csv', na.strings = c("", " ", "NaN", "NA", NA))
+tau <- tau[, !grepl('age', names(tau))]
+data <- merge(data, tau, by = 'SubjIDshort', all = TRUE)
 ```
 
 ## Comparison of BrainAge models
@@ -66,6 +75,162 @@ std <- data %>%
   summarise(std = sd(delta),
             std_trained_wA4 = sd(delta_wA4))
 std
+```
+
+```{r}
+regression_analysis <- function(data, x, y, covars) {
+  
+  # Filter nan values
+  data <- data[complete.cases(data[, c(x, y, covars)]), ]
+  
+  # Scatter plot with correlation
+  scatter_plot <- ggplot(data, aes(x = !!sym(y), y = !!sym(x))) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
+    
+  # Create a formula for the regression model
+  covar_formula <- paste(covars, collapse = " + ")
+  full_formula <- as.formula(paste(x, "~", y, "+", covar_formula))
+  
+  # Linear regression model
+  ols_results <- lm(as.formula(paste(x, "~", y)), data = data)
+  ols_full_results <- lm(full_formula, data = data)
+  
+  # Model summary
+  model_summary <- summary(ols_results)
+  model_full_summary <- summary(ols_full_results)
+  
+  # Plot model
+  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE) +
+    geom_point(data = data, aes(x = !!sym(y), y = !!sym(x)), 
+             inherit.aes = F) + 
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
+  
+  # Return a list with all results
+  return(list(
+    scatter_plot = scatter_plot,
+    simple_model = ols_results,
+    regression_model = ols_full_results,
+    model_summary = model_summary,
+    model_full_summary = model_full_summary,
+    predicted_values_plot = pred_plot
+  ))
+}
+```
+
+## Delta differences {.tabset}
+
+### E4 status
+
+```{r}
+ggplot(subset(data, !is.na(E4_Status)), aes(x = E4_Status, y = delta)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by E4 status',
+       x = 'E4 status',
+       y = 'Delta')
+```
+
+### Amyloid status
+
+```{r}
+ggplot(subset(data, !is.na(PIB_FS_SUVR_Group)), aes(x = PIB_FS_SUVR_Group, y = delta)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'Amyloid status',
+       y = 'Delta')
+```
+
+## Cognition {.tabset}
+
+### PACC
+
+```{r}
+regression_analysis(data, 'NP_PACC_PACC96', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### FCTOTAL96
+
+```{r}
+regression_analysis(data, 'FCTOTAL96' , 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### MMSE
+
+```{r}
+regression_analysis(data, 'NP_MMSE_MMSE', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Digit
+
+```{r}
+regression_analysis(data, 'NP_DigitSym_DigitSym', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### LDL
+
+```{r}
+regression_analysis(data, 'NP_LogicMem_LM1ADR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+
+## PET Amyloid
+
+### Composite
+
+```{r}
+regression_analysis(data, 'PIB_FS_SUVR_FLR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+## PET Tau {.tabset}
+
+### Inferior temporal
+
+```{r}
+regression_analysis(data, 'inferiortemporal_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Inferior parietal
+
+```{r}
+regression_analysis(data, 'inferiorparietal_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Middle temporal
+
+```{r}
+regression_analysis(data, 'middletemporal_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Entorhinal
+
+```{r}
+regression_analysis(data, 'entorhinal_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Parahippocampal
+
+```{r}
+regression_analysis(data, 'parahippocampal_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Fusiform
+
+```{r}
+regression_analysis(data, 'fusiform_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### Amygdala
+
+```{r}
+regression_analysis(data, 'amygdala_bh', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 ```
 
 
