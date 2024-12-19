@@ -228,7 +228,7 @@ data_habs <- data_habs %>%
   left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
 
 # Load csv file 
-deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/predicted_age.csv')
+deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_structural_brainage/ageml/model_age/predicted_age.csv')
 
 # Merge the two datasets
 data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort')
@@ -240,12 +240,6 @@ Linear mixed effects models with delta at baseline
 lmm_results <- lme(NP_PACC_PACC5 ~time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
 plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
-```
-
-```{r}
-lmm_results <- lme(NP_PACC_PACC5 ~time_from_bl*BL_PACC, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'BL_PACC'), show.values = TRUE)
 ```
 
 Linear mixed effects models with delta at baslien, basline age, sex and e4 status

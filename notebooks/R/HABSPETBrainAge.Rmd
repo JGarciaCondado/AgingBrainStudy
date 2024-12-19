@@ -1,5 +1,5 @@
 ---
-title: "HABSBrainAge"
+title: "HABSPETBrainAge"
 author: "Jorge Garcia Condado"
 date: "`r Sys.Date()`"
 output: 
@@ -8,8 +8,8 @@ output:
     toc_float: true
 knit: (
   function(inputFile, encoding) { 
-    rmarkdown::render('HABSBrainAge.Rmd',
-      output_file = paste('../../results/HABSBrainAge', '.html', sep=''))
+    rmarkdown::render('HABSPETBrainAge.Rmd',
+      output_file = paste('../../results/HABSPETBrainAge', '.html', sep=''))
       })
 ---
 
@@ -25,12 +25,12 @@ theme_set(theme_bw())
 
 ```{r, include = FALSE}
 # Load deltas
-deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_structural_brainage/ageml/model_age/predicted_age.csv')
+deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_pet_brainage/ageml/model_age/predicted_age.csv')
 deltas <- deltas %>% 
   rename(delta = delta_all, predicted_age = predicted_age_all)
 
 # Obtain deltas trained with A4
-deltas_trained_wA4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_structural_brainage_wA4/ageml/model_age/predicted_age.csv')
+deltas_trained_wA4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_pet_brainage_wA4/ageml/model_age/predicted_age.csv')
 deltas_trained_wA4 <- deltas_trained_wA4[deltas_trained_wA4$SubjIDshort %in% grep('_', deltas_trained_wA4$SubjIDshort, value = TRUE),]
 deltas_trained_wA4 <- deltas_trained_wA4 %>% 
   rename(predicted_age_trained_wA4 = predicted_age_all, delta_wA4 = delta_all) %>%
@@ -60,12 +60,10 @@ ggplot(data = data, aes(x = delta, fill = 'delta')) +
 # Caculate mean absolute error for each model
 mae <- data %>% 
   summarise(mae = mean(abs(age- predicted_age)),
-            mae_trained_wA4 = mean(abs(age - predicted_age_trained_wA4)))
+            mae_trained_wA4 = mean(abs(age - predicted_age_trained_wA4), na.rm = TRUE))
 mae
 std <- data %>% 
   summarise(std = sd(delta),
-            std_trained_wA4 = sd(delta_wA4))
+            std_trained_wA4 = sd(delta_wA4, na.rm = TRUE))
 std
 ```
-
-
