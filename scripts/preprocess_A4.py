@@ -1,11 +1,11 @@
 import pandas as pd
 
 # Load subject info
-df_subinfo = pd.read_csv('data/SUBJINFO.csv', usecols=['BID', 'AGEYR', 'SEX', 'APOEGN'])
+df_subinfo = pd.read_csv('data/A4/raw/SUBJINFO.csv', usecols=['BID', 'AGEYR', 'SEX', 'APOEGN'])
 df_subinfo = df_subinfo.rename(columns={'AGEYR': 'AGE'})
 
 # Load freeSurfer volume data
-df_freesurfer = pd.read_csv('data/freesurfer/aseg_stats.txt', sep='\t')
+df_freesurfer = pd.read_csv('data/A4/raw/freesurfer/aseg_stats.txt', sep='\t')
 df_freesurfer = df_freesurfer.rename(columns={'Measure:volume': 'BID'})
 
 # Keep only specific volume columns and divide by total intracranial volume
@@ -25,8 +25,8 @@ df_freesurfer['bi_amygdala'] = normalize_mri(df_freesurfer['bi_amygdala'], df_fr
 df_freesurfer.drop(columns=vols, inplace=True)
 
 # Load thickness right and left
-df_thickness_lh = pd.read_csv('data/freesurfer/thickness_lh_stats.txt', sep='\t').rename(columns={'lh.aparc.thickness': 'BID'})
-df_thickness_rh = pd.read_csv('data/freesurfer/thickness_rh_stats.txt', sep='\t').rename(columns={'rh.aparc.thickness': 'BID'})
+df_thickness_lh = pd.read_csv('data/A4/raw/freesurfer/thickness_lh_stats.txt', sep='\t').rename(columns={'lh.aparc.thickness': 'BID'})
+df_thickness_rh = pd.read_csv('data/A4/raw/freesurfer/thickness_rh_stats.txt', sep='\t').rename(columns={'rh.aparc.thickness': 'BID'})
 df_thickness = pd.merge(df_thickness_lh, df_thickness_rh, on='BID', suffixes=('_lh', '_rh'))
 # Keep only specific thickness columns
 thickness = ['inferiortemporal', 'inferiorparietal', 'fusiform', 'middletemporal', 'entorhinal', 'parahippocampal']
@@ -46,48 +46,27 @@ df_freesurfer = df_freesurfer[~df_freesurfer['BID'].isin(outliers)]
 df_features = pd.merge(df_subinfo[['BID', 'AGE']], df_freesurfer, on='BID')
 
 # Save without index
-df_features.to_csv('data/A4/structural_features.csv', index=False)
+df_features.to_csv('data/A4/processed/structural_features.csv', index=False)
 
 # Save covariates
-df_covariates = df_subinfo[['BID', 'SEX']]
-df_covariates.to_csv('data/ageml/covariates.csv', index=False)
-
-# Create clinical files for gender, one column is Female = 1 and Male = 2
-df_sex = df_subinfo[['BID', 'SEX']].copy()
-df_sex['Female'] = (df_sex['SEX'] == 1).astype(int)
-df_sex['Male'] = (df_sex['SEX'] == 2).astype(int)
-df_sex.drop(columns='SEX', inplace=True)
-# Rename Male to Control
-df_sex.rename(columns={'Male': 'CN'}, inplace=True)
-df_sex.to_csv('data/ageml/clinical/sex_male.csv', index=False)
+df_covars = df_subinfo[['BID', 'SEX', 'APOEGN']]
 
 # Obtain amyloid status and ApoGen
-df_status = pd.read_csv('data/pet_imaging/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
+df_status = pd.read_csv('data/A4/raw/pet_imaging/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
 df_status.rename(columns={'overall_score': 'Amyloid'}, inplace=True)
-df_status = pd.merge(df_status, df_subinfo[['BID', 'APOEGN']], on='BID').dropna()
-df_status['Amyloid'] = (df_status['Amyloid'] == 'positive').astype(int)
-df_status['e4'] = df_status['APOEGN'].str.contains('E4').astype(int)
-df_status.to_csv('data/A4/status.csv', index=False)
-
-# Create clinical file with type of Amyloid and ApoE4
-df_clinical = df_status.copy()
-df_clinical['CN'] = ((df_clinical['Amyloid'] == 0) & (df_clinical['e4'] == 0)).astype(int)
-df_clinical['A+e4-'] = ((df_clinical['Amyloid'] == 1) & (df_clinical['e4'] == 0)).astype(int)
-df_clinical['A-e4+'] = ((df_clinical['Amyloid'] == 0) & (df_clinical['e4'] == 1)).astype(int)
-df_clinical['A+e4+'] = ((df_clinical['Amyloid'] == 1) & (df_clinical['e4'] == 1)).astype(int)
-df_clinical.drop(columns=['Amyloid', 'e4', 'APOEGN'], inplace=True)
-df_clinical.to_csv('data/ageml/clinical/a_e4.csv', index=False)
+df_covars = pd.merge(df_covars, df_status, on='BID').dropna()
+df_covars['Amyloid'] = (df_status['Amyloid'] == 'positive').astype(int)
+df_covars['e4'] = df_covars['APOEGN'].str.contains('E4').astype(int)
+df_covars.drop(columns=['APOEGN'], inplace=True)
+df_covars.to_csv('data/A4/processed/covariates.csv', index=False)
 
 # Create clinical file with type of Apoe4
-df_clinical = df_status.copy()
+df_clinical = df_covars[['BID', 'e4']].copy()
 df_clinical['CN'] = ((df_clinical['e4'] == 0)).astype(int)
-df_clinical.drop(columns=['Amyloid', 'APOEGN'], inplace=True)
-df_clinical.to_csv('data/ageml/clinical/e4.csv', index=False)
-
-# Load plasma biomarkers (they are saved seperaetly because of NaN issues with AgeML)
+df_clinical.to_csv('data/A4/processed/e4.csv', index=False)
 
 # Obrain pTAU data make BID coulmn index and only extract ORRES column
-df_ptau = pd.read_csv('data/plasma/biomarker_pTau217.csv', usecols=['BID', 'VISCODE', 'ORRES'])
+df_ptau = pd.read_csv('data/A4/raw/plasma/biomarker_pTau217.csv', usecols=['BID', 'VISCODE', 'ORRES'])
 df_ptau.rename(columns={'ORRES': 'pTau217'}, inplace=True)
 # Keep only those with VISCODE 6
 df_ptau = df_ptau[df_ptau['VISCODE'] == 6]
@@ -95,11 +74,9 @@ df_ptau.drop(columns=['VISCODE'], inplace=True)
 # Convert ptau to float and remove nans
 df_ptau['pTau217'] = pd.to_numeric(df_ptau['pTau217'], errors='coerce')
 df_ptau.dropna(inplace=True)
-# Save ptau
-df_ptau.to_csv('data/ageml/factors/pTau217.csv', index=False)
 
 # Obtain AB Test data 
-df_ab = pd.read_csv('data/plasma/biomarker_AB_Test.csv', usecols=['BID', 'LBTESTCD', 'LBORRES'])
+df_ab = pd.read_csv('data/A4/raw/plasma/biomarker_AB_Test.csv', usecols=['BID', 'LBTESTCD', 'LBORRES'])
 # Pivot to wide dataframe and remove duplicates
 df_ab = df_ab.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
 df_ab = df_ab.pivot(index='BID', columns='LBTESTCD', values='LBORRES')
@@ -107,11 +84,9 @@ df_ab = df_ab.pivot(index='BID', columns='LBTESTCD', values='LBORRES')
 df_ab = df_ab.apply(pd.to_numeric, errors='coerce')
 # Only keep TP42/TP40 and FP42/FP40
 df_ab = df_ab[['TP42/TP40', 'FP42/FP40']]
-# Save AB test data
-df_ab.to_csv('data/ageml/factors/AB_test.csv')
 
 # Obtain Plasma Roche measures
-df_roche = pd.read_csv('data/plasma/biomarker_Plasma_Roche_Results.csv', usecols=['BID', 'LBTESTCD', 'LABRESN'])
+df_roche = pd.read_csv('data/A4/raw/plasma/biomarker_Plasma_Roche_Results.csv', usecols=['BID', 'LBTESTCD', 'LABRESN'])
 
 # Pivot to wide dataframe and remove duplicates
 df_roche = df_roche.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
@@ -122,38 +97,41 @@ df_roche['AB42/AB40'] = df_roche['AMYLB42'] / df_roche['AMYLB40']
 df_roche.drop(columns=['AMYLB42', 'AMYLB40'], inplace=True)
 # Remove apoe4 column as this will only have for apoe4 status
 df_roche.drop(columns=['APOE4'], inplace=True)
-# Save Roche data
-df_roche.to_csv('data/ageml/factors/roche.csv')
 
 # Load Cognitive data
-df_cog = pd.read_csv('data/cognition/PACC.csv', usecols=['BID', 'VISCODE', 'PACC.raw', "FCTOTAL96.z","LDELTOTAL.z","DIGITTOTAL.z","MMSCORE.z"])
+df_cog = pd.read_csv('data/A4/raw/cognition/PACC.csv', usecols=['BID', 'VISCODE', 'PACC.raw', "FCTOTAL96.z","LDELTOTAL.z","DIGITTOTAL.z","MMSCORE.z"])
 df_cog.rename(columns={'PACC.raw': 'PACC', 'FCTOTAL96.z': 'FCTOTAL96', 'LDELTOTAL.z': 'LDELTOTAL', 'DIGITTOTAL.z': 'DIGITTOTAL', 'MMSCORE.z': 'MMSCORE'}, inplace=True)
 df_cog = df_cog[df_cog['VISCODE'] == 1]
 df_cog.drop(columns=['VISCODE'], inplace=True)
-df_cog.to_csv('data/ageml/factors/cognition.csv', index=False)
 
 # Load PET data Amyloid
-df_pet_amyl = pd.read_csv('data/pet_imaging/imaging_SUVR_amyloid.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_cer'])
+df_pet_amyl = pd.read_csv('data/A4/raw/pet_imaging/imaging_SUVR_amyloid.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_cer'])
 df_pet_amyl = df_pet_amyl[df_pet_amyl['VISCODE'] == 2]
 df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
 df_pet_amyl = df_pet_amyl.dropna(subset=['suvr_cer'])
 df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
 df_pet_amyl = df_pet_amyl.pivot(index='BID', columns='brain_region', values='suvr_cer')
 df_pet_amyl = df_pet_amyl.apply(pd.to_numeric, errors='coerce')
-df_pet_amyl.to_csv('data/ageml/factors/pet_amyloid.csv')
 
 # Load PET Tau PETSurfer
-df_pet_tau = pd.read_csv('data/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
+df_pet_tau = pd.read_csv('data/A4/raw/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
 df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in col]]
 # Only interested in specifci features
 tau_features = ['bi_inferiortemporal', 'bi_inferiorparietal', 'bi_fusiform', 'bi_middletemporal', 'bi_entorhinal', 'bi_Amygdala', 'bi_parahippocampal']
 df_pet_tau = df_pet_tau[['BID'] + tau_features]
-df_pet_tau.to_csv('data/ageml/factors/pet_tau.csv', index=False)
+
+# Merge all into one csv
+df_factors = pd.merge(df_ptau, df_ab, on='BID', how='outer')
+df_factors = pd.merge(df_factors, df_roche, on='BID', how='outer')
+df_factors = pd.merge(df_factors, df_cog, on='BID', how='outer')
+df_factors = pd.merge(df_factors, df_pet_amyl, on='BID', how='outer')
+df_factors = pd.merge(df_factors, df_pet_tau, on='BID', how='outer')
+df_factors.to_csv('data/A4/processed/factors.csv', index=False)
 
 # Add Age to create age model
 df_age = df_subinfo[['BID', 'AGE']]
 df_pet_tau = pd.merge(df_age, df_pet_tau, on='BID')
-df_pet_tau.to_csv('data/A4/tau_features.csv', index=False)
+df_pet_tau.to_csv('data/A4/processed/pet_features.csv', index=False)
 
 # Define PRS type
 prs_types = ['gm', 'wm', 'fc']
@@ -161,7 +139,7 @@ prs_threshold = 0.5 # 0.001, 0.05 0.1, 0.2, 0.3, 0.4, 0.5
 
 # Create PRS data dataframe
 for prs_type in prs_types:
-    file_path = 'data/new_scores/{}/prs2.pT{}.sscore'.format(prs_type, prs_threshold)
+    file_path = 'data/A4/raw/prs_scores/{}/prs2.pT{}.sscore'.format(prs_type, prs_threshold)
     df_prs = pd.read_csv(file_path, sep='\s+')
     df_prs = df_prs[['IID', 'SCORE1_AVG']]
     df_prs.rename(columns={'SCORE1_AVG': 'SCORE'}, inplace=True)
@@ -181,4 +159,4 @@ for prs_type in prs_types:
 # Dorp score columns
 df.drop(columns=['GM_SCORE', 'WM_SCORE', 'FC_SCORE'], inplace=True)
 df.rename(columns={'IID': 'BID'}, inplace=True)
-df.to_csv(f'data/ageml/factors/prs_{prs_threshold}.csv', index=False)
+df.to_csv(f'data/A4/processed/prs_{prs_threshold}.csv', index=False)

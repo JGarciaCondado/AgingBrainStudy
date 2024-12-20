@@ -5,11 +5,11 @@ library(janitor)
 library(plyr)
 library(readxl)
 
-adqs <- read.csv("~/Documents/Projects/AgingBrainStudy/data/cognition/ADQS.csv", na.strings = c("", " ", "NaN", "NA", NA))
-visits <- read.csv("~/Documents/Projects/AgingBrainStudy/data/Visits/SV.csv", na.strings = c("", " ", "NaN", "NA", NA))
-subj <- read.csv("~/Documents/Projects/AgingBrainStudy/data/SUBJINFO.csv", na.strings = c("", " ", "NaN", "NA", NA))
-amyloid <- read.csv("~/Documents/Projects/AgingBrainStudy/data/pet_imaging/imaging_SUVR_amyloid.csv", na.strings = c("", " ", "NaN", "NA", NA))
-pet <- read.csv("~/Documents/Projects/AgingBrainStudy/data/pet_imaging/imaging_PET_VA.csv", na.strings = c("", " ", "NaN", "NA", NA))
+adqs <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/cognition/ADQS.csv", na.strings = c("", " ", "NaN", "NA", NA))
+visits <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/Visits/SV.csv", na.strings = c("", " ", "NaN", "NA", NA))
+subj <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/SUBJINFO.csv", na.strings = c("", " ", "NaN", "NA", NA))
+amyloid <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/pet_imaging/imaging_SUVR_amyloid.csv", na.strings = c("", " ", "NaN", "NA", NA))
+pet <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/pet_imaging/imaging_PET_VA.csv", na.strings = c("", " ", "NaN", "NA", NA))
 
 # Visits ------------------------------------------------------------------
 
@@ -86,8 +86,8 @@ data <- adqs %>%
 
 # DOSE --------------------------------------------------------------------
 
-dose <- read_excel("~/Documents/Projects/AgingBrainStudy/data/dose/A4_DOSE_blind.xlsx")
-dose_visit <- read.csv("~/Documents/Projects/AgingBrainStudy/data/Visits/visit_dose.csv", na.strings = c("", " ", "NaN", "NA", NA))
+dose <- read_excel("~/Documents/Projects/AgingBrainStudy/data/A4/raw/dose/A4_DOSE_blind.xlsx")
+dose_visit <- read.csv("~/Documents/Projects/AgingBrainStudy/data/A4/raw/Visits/visit_dose.csv", na.strings = c("", " ", "NaN", "NA", NA))
 
 dose_visit <- dose_visit %>%
   dplyr::rename(BID = USUBJID, VISCODE = VISITCD) %>%
@@ -131,5 +131,5 @@ data <- data %>%
   ))
 
 # Save as CSV
-write.csv(data, "~/Documents/Projects/AgingBrainStudy/data/A4/longitudinal_PACC.csv", row.names = FALSE)
+write.csv(data, "~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv", row.names = FALSE)
 

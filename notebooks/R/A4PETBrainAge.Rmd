@@ -9,7 +9,7 @@ output:
 knit: (
   function(inputFile, encoding) { 
     rmarkdown::render('A4PETBrainAge.Rmd',
-      output_file = paste('results/PETA4BrainAge', '.html', sep=''))
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/PETA4BrainAge', '.html', sep=''))
       })
 ---
 
@@ -23,44 +23,44 @@ theme_set(theme_bw())
 
 # PET BrainAge modelling in A4/Elearn study
 
+A linear regression BrainAge model was trained on e4 non-carriers. The model was then applied to e4 carriers.
+
+The model was trained using the following regions:
+
+-   Amygdala 
+-   Inferior parietal
+-   Inferior temporal
+-   Middle temporal
+-   Entorhinal
+-   Parahippocampal
+-   Fusiform
+
+Command use: model_age -o analysis/A4/pet_brainage -f data/A4/processed/pet_features.csv --clinical data/A4/processed/e4.csv
+
 ```{r, include = FALSE}
 
 # Load data
-delta_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/pet_brainage/ageml/model_age/predicted_age.csv')
+deltas <- read.csv('~/Documents/Projects/AgingbrainStudy/analysis/A4/pet_brainage/ageml/model_age/predicted_age.csv')
+delta_struct <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+names(delta_struct)[names(delta_struct) == 'delta_all'] <- 'delta_struct_all'
+data <- merge(deltas, delta_struct, by = 'BID', all.x = TRUE)
 
-# Structural
-delta_struct_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
-names(delta_struct_A4)[names(delta_struct_A4) == 'delta_all'] <- 'delta_struct_all'
-data_A4 <- merge(delta_A4, delta_struct_A4, by = 'BID', all.x = TRUE)
-
-# Cognition biomarkers
-cog_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/cognition.csv')
-data_A4 <- merge(data_A4, cog_A4, by = 'BID', all.x = TRUE)
-
-# Blood biomarkers
-ptau_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/ptau217.csv')
-roche_A4 <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/roche.csv')
-data_A4 <- merge(data_A4, ptau_A4, by = 'BID', all.x = TRUE)
-data_A4 <- merge(data_A4, roche_A4, by = 'BID', all.x = TRUE)
+# Load factors
+factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
+data <- merge(data, factors, by = 'BID', all.x = TRUE)
 
 # Amyloid status
-status <- read.csv('~/Documents/Projects/geneticsbrainage/data/A4/status.csv')
-status$Amyloid <- ifelse(status$Amyloid == 1, 'positive', 'negative')
-status$e4 <- ifelse(status$e4 == 1, 'carrier', 'non-carrier')
-data_A4 <- merge(data_A4, status, by = 'BID', all.x = TRUE)
-
-# PET biomarkers
-pet_tau <- read.csv('~/Documents/Projects/geneticsbrainage/data/A4/tau_features.csv')
-pet_amyloid <- read.csv('~/Documents/Projects/geneticsbrainage/data/ageml/factors/pet_amyloid.csv')
-data_A4 <- merge(data_A4, pet_tau, by = 'BID', all.x = TRUE)
-data_A4 <- merge(data_A4, pet_amyloid, by = 'BID', all.x = TRUE)
+covars <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv', na.strings = c("", " ", "NaN", "NA", NA))
+covars$Amyloid <- ifelse(covars$Amyloid == 1, 'positive', 'negative')
+covars$e4 <- ifelse(covars$e4 == 1, 'carrier', 'non-carrier')
+data <- merge(data, covars[, c('BID', 'Amyloid', 'e4')], by = 'BID', all.x = TRUE)
 
 # Demographics
-demographics <- read.csv('~/Documents/Projects/geneticsbrainage/data/SUBJINFO.csv')
+demographics <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/raw/SUBJINFO.csv', na.strings = c("", " ", "NaN", "NA", NA))
 demographics <- demographics %>%
   rename(YearsEd = EDCCNTU) %>%
   rename(BL_Age = AGEYR)
-data_A4 <- merge(data_A4, demographics, by = 'BID', all.x = TRUE)
+data <- merge(data, demographics, by = 'BID', all.x = TRUE)
 
 ```
 
@@ -114,7 +114,7 @@ regression_analysis <- function(data, x, y, covars) {
 ## PET BrainAge vs Structural BrainAge
 
 ```{r}
-ggplot(data_A4, aes(x = delta_all, y = delta_struct_all)) +
+ggplot(data, aes(x = delta_all, y = delta_struct_all)) +
   geom_point() +
   geom_smooth(method = 'lm') +
   stat_cor(method = 'pearson') +
@@ -127,7 +127,7 @@ ggplot(data_A4, aes(x = delta_all, y = delta_struct_all)) +
 
 ### E4 status
 ```{r}
-ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
+ggplot(subset(data, !is.na(e4)), aes(x = e4, y = delta_all)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'Delta differences by E4 status',
@@ -137,7 +137,7 @@ ggplot(subset(data_A4, !is.na(e4)), aes(x = e4, y = delta_all)) +
 
 ### Amyloid status
 ```{r}
-ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
+ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
   geom_boxplot() +
   stat_compare_means(method = 't.test') +
   labs(title = 'Delta differences by Amyloid status',
@@ -151,31 +151,31 @@ ggplot(subset(data_A4, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
 ### PACC
 
 ```{r}
-regression_analysis(data_A4, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(data, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### FCTOTAL96
 
 ```{r}
-regression_analysis(data_A4, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(data, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### MMSE
 
 ```{r}
-regression_analysis(data_A4, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(data, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### Digit
 
 ```{r}
-regression_analysis(data_A4, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(data, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ### LDL
 
 ```{r}
-regression_analysis(data_A4, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(data, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ## Blood Biomarkers {.tabset}
@@ -183,44 +183,52 @@ regression_analysis(data_A4, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4',
 ### pTau217
 
 ```{r}
-regression_analysis(data_A4, 'pTau217', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'pTau217', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
-regression_analysis(data_A4, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
+regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
 
-regression_analysis(data_A4, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'TPP181'))
+regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'TPP181'))
 ```
 
 ### tpp181
 
 ```{r}
-regression_analysis(data_A4, 'TPP181', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'TPP181', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
-regression_analysis(data_A4, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
+regression_analysis(data, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
 
-regression_analysis(data_A4, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'pTau217'))
+regression_analysis(data, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'pTau217'))
 ```
 
 ### NFL
 
 ```{r}
-regression_analysis(data_A4, 'NF.L', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'NF.L', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
-regression_analysis(data_A4, 'NF.L', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'GFAP'))
+regression_analysis(data, 'NF.L', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'GFAP'))
 
 ```
 
 ### GFAP
 
 ```{r}
-regression_analysis(data_A4, 'GFAP', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'GFAP', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
-regression_analysis(data_A4, 'GFAP', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'NF.L'))
+regression_analysis(data, 'GFAP', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'NF.L'))
 ```
 
 ### AB42/40
 
 ```{r}
-regression_analysis(data_A4, 'AB42.AB40', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'AB42.AB40', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 
-regression_analysis(data_A4, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L', 'GFAP'))
+regression_analysis(data, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L', 'GFAP'))
+```
+
+## PET Amyloid
+
+### Composite
+
+```{r}
+regression_analysis(data, 'Composite_Summary', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 ```

@@ -9,7 +9,7 @@ output:
 knit: (
   function(inputFile, encoding) { 
     rmarkdown::render('HABSPETBrainAge.Rmd',
-      output_file = paste('../../results/HABSPETBrainAge', '.html', sep=''))
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/HABSPETBrainAge', '.html', sep=''))
       })
 ---
 
@@ -23,19 +23,36 @@ theme_set(theme_bw())
 
 # BrainAge modelling in HABS
 
+A linear regression BrainAge model was trained on e4 non-carriers. The model was then applied to e4 carriers.
+
+The model was trained using the following regions:
+
+-   Amygdala 
+-   Inferior parietal
+-   Inferior temporal
+-   Middle temporal
+-   Entorhinal
+-   Parahippocampal
+-   Fusiform
+
+Command use: model_age -o analysis/HABS/pet_brainage -f data/HABS/processed/pet_features.csv --clinical data/HABS/processed/e4.csv
+
 ```{r, include = FALSE}
 # Load deltas
-deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_pet_brainage/ageml/model_age/predicted_age.csv')
+deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/HABS/pet_brainage/ageml/model_age/predicted_age.csv')
 deltas <- deltas %>% 
   rename(delta = delta_all, predicted_age = predicted_age_all)
+delta_struct <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/HABS/structural_brainage/ageml/model_age/predicted_age.csv')
+names(delta_struct)[names(delta_struct) == 'delta_all'] <- 'delta_struct'
+data <- merge(deltas, delta_struct[, c('SubjIDshort', 'delta_struct')], by = 'SubjIDshort', all.x = TRUE)
 
 # Obtain deltas trained with A4
-deltas_trained_wA4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/habs_pet_brainage_wA4/ageml/model_age/predicted_age.csv')
+deltas_trained_wA4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4_HABS_joint/pet_brainage/ageml/model_age/predicted_age.csv')
 deltas_trained_wA4 <- deltas_trained_wA4[deltas_trained_wA4$SubjIDshort %in% grep('_', deltas_trained_wA4$SubjIDshort, value = TRUE),]
 deltas_trained_wA4 <- deltas_trained_wA4 %>% 
   rename(predicted_age_trained_wA4 = predicted_age_all, delta_wA4 = delta_all) %>%
   select(SubjIDshort, predicted_age_trained_wA4, delta_wA4)
-data <- merge(deltas, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
+data <- merge(data, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
 
 # Load factors
 factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
@@ -44,6 +61,9 @@ data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
 
 ## Comparison of BrainAge models
 
+We also trained a model on A4 and applied it to HABS.
+
+Command used: model_age -o analysis/A4_HABS_joint/pet_brainage -f data/A4_HABS_joint/processed/pet_features.csv --clinical data/A4_HABS_joint/A4_as_cn.csv
 
 ```{r}
 # Plot deltas vs deltas_trained_wA4
@@ -71,6 +91,19 @@ std <- data %>%
             std_trained_wA4 = sd(delta_wA4, na.rm = TRUE))
 std
 ```
+
+## PET BrainAge vs Structural BrainAge
+
+```{r}
+ggplot(data, aes(x = delta, y = delta_struct)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  stat_cor(method = 'pearson') +
+  labs(title = 'PET BrainAge vs Structural BrainAge',
+       x = 'PET BrainAge',
+       y = 'Structural BrainAge')
+```
+
 
 ```{r}
 regression_analysis <- function(data, x, y, covars) {

@@ -9,7 +9,7 @@ output:
 knit: (
   function(inputFile, encoding) { 
     rmarkdown::render('BrainAgeLongitudinalPACC.Rmd',
-      output_file = paste('../../results/BrainAgeLongitudinalPACC', '.html', sep=''))
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/BrainAgeLongitudinalPACC', '.html', sep=''))
       })
 ---
 
@@ -29,7 +29,7 @@ We will explore how baseline Brain Age delta moderates longitudinal PACC through
 ```{r}
 
 # Load data
-data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/longitudinal_PACC.csv')
+data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
 
 # Filter subjects with less than 2 data points
 data_A4 <- data_A4 %>% 
@@ -39,11 +39,11 @@ data_A4 <- data_A4 %>%
   filter(nTimePoints >= 2)
 
 # Load deltas
-delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/structural_brainage/ageml/model_age/predicted_age_sex.csv')
-delta_pet_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/pet_brainage/ageml/model_age/predicted_age.csv')
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+delta_pet_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/pet_brainage/ageml/model_age/predicted_age.csv')
 delta_pet_A4 <- delta_pet_A4 %>% 
   select(BID, delta_all) %>% 
-  rename(delta_pet = delta_all)
+  dplyr::rename(delta_pet = delta_all)
 
 # Merge the two datasets
 data_A4 <- merge(data_A4, delta_A4, by = 'BID')

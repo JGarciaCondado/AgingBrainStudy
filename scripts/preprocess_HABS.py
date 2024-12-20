@@ -41,20 +41,20 @@ df_structural.columns = df_structural.columns.str.lower()
 df_structural.to_csv('data/HABS/processed/structural_features.csv')
 
 # Load A4 structural data 
-df_a4_structural = pd.read_csv('data/A4/structural_features.csv', index_col='BID')
+df_a4_structural = pd.read_csv('data/A4/processed/structural_features.csv', index_col='BID')
 df_a4_structural.columns = df_a4_structural.columns.str.lower()
 
 # Stack dataframes
 df_structural = pd.concat([df_structural, df_a4_structural], axis=0)
 df_structural.index.name = 'SubjIDshort'
-df_structural.to_csv('data/HABS/processed/HABS_A4_structural_features.csv')
+df_structural.to_csv('data/A4_HABS_joint/structural_features.csv')
 
 # Create new dataframe with CN column with 1 for those in a4 and 0 for those in HABS
 df_structural['cn'] = df_structural.index.isin(df_a4_structural.index).astype(int)
 clinical = df_structural[['cn']].copy()
 clinical['HABS'] = (~clinical['cn'].astype(bool)).astype(int)
 df_structural.drop(columns='cn', inplace=True)
-clinical.to_csv('data/HABS/processed/A4_as_cn.csv')
+clinical.to_csv('data/A4_HABS_joint/A4_as_cn.csv')
 
 # Load PET data
 df_pet = pd.read_csv('data/HABS/raw/raw_pet_features.csv', index_col='SubjIDshort')
@@ -70,14 +70,14 @@ outliers = ['B_RAUOBJ']
 df_pet.to_csv('data/HABS/processed/pet_features.csv')
 
 # Load A4 PET data
-df_a4_pet = pd.read_csv('data/A4/tau_features.csv', index_col='BID')
+df_a4_pet = pd.read_csv('data/A4/processed/pet_features.csv', index_col='BID')
 df_a4_pet.columns = df_a4_pet.columns.str.lower()
 df_a4_pet.columns = ['_'.join(col.split('_')[1:]) + '_bh' if 'bi_' in col else col for col in df_a4_pet.columns]
 
 # Stack dataframes
 df_pet = pd.concat([df_pet, df_a4_pet], axis=0)
 df_pet.index.name = 'SubjIDshort'
-df_pet.to_csv('data/HABS/processed/HABS_A4_pet_features.csv')
+df_pet.to_csv('data/A4_HABS_joint/pet_features.csv')
 
 # Load factors
 df_factors = pd.read_csv('data/HABS/raw/raw_factors.csv', index_col='SubjIDshort')
@@ -96,4 +96,4 @@ df_clinical = df_clinical.dropna()
 df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
 df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
 df_clinical.drop(columns='E4_Status', inplace=True)
-df_clinical.to_csv('data/HABS/processed/e4_status.csv')
+df_clinical.to_csv('data/HABS/processed/e4.csv')
