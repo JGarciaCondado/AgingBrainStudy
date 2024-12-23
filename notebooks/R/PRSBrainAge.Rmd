@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr);library(sjPlot);library(gtsummary); library(flextable)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -42,9 +42,27 @@ data <- merge(data, covars[, c('BID', 'Amyloid', 'e4')], by = 'BID', all.x = TRU
 demographics <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/raw/SUBJINFO.csv')
 demographics <- demographics %>%
   rename(YearsEd = EDCCNTU) %>%
-  rename(age = AGEYR)
+  rename(age = AGEYR) %>%
+  mutate(SEX = recode(SEX, `1` = "Female", `2` = "Male"))
+
 data <- merge(data, demographics, by = 'BID', all.x = TRUE)
   
+```
+
+Cohort Demographics
+```{r}
+table <- tbl_summary(data,
+            include = c(age, SEX, YearsEd, e4, Amyloid),
+            missing = "no",
+            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
+            label = list(age ~ "Age", YearsEd ~ "Education (Years)"),
+            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
+            by = SEX)
+table
+# Save table as image
+#table %>%
+#  as_flex_table() %>%
+#  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
 ```
 
 ## General Linear Models with Blood Biomarkers {.tabset}
