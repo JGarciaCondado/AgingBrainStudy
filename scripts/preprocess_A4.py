@@ -95,8 +95,6 @@ df_roche = df_roche.apply(pd.to_numeric, errors='coerce')
 # Calculate the ratio of AB42/AB40
 df_roche['AB42/AB40'] = df_roche['AMYLB42'] / df_roche['AMYLB40']
 df_roche.drop(columns=['AMYLB42', 'AMYLB40'], inplace=True)
-# Remove apoe4 column as this will only have for apoe4 status
-df_roche.drop(columns=['APOE4'], inplace=True)
 
 # Load Cognitive data
 df_cog = pd.read_csv('data/A4/raw/cognition/PACC.csv', usecols=['BID', 'VISCODE', 'PACC.raw', "FCTOTAL96.z","LDELTOTAL.z","DIGITTOTAL.z","MMSCORE.z"])

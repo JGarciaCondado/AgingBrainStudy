@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 theme_set(theme_bw())
 ```
 
-# Polygenetic Risk Score of BrainAge 
+# Polygenetic Risk Score of BrainAge
 
 ```{r, include = FALSE}
 
@@ -50,6 +50,7 @@ data <- merge(data, demographics, by = 'BID', all.x = TRUE)
 ```
 
 Cohort Demographics
+
 ```{r}
 table <- tbl_summary(data,
             include = c(age, SEX, YearsEd, e4, Amyloid),
@@ -58,16 +59,68 @@ table <- tbl_summary(data,
             label = list(age ~ "Age", YearsEd ~ "Education (Years)"),
             digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
             by = SEX)
-table
+
+table %>%
+  as_flex_table() %>% 
+  fontsize(size = 20, part = "all") %>%
+  line_spacing(space = 1.5, part = "all") %>%
+  autofit()
+
 # Save table as image
-#table %>%
-#  as_flex_table() %>%
-#  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
+table %>%
+  as_flex_table() %>% 
+  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
+
+
+```
+
+Blood Biomarkers Summary
+
+```{r}
+# For the 6 plasma biomarkers ptau217, pTauC2, AB42.40, APOE4, GFAp and NFl
+# Create a table with the number of subjects that have the biomarker, percentage of amyloid positive and percentage of females
+# Specify the columns of interest
+columns_of_interest <- c("pTau217", "TPP181", "NF.L", "GFAP", "AB42.AB40", "APOE4")
+
+result_table <- lapply(columns_of_interest, function(col) {
+  data_subset <- data %>%
+    dplyr::filter(!is.na(.data[[col]]))  # Filter rows where the column is not NA
+  
+  total_count <- nrow(data_subset)
+  amyloid_positive <- mean(data_subset$Amyloid == "positive", na.rm = TRUE) * 100  # Percentage amyloid-positive
+  female_percentage <- mean(data_subset$SEX == "Female", na.rm = TRUE) * 100  # Percentage female
+  
+  # Return a row with the results using 
+  tibble(
+    Characteristic = col,
+    N = total_count,
+    Amyloid = round(amyloid_positive, 1),
+    Female = round(female_percentage, 1)
+  )
+}) %>%
+  bind_rows()  # Combine the results for all columns into one table
+
+result_table$Characteristic <- c("pTau217", "pTauC2", "NFL", "GFAP", "AB42/AB40", "APOE4")
+
+# Create a flextable
+biomarker_table <- flextable(result_table) %>%
+    set_header_labels(
+    Characteristic = "Biomarker",
+    N = "N",
+    Amyloid = "Amyloid + (%)",
+    Female = "Female (%)") %>%
+  fontsize(size = 20, part = "all") %>%
+  line_spacing(space = 1.5, part = "all") %>%
+  bold(part = "header") %>%
+  autofit()
+
+biomarker_table %>%
+  save_as_image(path = '~/Downloads/BiomarkerTable.png', webshot = 'webshot2')
 ```
 
 ## General Linear Models with Blood Biomarkers {.tabset}
 
-We build a general linear model that predict blood biomarkers using PRS, Age and PRS*Age interaction
+We build a general linear model that predict blood biomarkers using PRS, Age and PRS\*Age interaction
 
 ### pTau217
 
@@ -78,35 +131,40 @@ summary(model_ptau)
 ```
 
 ### tpp181
-``` {r}
+
+```{r}
 # tpp181
 model_tpp <- glm(TPP181 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_tpp)
 ```
 
 ### NFL
-``` {r}
+
+```{r}
 # NFL
 model_nfl <- glm(NF.L ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_nfl)
 ```
 
 ### GFAP
-``` {r}
+
+```{r}
 # GFAP
 model_gfap <- glm(GFAP ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_gfap)
 ```
+
 ### AB42.AB40
 
-``` {r}
+```{r}
 # AB42.AB40
 model_ab <- glm(AB42.AB40 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_ab)
 ```
 
 ### GFAP
-``` {r}
+
+```{r}
 # GFAP
 model_gfap <- glm(GFAP ~GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_gfap)
@@ -115,6 +173,7 @@ summary(model_gfap)
 ## Division by E4 Status {.tabset}
 
 ### GM
+
 ```{r}
 # Create a boxplot grouping by E4 status
 ggplot(subset(data, !is.na(e4)), aes(x = e4, y = GM_ZSCORE)) +
@@ -127,6 +186,7 @@ ggplot(subset(data, !is.na(e4)), aes(x = e4, y = GM_ZSCORE)) +
 ```
 
 ### WM
+
 ```{r}
 # Create a boxplot grouping by E4 status
 ggplot(subset(data, !is.na(e4)), aes(x = e4, y = WM_ZSCORE)) +
@@ -138,6 +198,7 @@ ggplot(subset(data, !is.na(e4)), aes(x = e4, y = WM_ZSCORE)) +
 ```
 
 ### FC
+
 ```{r}
 # Create a boxplot grouping by E4 status
 ggplot(subset(data, !is.na(e4)), aes(x = e4, y = FC_ZSCORE)) +
@@ -151,6 +212,7 @@ ggplot(subset(data, !is.na(e4)), aes(x = e4, y = FC_ZSCORE)) +
 ## Division by Amyloid Status {.tabset}
 
 ### GM
+
 ```{r}
 # Create a boxplot grouping by Amyloid status
 
@@ -163,6 +225,7 @@ ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = GM_ZSCORE)) +
 ```
 
 ### WM
+
 ```{r}
 # Create a boxplot grouping by Amyloid status
 ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = WM_ZSCORE)) +
@@ -174,6 +237,7 @@ ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = WM_ZSCORE)) +
 ```
 
 ### FC
+
 ```{r}
 # Create a boxplot grouping by Amyloid status
 ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = FC_ZSCORE)) +
@@ -189,7 +253,8 @@ ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = FC_ZSCORE)) +
 ### Individual PRS {.tabset}
 
 #### GM
-``` {r}
+
+```{r}
 ggplot(subset(data, !is.na(pTau217)), aes(x = GM_ZSCORE, y = pTau217)) +
   geom_point() +
   geom_smooth(method = 'lm', formula = y ~ x)+
@@ -203,7 +268,8 @@ summary(model_ptau)
 ```
 
 #### WM
-``` {r}
+
+```{r}
 ggplot(subset(data, !is.na(pTau217)), aes(x = WM_ZSCORE, y = pTau217)) +
   geom_point() +
   geom_smooth(method = 'lm', formula = y ~ x)+
@@ -216,7 +282,8 @@ summary(model_ptau)
 ```
 
 #### FC
-``` {r}
+
+```{r}
 ggplot(subset(data, !is.na(pTau217)), aes(x = FC_ZSCORE, y = pTau217)) +
   geom_point() +
   geom_smooth(method = 'lm', formula = y ~ x)+
@@ -230,12 +297,26 @@ summary(model_ptau)
 
 ### General linear model plots
 
-
 ```{r}
 # GLM
 model_ptau <- glm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
 summary(model_ptau)
-plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE'), show.values = TRUE)
+p <- plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
+p +
+  ggtitle(NULL) +
+  labs(color = 'Grey Matter PRS',
+      x = 'Age (years)') +
+# Make x-axis and y-axis more readable
+  theme(
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+  )
+# Save as png
+ggsave('~/Downloads/pTau217_GM.png')
 plot_model(model_ptau, type = c('pred'), terms = c('age', 'WM_ZSCORE'), show.values = TRUE)
 ```
 
@@ -244,6 +325,7 @@ plot_model(model_ptau, type = c('pred'), terms = c('age', 'WM_ZSCORE'), show.val
 We cannot include Amyloid because pTau217 is only done in amyloid positive.
 
 #### Sex, e4 and YearsEd
+
 ```{r}
 # Sensitivity analysis
 model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX + e4 + YearsEd, data = data)
@@ -252,13 +334,15 @@ summary(model_ptau)
 ```
 
 #### Sex, e4 and YearsEd interaction with Age
-``` {r}
+
+```{r}
 # Include interaction with age
 model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX*age + e4*age + YearsEd*age, data = data)
 summary(model_ptau)
 ```
 
 #### Blood Biomarkers
+
 ```{r}
 # Blood Biomarkers
 model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP + TPP181, data = data)
@@ -266,8 +350,18 @@ summary(model_ptau)
 ```
 
 #### Blood biomarkers without tpp181
+
 ```{r}
 # Blood Biomarkers
 model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP, data = data)
 summary(model_ptau)
+```
+
+### Correlation of pTau217 with biomarkers
+
+```{r}
+# Correlation of pTau217 with TPP181
+cor.test(data$pTau217, data$TPP181, method = 'pearson')
+# Correlation of pTau217 with GFAP
+cor.test(data$pTau217, data$GFAP, method = 'pearson')
 ```
