@@ -31,6 +31,11 @@ We will explore how baseline Brain Age delta moderates longitudinal PACC through
 # Load data
 data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
 
+# Load prs
+prs_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/prs_0.5.csv')
+data_A4 <- merge(data_A4, prs_A4, by = 'BID', all.x = TRUE)
+
+
 # Filter subjects with less than 2 data points
 data_A4 <- data_A4 %>% 
   arrange(BID, pacc_time) %>%  
@@ -192,6 +197,37 @@ Linear mixed effects models with spline and Sex, Education Years, Basline Age, A
 lmm_results <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_pet + pacc_time*PACC_bl + Cumulative_Dose_Scaled + QSVERSION_PACC + SEX*pacc_time + EDCCNTU*pacc_time + APOE*pacc_time + bl_pacc_age*pacc_time , data = data_placebo, random = ~pacc_time|BID, na.action = 'na.omit',control = lmeControl(opt = 'optim', msMaxIter = 100, msMaxEval = 100), method = c('ML'));
 summary(lmm_results)
 plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]'))
+```
+
+
+## A4 PRS BrainAge {.tabset}
+
+Different linear mixed effect models exploring the interaciton of baseline age and PRS of different BrainAge models
+
+### GM
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ pacc_time*GM_ZSCORE*bl_pacc_age + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+# Show if the interaction is significant
+coef_table <- summary(lmm_results)$tTable
+coef_table
+```
+
+### WM
+
+```{r}
+lmm_results <- lme(PACC_change_bl ~ pacc_time*WM_ZSCORE*bl_pacc_age + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+# Show if the interaction is significant
+coef_table <- summary(lmm_results)$tTable
+coef_table
+```
+
+### FC
+```{r}
+lmm_results <- lme(PACC_change_bl ~ pacc_time*FC_ZSCORE*bl_pacc_age + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+# Show if the interaction is significant
+coef_table <- summary(lmm_results)$tTable
+coef_table
 ```
 
 ## HABS
