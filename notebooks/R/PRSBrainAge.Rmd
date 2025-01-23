@@ -365,3 +365,29 @@ cor.test(data$pTau217, data$TPP181, method = 'pearson')
 # Correlation of pTau217 with GFAP
 cor.test(data$pTau217, data$GFAP, method = 'pearson')
 ```
+## Sex differences
+
+```{r}
+data$SEX <- as.factor(data$SEX)
+model_ptau <- lm(pTau217 ~ GM_ZSCORE*age*SEX, data = data)
+summary(model_ptau)
+plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]', 'SEX'), show.values = TRUE)
+```
+
+## Amyloid positive
+
+As we find significance for pTau217 but they are all apositive to we get significant results if we only look at Amyloid Positive in other biomarkers.
+
+```{r}
+data_apos <- subset(data, Amyloid == 'positive')
+model_ptau <- lm(TPP181 ~ GM_ZSCORE*age, data = data_apos)
+summary(model_ptau)
+model_ptau <- lm(NF.L ~ GM_ZSCORE*age, data = data_apos)
+summary(model_ptau)
+model_ptau <- lm(GFAP ~ GM_ZSCORE*age, data = data_apos)
+summary(model_ptau)
+model_ptau <- lm(AB42.AB40 ~ GM_ZSCORE*age, data = data_apos)
+summary(model_ptau)
+model_ptau <- lm(APOE4 ~ GM_ZSCORE*age, data = data_apos)
+summary(model_ptau)
+```
