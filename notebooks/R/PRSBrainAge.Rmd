@@ -170,6 +170,43 @@ model_gfap <- glm(GFAP ~GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = da
 summary(model_gfap)
 ```
 
+## Division by SEX {.tabset}
+
+### GM
+
+```{r}
+# Create a bloxpot groupbing by SEX
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = GM_ZSCORE)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'PRS Zscore by SEX',
+       x = 'SEX',
+       y = 'PRS Zscore')
+```
+### WM
+
+```{r}
+# Create a bloxpot groupbing by SEX
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = WM_ZSCORE)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'PRS Zscore by SEX',
+       x = 'SEX',
+       y = 'PRS Zscore')
+```
+
+### FC
+
+```{r}
+# Create a bloxpot groupbing by SEX
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = FC_ZSCORE)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'PRS Zscore by SEX',
+       x = 'SEX',
+       y = 'PRS Zscore')
+```
+
 ## Division by E4 Status {.tabset}
 
 ### GM

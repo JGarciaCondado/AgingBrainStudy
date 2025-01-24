@@ -97,3 +97,15 @@ df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
 df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
 df_clinical.drop(columns='E4_Status', inplace=True)
 df_clinical.to_csv('data/HABS/processed/e4.csv')
+
+# Load blood biomarkers
+df_blood = pd.read_csv('data/HABS/raw/raw_blood_biomarkers.csv')
+# Keep first sample
+df_blood['StudyArc'] = df_blood['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
+df_blood = df_blood.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort', keep='first')
+# Format
+df_blood.set_index('SubjIDshort', inplace=True)
+df_blood = df_blood.filter(like='_conc')
+df_blood.columns = df_blood.columns.str.replace('_conc', '')
+df_blood.drop(columns='tota', inplace=True)
+df_blood.to_csv('data/HABS/processed/blood_biomarkers.csv')

@@ -57,6 +57,10 @@ data <- merge(data, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
 # Load factors
 factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
 data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
+
+# Load blood biomarkers
+blood <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/blood_biomarkers.csv', na.strings = c("", " ", "NaN", "NA", NA))
+data <- merge(data, blood, by = 'SubjIDshort', all = TRUE)
 ```
 
 ## Comparison of BrainAge models
@@ -207,7 +211,33 @@ regression_analysis(data, 'NP_DigitSym_DigitSym', 'delta', c('SEX', 'YrsEd', 'E4
 ```{r}
 regression_analysis(data, 'NP_LogicMem_LM1ADR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 ```
+## Blood Biomarkers {.tabset}
 
+### pTau217
+
+```{r}
+regression_analysis(data, 'ptau', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+
+regression_analysis(data, 'ptau', 'delta', c('nfl', 'gfap'))
+```
+
+
+### NFL
+
+```{r}
+regression_analysis(data, 'nfl', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+
+regression_analysis(data, 'nfl', 'delta', c('ptau', 'gfap'))
+
+```
+
+### GFAP
+
+```{r}
+regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+
+regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
 
 ## PET Amyloid
 
