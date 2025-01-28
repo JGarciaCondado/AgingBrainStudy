@@ -53,24 +53,23 @@ Cohort Demographics
 
 ```{r}
 table <- tbl_summary(data,
-            include = c(age, SEX, YearsEd, e4, Amyloid),
+            include = c(age, SEX, YearsEd, e4, Amyloid, pTau217, NF.L, GFAP),
             missing = "no",
             statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
-            label = list(age ~ "Age", YearsEd ~ "Education (Years)"),
+            label = list(age ~ "Age", YearsEd ~ "Education (Years)", NF.L ~ "NFL (pg/mL)", GFAP ~ "GFAP (ng/mL)", pTau217 ~ "pTau 217 (U/mL)"),
             digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
-            by = SEX)
+            by = Amyloid) %>%
+  modify_header(stat_1 = "**AB-**, N = {n}", stat_2 = "**AB+**, N = {n}") %>%
+  add_p() %>%
+  add_overall() %>%
+  bold_labels()
 
 table %>%
   as_flex_table() %>% 
-  fontsize(size = 20, part = "all") %>%
+  fontsize(size = 12, part = "all") %>%
   line_spacing(space = 1.5, part = "all") %>%
-  autofit()
-
-# Save table as image
-table %>%
-  as_flex_table() %>% 
-  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
-
+  autofit() %>%
+  save_as_docx(path = "~/Downloads/DemographicsTable.docx")
 
 ```
 
@@ -285,6 +284,87 @@ ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = FC_ZSCORE)) +
        y = 'PRS Zscore')
 ```
 
+## Division by Age {.tabset}
+
+### GM
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Age
+ggplot(subset(data, !is.na(age)), aes(x = age, y = GM_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Age',
+       x = 'Age (years)',
+       y = 'PRS Zscore')
+```
+### WM
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Age
+ggplot(subset(data, !is.na(age)), aes(x = age, y = WM_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Age',
+       x = 'Age (years)',
+       y = 'PRS Zscore')
+```
+
+### FC
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Age
+ggplot(subset(data, !is.na(age)), aes(x = age, y = FC_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Age',
+       x = 'Age (years)',
+       y = 'PRS Zscore')
+```
+
+## Division by Years of Education {.tabset}
+
+### GM
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Age
+ggplot(subset(data, !is.na(YearsEd)), aes(x = YearsEd, y = GM_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Years of Education',
+       x = 'Age (years)',
+       y = 'PRS Zscore')
+```
+
+### WM
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Age
+ggplot(subset(data, !is.na(YearsEd)), aes(x = YearsEd, y = WM_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Years of Education',
+       x = 'Education (years)',
+       y = 'PRS Zscore')
+```
+
+### FC
+
+``` {r}
+# Create a scatter plot of PRS Zscore by Years Education
+ggplot(subset(data, !is.na(YearsEd)), aes(x = YearsEd, y = FC_ZSCORE)) +
+  geom_point() +
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  stat_cor() +
+  labs(title = 'PRS Zscore by Years of Education',
+       x = 'Education (years)',
+       y = 'PRS Zscore')
+```
+
 ## pTau217 analysis
 
 ### Individual PRS {.tabset}
@@ -355,6 +435,18 @@ p +
 # Save as png
 ggsave('~/Downloads/pTau217_GM.png')
 plot_model(model_ptau, type = c('pred'), terms = c('age', 'WM_ZSCORE'), show.values = TRUE)
+```
+
+
+```{r}
+# Scatter plot of GM Prs and pTau217 with best fit line
+p <- plot_model(model_ptau, type = c('pred'), terms = c('GM_ZSCORE'))+
+  geom_point(data = data, aes(x = GM_ZSCORE, y = pTau217), 
+             inherit.aes = F) +
+  labs(title = NULL, 
+       x = 'GM PRS Zscore',
+       y = 'pTau217') 
+ggsave("~/Downloads/pTau217_prs.png", plot = p, width = 4.5, height = 3, units = "in")
 ```
 
 ### Sensitivity analysis {.tabset}
