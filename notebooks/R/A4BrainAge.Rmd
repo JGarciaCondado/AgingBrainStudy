@@ -175,6 +175,17 @@ regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP')
 
 regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'TPP181'))
 ```
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = pTau217)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'pTau217 (U/mL)')
+
+# Save 
+ggsave("~/Downloads/pTau217_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```
 
 ### tpp181
 
@@ -216,10 +227,39 @@ regression_analysis(data, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L
 ### Composite
 
 ```{r}
-regression_analysis(data, 'Composite_Summary', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'amyloid_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+```
+
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = amyloid_composite)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'AB-PET SUVR')
+
+# Save 
+ggsave("~/Downloads/ab_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
 ```
 
 ## PET Tau {.tabset}
+
+### Composite
+```{r}
+regression_analysis(data, 'tau_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = tau_composite)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'Tau-PET SUVR')
+
+# Save 
+ggsave("~/Downloads/tau_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```
 
 ### Inferior temporal
 

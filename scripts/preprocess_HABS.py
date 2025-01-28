@@ -40,6 +40,66 @@ df_structural.columns = df_structural.columns.str.lower()
 # Save as csv
 df_structural.to_csv('data/HABS/processed/structural_features.csv')
 
+# Load PET data
+df_pet = pd.read_csv('data/HABS/raw/raw_pet_features.csv', index_col='SubjIDshort')
+df_pet.columns = df_pet.columns.str.replace('TAU_FS_SUVR_PVC_', '')
+df_pet = df_pet.rename(columns={'TAU_Age': 'age'})
+df_pet.columns = df_pet.columns.str.lower()
+df_pet = df_pet[['age'] + [col for col in df_pet.columns if '_bh' in col]]
+
+# Remove outlier
+outliers = ['B_RAUOBJ']
+
+# Save as csv
+df_pet.to_csv('data/HABS/processed/pet_features.csv')
+
+# Load factors
+df_factors = pd.read_csv('data/HABS/raw/raw_factors.csv', index_col='SubjIDshort')
+
+# Create a FCTOTAL96 by adding all columns that start with NP_FCsrt_
+df_factors['FCTOTAL96'] = df_factors.filter(like='NP_FCsrt_').sum(axis=1)
+df_factors.drop(columns=df_factors.filter(like='NP_FCsrt_').columns, inplace=True)
+df_factors = df_factors[df_factors['FCTOTAL96'] != 0]
+
+# Create Tau Composite
+tau_features = [col for col in df_pet.columns if '_bh' in col]
+df_pet['tau_composite'] = df_pet[tau_features].mean(axis=1)
+
+# Load blood biomarkers
+df_blood = pd.read_csv('data/HABS/raw/raw_blood_biomarkers.csv')
+# Keep first sample
+df_blood['StudyArc'] = df_blood['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
+df_blood = df_blood.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort', keep='first')
+# Format
+df_blood.set_index('SubjIDshort', inplace=True)
+df_blood = df_blood.filter(like='_conc')
+df_blood.columns = df_blood.columns.str.replace('_conc', '')
+df_blood.drop(columns='tota', inplace=True)
+
+# Load ptau data
+df_ptau = pd.read_csv('data/HABS/raw/raw_pTau.csv', usecols=['SubjIDshort', 'StudyArc', 'p_tau217_ratio'])
+df_ptau['StudyArc'] = df_ptau['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
+df_ptau = df_ptau.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort', keep='first')
+df_ptau.drop(columns='StudyArc', inplace=True)
+
+# Merge pet and blood to factors
+df_factors = pd.merge(df_factors, df_pet[tau_features + ['tau_composite']], on='SubjIDshort', how='outer')
+df_factors = pd.merge(df_factors, df_blood, on='SubjIDshort', how='outer')
+df_factors = pd.merge(df_factors, df_ptau, on='SubjIDshort', how='outer')
+
+# Save as csv
+df_factors.to_csv('data/HABS/processed/factors.csv')
+
+# Create clinical file with CN where 1 is E4_status is e4-
+df_clinical = df_factors[['E4_Status']].copy()
+df_clinical = df_clinical.dropna()
+df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
+df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
+df_clinical.drop(columns='E4_Status', inplace=True)
+df_clinical.to_csv('data/HABS/processed/e4.csv')
+
+# Joint information on A4 and HABS
+
 # Load A4 structural data 
 df_a4_structural = pd.read_csv('data/A4/processed/structural_features.csv', index_col='BID')
 df_a4_structural.columns = df_a4_structural.columns.str.lower()
@@ -56,56 +116,13 @@ clinical['HABS'] = (~clinical['cn'].astype(bool)).astype(int)
 df_structural.drop(columns='cn', inplace=True)
 clinical.to_csv('data/A4_HABS_joint/A4_as_cn.csv')
 
-# Load PET data
-df_pet = pd.read_csv('data/HABS/raw/raw_pet_features.csv', index_col='SubjIDshort')
-df_pet.columns = df_pet.columns.str.replace('TAU_FS_SUVR_PVC_', '')
-df_pet = df_pet.rename(columns={'TAU_Age': 'age'})
-df_pet.columns = df_pet.columns.str.lower()
-df_pet = df_pet[['age'] + [col for col in df_pet.columns if '_bh' in col]]
-
-# Remove outlier
-outliers = ['B_RAUOBJ']
-
-# Save as csv
-df_pet.to_csv('data/HABS/processed/pet_features.csv')
-
 # Load A4 PET data
 df_a4_pet = pd.read_csv('data/A4/processed/pet_features.csv', index_col='BID')
 df_a4_pet.columns = df_a4_pet.columns.str.lower()
 df_a4_pet.columns = ['_'.join(col.split('_')[1:]) + '_bh' if 'bi_' in col else col for col in df_a4_pet.columns]
 
 # Stack dataframes
+df_pet.drop(columns='tau_composite', inplace=True)
 df_pet = pd.concat([df_pet, df_a4_pet], axis=0)
 df_pet.index.name = 'SubjIDshort'
 df_pet.to_csv('data/A4_HABS_joint/pet_features.csv')
-
-# Load factors
-df_factors = pd.read_csv('data/HABS/raw/raw_factors.csv', index_col='SubjIDshort')
-
-# Create a FCTOTAL96 by adding all columns that start with NP_FCsrt_
-df_factors['FCTOTAL96'] = df_factors.filter(like='NP_FCsrt_').sum(axis=1)
-df_factors.drop(columns=df_factors.filter(like='NP_FCsrt_').columns, inplace=True)
-df_factors = df_factors[df_factors['FCTOTAL96'] != 0]
-
-# Save as csv
-df_factors.to_csv('data/HABS/processed/factors.csv')
-
-# Create clinical file with CN where 1 is E4_status is e4-
-df_clinical = df_factors[['E4_Status']].copy()
-df_clinical = df_clinical.dropna()
-df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
-df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
-df_clinical.drop(columns='E4_Status', inplace=True)
-df_clinical.to_csv('data/HABS/processed/e4.csv')
-
-# Load blood biomarkers
-df_blood = pd.read_csv('data/HABS/raw/raw_blood_biomarkers.csv')
-# Keep first sample
-df_blood['StudyArc'] = df_blood['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
-df_blood = df_blood.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort', keep='first')
-# Format
-df_blood.set_index('SubjIDshort', inplace=True)
-df_blood = df_blood.filter(like='_conc')
-df_blood.columns = df_blood.columns.str.replace('_conc', '')
-df_blood.drop(columns='tota', inplace=True)
-df_blood.to_csv('data/HABS/processed/blood_biomarkers.csv')

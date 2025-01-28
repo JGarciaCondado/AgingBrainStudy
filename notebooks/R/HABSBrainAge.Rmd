@@ -55,15 +55,6 @@ data <- merge(deltas, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
 # Load factors
 factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
 data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
-
-# Load blood biomarkers
-blood <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/blood_biomarkers.csv', na.strings = c("", " ", "NaN", "NA", NA))
-data <- merge(data, blood, by = 'SubjIDshort', all = TRUE)
-
-# Tau data
-tau <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/pet_features.csv', na.strings = c("", " ", "NaN", "NA", NA))
-tau <- tau[, !grepl('age', names(tau))]
-data <- merge(data, tau, by = 'SubjIDshort', all = TRUE)
 ```
 
 ## Comparison of BrainAge models
@@ -212,6 +203,18 @@ regression_analysis(data, 'ptau', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_F
 regression_analysis(data, 'ptau', 'delta', c('nfl', 'gfap'))
 ```
 
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta, y = ptau)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'pTau217 (pg/mL)')
+
+# Save 
+ggsave("~/Downloads/pTau217_habs_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```
+
 
 ### NFL
 
@@ -239,7 +242,36 @@ regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_F
 regression_analysis(data, 'PIB_FS_SUVR_FLR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 ```
 
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta, y = PIB_FS_SUVR_FLR)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'AB-PET SUVR')
+
+# Save 
+ggsave("~/Downloads/ab_habs_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```
+
 ## PET Tau {.tabset}
+
+### Composite
+```{r}
+regression_analysis(data, 'tau_composite', 'delta',  c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+```{r}
+fig <- scatter_plot <- ggplot(data, aes(x = delta, y = tau_composite)) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(x = 'Delta (years)',
+         y = 'Tau-PET SUVR')
+
+# Save 
+ggsave("~/Downloads/tau_habs_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```
+
 
 ### Inferior temporal
 

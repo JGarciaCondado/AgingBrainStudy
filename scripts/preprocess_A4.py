@@ -110,6 +110,7 @@ df_pet_amyl = df_pet_amyl.dropna(subset=['suvr_cer'])
 df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
 df_pet_amyl = df_pet_amyl.pivot(index='BID', columns='brain_region', values='suvr_cer')
 df_pet_amyl = df_pet_amyl.apply(pd.to_numeric, errors='coerce')
+df_pet_amyl.rename(columns={'Composite_Summary': 'amyloid_composite'}, inplace=True)
 
 # Load PET Tau PETSurfer
 df_pet_tau = pd.read_csv('data/A4/raw/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
@@ -117,6 +118,8 @@ df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in
 # Only interested in specifci features
 tau_features = ['bi_inferiortemporal', 'bi_inferiorparietal', 'bi_fusiform', 'bi_middletemporal', 'bi_entorhinal', 'bi_Amygdala', 'bi_parahippocampal']
 df_pet_tau = df_pet_tau[['BID'] + tau_features]
+# Create Tau composite
+df_pet_tau['tau_composite'] = df_pet_tau[tau_features].mean(axis=1)
 
 # Merge all into one csv
 df_factors = pd.merge(df_ptau, df_ab, on='BID', how='outer')
@@ -129,6 +132,7 @@ df_factors.to_csv('data/A4/processed/factors.csv', index=False)
 # Add Age to create age model
 df_age = df_subinfo[['BID', 'AGE']]
 df_pet_tau = pd.merge(df_age, df_pet_tau, on='BID')
+df_pet_tau.drop(columns='tau_composite', inplace=True)
 df_pet_tau.to_csv('data/A4/processed/pet_features.csv', index=False)
 
 # Define PRS type

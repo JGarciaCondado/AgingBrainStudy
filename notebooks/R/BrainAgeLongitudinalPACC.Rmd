@@ -6,6 +6,7 @@ output:
   html_document:
     toc: true
     toc_float: true
+    self_contained: true
 knit: (
   function(inputFile, encoding) { 
     rmarkdown::render('BrainAgeLongitudinalPACC.Rmd',
@@ -14,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -26,19 +27,28 @@ theme_set(theme_bw())
 We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model.
 
 ## A4 Structural BrainAge
+
 ```{r}
 
 # Load data
 data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
 
-# Load prs and factors
+# Load prs
 prs_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/prs_0.5.csv')
 data_A4 <- merge(data_A4, prs_A4, by = 'BID', all.x = TRUE)
+
+# Load factors
 factors_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/factors.csv')
-#Extract only BID and pTau217
+#Extract only BID, pTau217, Amyloid Composite and Tau Composite
 factors_A4 <- factors_A4 %>% 
-  select(BID, pTau217)
+  select(BID, pTau217, amyloid_composite, tau_composite)
 data_A4 <- merge(data_A4, factors_A4, by = 'BID', all.x = TRUE)
+
+# Load covariates
+covars_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv')
+covars_A4 <- covars_A4 %>% 
+  select(BID, Amyloid)
+data_A4 <- merge(data_A4, covars_A4, by = 'BID', all.x = TRUE)
 
 # Filter subjects with less than 2 data points
 data_A4 <- data_A4 %>% 
@@ -98,7 +108,6 @@ ggplot(data_placebo, aes(x = pacc_time, y = PACC, group = BID, colour = delta_gr
   theme_minimal()
 ```
 
-
 ```{r}
 ggplot(data_placebo, aes(x = pacc_time, y = PACC_change_bl, group = BID, colour = delta_group)) +
   geom_line() +
@@ -106,14 +115,68 @@ ggplot(data_placebo, aes(x = pacc_time, y = PACC_change_bl, group = BID, colour 
   labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
   theme_minimal()
 ```
+
 Simplest linear mixed effects models with delta at baseline
 
-PACC ~ pacc_time^2 + pacc_timeXdelta + Cumulative_Dose_Scaled + QSVERSION_PACC
+PACC \~ pacc_time\^2 + pacc_timeXdelta + Cumulative_Dose_Scaled + QSVERSION_PACC
 
 ```{r}
 lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/a4_pacc.png', plot = p, width = 10, height = 6)
+```
+
+### Interactions {.tabset}
+
+#### pTau217
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'pTau217'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+ggsave('~/Downloads/pTau217_a4_pacc.png', plot = p, width = 10, height = 6)
+```
+
+#### PET Amyloid
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*amyloid_composite + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'amyloid_composite'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/ab_a4_pacc.png', plot = p, width = 10, height = 6)
+```
+
+#### PET Tau
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort , data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'tau_composite'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/tau_a4_pacc.png', plot = p, width = 10, height = 6)
 ```
 
 Linear mixed effects models with delta at baseline
@@ -130,7 +193,7 @@ plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3,
 
 ### Sensitivity Analysis
 
-Linear mixed efffects models without splines to show worse fit. 
+Linear mixed efffects models without splines to show worse fit.
 
 Linear mixed effects models with change from baseline to show seperate effects of pacc at basline
 
@@ -179,7 +242,6 @@ ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PAC
   theme_minimal()
 ```
 
-
 ```{r}
 ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PACC_change_bl, group = BID, colour = delta_pet_group)) +
   geom_line() +
@@ -187,7 +249,6 @@ ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PAC
   labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
   theme_minimal()
 ```
-
 
 Linear mixed effects models with delta at baseline
 
@@ -217,7 +278,6 @@ summary(lmm_results)
 plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet [-3, 0, 3]'))
 ```
 
-
 ## A4 PRS BrainAge {.tabset}
 
 Different linear mixed effect models exploring the interaciton of baseline age and PRS of different BrainAge models
@@ -231,12 +291,12 @@ coef_table <- summary(lmm_results)$tTable
 coef_table
 plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'bl_pacc_age', 'GM_ZSCORE [-1, 0, 1]'))
 ```
+
 ```{r}
 lmm_results <- lme(PACC_change_bl ~ pacc_time*GM_ZSCORE*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort , data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
 plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'pTau217', 'GM_ZSCORE [-1, 0, 1]'))
 ```
-
 
 ### WM
 
@@ -248,6 +308,7 @@ coef_table
 ```
 
 ### FC
+
 ```{r}
 lmm_results <- lme(PACC_change_bl ~ pacc_time*FC_ZSCORE*bl_pacc_age + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 # Show if the interaction is significant
@@ -299,6 +360,13 @@ data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort', all.x = TRUE)
 # Create new variable delta_group where is 0 below younger and older above zero
 data_habs <- data_habs %>% 
   mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
+
+# Add factors
+factors_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv')
+# Only pTau217, amyloid composite and tau composite
+factors_habs <- factors_habs %>% 
+  select(SubjIDshort, ptau, p_tau217_ratio, PIB_FS_SUVR_FLR, PIB_FS_SUVR_Group, tau_composite)
+data_habs <- merge(data_habs, factors_habs, by = 'SubjIDshort', all.x = TRUE)
 ```
 
 Plot PACC trajectories with spaghetti plot
@@ -312,17 +380,112 @@ ggplot(subset(data_habs, !is.na(delta_group)), aes(x = time_from_bl, y = NP_PACC
 ```
 
 Linear mixed effects models with delta at baseline
-  
+
 ```{r}
 lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]'), show.values = TRUE)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/habs_pacc.png', plot = p, width = 10, height = 6)
 ```
 
-Linear mixed effects models with delta at baslien, basline age, sex and e4 status
+### Interactions {.tabset}
+
+#### pTau217
 
 ```{r}
-lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*BL_Age + time_from_bl*YrsEd + time_from_bl*SEX + time_from_bl*E4_Status + time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all'), show.values = TRUE)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'p_tau217_ratio'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 10, height = 6)
+```
+
+#### PET Amyloid
+
+```{r}
+lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'PIB_FS_SUVR_FLR'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 10, height = 6)
+```
+
+#### PET Tau
+
+```{r}
+lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'tau_composite'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
+ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 10, height = 6)
+```
+
+## Demographics
+
+```{r}
+data_A4_demo <- data_A4 %>% 
+  arrange(BID, pacc_time) %>%  
+  group_by(BID) %>%
+  mutate(follow_up_time = max(pacc_time, na.rm = TRUE)) %>%
+  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
+  select(BID, AGEYR, SEX, EDCCNTU, APOE, Amyloid, follow_up_time) %>%
+  # Add a column Cohort that has in its entry A4/Learn
+  mutate(Cohort = 'A4/Learn') %>%
+  mutate(Amyloid = ifelse(Amyloid == 1.0, 'positive', 'negative'))
+
+data_HABS_demo <- data_habs %>% 
+  arrange(SubjIDshort, NP_SessionDate) %>%  
+  group_by(SubjIDshort) %>% 
+  mutate(follow_up_time = max(time_from_bl, na.rm = TRUE)) %>%
+  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
+  select(SubjIDshort, NP_Age, SEX, YrsEd, E4_Status, PIB_FS_SUVR_Group, follow_up_time) %>%
+  rename(BID=SubjIDshort, AGEYR = NP_Age, EDCCNTU = YrsEd, APOE = E4_Status, Amyloid = PIB_FS_SUVR_Group) %>%
+  mutate(Cohort = 'HABS') %>%
+  # Convert PIB- and PIB + to 0 and 1
+  mutate(Amyloid = ifelse(Amyloid == 'PIB-', 'negative', 'positive')) %>%
+  mutate(SEX = case_when(
+    SEX == "F" ~ "Female",
+    SEX == "M" ~ "Male"))
+
+data_demo <- rbind(data_A4_demo, data_HABS_demo)
+
+table <- tbl_summary(data_demo,
+            include = c(Cohort, AGEYR, SEX, EDCCNTU, APOE, Amyloid, follow_up_time),
+            missing = "no",
+            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
+            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)"),
+            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
+            by = Cohort) %>%
+  add_p() %>%
+  bold_labels()
+
+
+table %>%
+  as_flex_table() %>% 
+  fontsize(size = 14, part = "all") %>%
+  line_spacing(space = 1.5, part = "all") %>%
+  autofit() %>%
+  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
+  
 ```
