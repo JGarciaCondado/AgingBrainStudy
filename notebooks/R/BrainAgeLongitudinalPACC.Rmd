@@ -121,7 +121,7 @@ Simplest linear mixed effects models with delta at baseline
 PACC \~ pacc_time\^2 + pacc_timeXdelta + Cumulative_Dose_Scaled + QSVERSION_PACC
 
 ```{r}
-lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
 p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
 p <- p +
@@ -130,7 +130,7 @@ p <- p +
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/a4_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/a4_pacc.png', plot = p, width = 3.5, height = 2)
 ```
 
 ### Interactions {.tabset}
@@ -138,45 +138,52 @@ ggsave('~/Downloads/a4_pacc.png', plot = p, width = 10, height = 6)
 #### pTau217
 
 ```{r}
-lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'pTau217'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'pTau217 [0.14, 0.28, 0.42]'))
+levels(p$data$facet) <- c("pTau217 = 0.14", "pTau217 = 0.28", "pTau217 = 0.42")
 p <- p +
   ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
-ggsave('~/Downloads/pTau217_a4_pacc.png', plot = p, width = 10, height = 6)
+p
+ggsave('~/Downloads/pTau217_a4_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 #### PET Amyloid
 
 ```{r}
-lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*amyloid_composite + Cumulative_Dose_Scaled + QSVERSION_PACC , data = data_placebo, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*amyloid_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'amyloid_composite'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'amyloid_composite [1.0, 1.17, 1.39]'))
+levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.17", "AB-PET SUVR = 1.39")
 p <- p +
   ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/ab_a4_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/ab_a4_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort , data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'tau_composite'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'tau_composite [1.19, 1.4, 1.62]'))
+levels(p$data$facet) <- c("Tau-PET SUVR = 1.19", "Tau-PET SUVR = 1.4", "Tau-PET SUVR = 1.62")
 p <- p +
   ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/tau_a4_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/tau_a4_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 Linear mixed effects models with delta at baseline
@@ -391,7 +398,7 @@ p <- p +
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/habs_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/habs_pacc.png', plot = p, width = 3.5, height = 2)
 ```
 
 ### Interactions {.tabset}
@@ -401,14 +408,17 @@ ggsave('~/Downloads/habs_pacc.png', plot = p, width = 10, height = 6)
 ```{r}
 lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'p_tau217_ratio'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'p_tau217_ratio [0.71, 3.46, 6.21]'))
+levels(p$data$facet) <- c("pTau217 = 0.71", "pTau217 = 3.46", "pTau217 = 6.21")
 p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 #### PET Amyloid
@@ -416,14 +426,16 @@ ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 10, height = 6)
 ```{r}
 lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'PIB_FS_SUVR_FLR'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'PIB_FS_SUVR_FLR [1.0, 1.24, 1.49]'))
+levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.24", "AB-PET SUVR = 1.49")
 p <- p +
   ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 #### PET Tau
@@ -431,14 +443,16 @@ ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 10, height = 6)
 ```{r}
 lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'tau_composite'))
+p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'tau_composite [1.17, 1.35, 1.52]'))
+levels(p$data$facet) <- c("Tau-PET SUVR = 1.17", "Tau-PET SUVR = 1.35", "Tau-PET SUVR = 1.52")
 p <- p +
   ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
       y = 'PACC')
 p
-ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 10, height = 6)
+ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 6, height = 3)
 ```
 
 ## Demographics
@@ -468,24 +482,33 @@ data_HABS_demo <- data_habs %>%
     SEX == "F" ~ "Female",
     SEX == "M" ~ "Male"))
 
-data_demo <- rbind(data_A4_demo, data_HABS_demo)
-
-table <- tbl_summary(data_demo,
-            include = c(Cohort, AGEYR, SEX, EDCCNTU, APOE, Amyloid, follow_up_time),
+habs_t <- tbl_summary(data_HABS_demo,
+            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, follow_up_time),
             missing = "no",
             statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
             label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)"),
             digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
-            by = Cohort) %>%
-  add_p() %>%
+            by = Amyloid) %>%
   bold_labels()
 
+A4_t <- tbl_summary(data_A4_demo,
+            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, follow_up_time),
+            missing = "no",
+            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
+            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)"),
+            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
+            by = Amyloid) %>%
+  bold_labels()
+
+table <- tbl_merge(list(A4_t, habs_t), tab_spanner = c("A4/LEARN", "HABS")) 
+
+table
 
 table %>%
   as_flex_table() %>% 
   fontsize(size = 14, part = "all") %>%
   line_spacing(space = 1.5, part = "all") %>%
   autofit() %>%
-  save_as_image(path = '~/Downloads/DemographicsTable.png', webshot = 'webshot2')
+  save_as_docx(path = "~/Downloads/DemographicsTable.docx")
   
 ```
