@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -131,6 +131,7 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/a4_pacc.png', plot = p, width = 3.5, height = 2)
+
 ```
 
 ### Interactions {.tabset}
@@ -255,6 +256,27 @@ ggplot(subset(data_placebo, !is.na(delta_pet_group)), aes(x = pacc_time, y = PAC
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
   theme_minimal()
+```
+
+Baseline model:
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_pet + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet'))
+print(r.squaredGLMM(lmm_results))
+```
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'tau_composite'))
+print(r.squaredGLMM(lmm_results))
+```
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_pet*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'delta_pet'))
 ```
 
 Linear mixed effects models with delta at baseline
