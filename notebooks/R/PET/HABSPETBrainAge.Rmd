@@ -57,10 +57,6 @@ data <- merge(data, deltas_trained_wA4, by = 'SubjIDshort', all = TRUE)
 # Load factors
 factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
 data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
-
-# Load blood biomarkers
-blood <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/blood_biomarkers.csv', na.strings = c("", " ", "NaN", "NA", NA))
-data <- merge(data, blood, by = 'SubjIDshort', all = TRUE)
 ```
 
 ## Comparison of BrainAge models
@@ -245,4 +241,14 @@ regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_F
 
 ```{r}
 regression_analysis(data, 'PIB_FS_SUVR_FLR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+## Comparison to Tau Composite 
+
+```{r}
+regression_analysis(data, 'PIB_FS_SUVR_FLR', 'tau_composite', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+```{r}
+regression_analysis(data, 'ptau', 'tau_composite', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 ```

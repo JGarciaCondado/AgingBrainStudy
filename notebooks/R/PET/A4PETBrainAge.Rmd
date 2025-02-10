@@ -230,5 +230,15 @@ regression_analysis(data, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L
 ### Composite
 
 ```{r}
-regression_analysis(data, 'Composite_Summary', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(data, 'amyloid_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+```
+
+### Comparison to Tau Composite
+
+```{r}
+regression_analysis(data, 'amyloid_composite', 'tau_composite', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+```
+
+```{r}
+regression_analysis(data, 'pTau217', 'tau_composite', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
 ```
