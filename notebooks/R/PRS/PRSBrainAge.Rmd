@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(sjPlot);library(gtsummary); library(flextable)
+library(ggplot2); library(ggpubr); library(dplyr);library(sjPlot);library(gtsummary); library(flextable);library(ppcor);library(nlme)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -44,9 +44,13 @@ demographics <- demographics %>%
   rename(YearsEd = EDCCNTU) %>%
   rename(age = AGEYR) %>%
   mutate(SEX = recode(SEX, `1` = "Female", `2` = "Male"))
-
 data <- merge(data, demographics, by = 'BID', all.x = TRUE)
-  
+
+# Tertiles
+data$GM_tertiles <- cut(data$GM_ZSCORE, 
+                       breaks = quantile(data$GM_ZSCORE, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE),
+                       labels = c("1st", "2nd", "3rd"),
+                       include.lowest = TRUE)
 ```
 
 Cohort Demographics
@@ -71,102 +75,8 @@ table %>%
   autofit() %>%
   save_as_docx(path = "~/Downloads/DemographicsTable.docx")
 
-```
+table
 
-Blood Biomarkers Summary
-
-```{r}
-# For the 6 plasma biomarkers ptau217, pTauC2, AB42.40, APOE4, GFAp and NFl
-# Create a table with the number of subjects that have the biomarker, percentage of amyloid positive and percentage of females
-# Specify the columns of interest
-columns_of_interest <- c("pTau217", "TPP181", "NF.L", "GFAP", "AB42.AB40", "APOE4")
-
-result_table <- lapply(columns_of_interest, function(col) {
-  data_subset <- data %>%
-    dplyr::filter(!is.na(.data[[col]]))  # Filter rows where the column is not NA
-  
-  total_count <- nrow(data_subset)
-  amyloid_positive <- mean(data_subset$Amyloid == "positive", na.rm = TRUE) * 100  # Percentage amyloid-positive
-  female_percentage <- mean(data_subset$SEX == "Female", na.rm = TRUE) * 100  # Percentage female
-  
-  # Return a row with the results using 
-  tibble(
-    Characteristic = col,
-    N = total_count,
-    Amyloid = round(amyloid_positive, 1),
-    Female = round(female_percentage, 1)
-  )
-}) %>%
-  bind_rows()  # Combine the results for all columns into one table
-
-result_table$Characteristic <- c("pTau217", "pTauC2", "NFL", "GFAP", "AB42/AB40", "APOE4")
-
-# Create a flextable
-biomarker_table <- flextable(result_table) %>%
-    set_header_labels(
-    Characteristic = "Biomarker",
-    N = "N",
-    Amyloid = "Amyloid + (%)",
-    Female = "Female (%)") %>%
-  fontsize(size = 20, part = "all") %>%
-  line_spacing(space = 1.5, part = "all") %>%
-  bold(part = "header") %>%
-  autofit()
-
-biomarker_table %>%
-  save_as_image(path = '~/Downloads/BiomarkerTable.png', webshot = 'webshot2')
-```
-
-## General Linear Models with Blood Biomarkers {.tabset}
-
-We build a general linear model that predict blood biomarkers using PRS, Age and PRS\*Age interaction
-
-### pTau217
-
-```{r}
-# pTau217
-model_ptau <- glm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_ptau)
-```
-
-### tpp181
-
-```{r}
-# tpp181
-model_tpp <- glm(TPP181 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_tpp)
-```
-
-### NFL
-
-```{r}
-# NFL
-model_nfl <- glm(NF.L ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_nfl)
-```
-
-### GFAP
-
-```{r}
-# GFAP
-model_gfap <- glm(GFAP ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_gfap)
-```
-
-### AB42.AB40
-
-```{r}
-# AB42.AB40
-model_ab <- glm(AB42.AB40 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_ab)
-```
-
-### GFAP
-
-```{r}
-# GFAP
-model_gfap <- glm(GFAP ~GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_gfap)
 ```
 
 ## Division by SEX {.tabset}
@@ -365,11 +275,82 @@ ggplot(subset(data, !is.na(YearsEd)), aes(x = YearsEd, y = FC_ZSCORE)) +
        y = 'PRS Zscore')
 ```
 
-## pTau217 analysis
+## General Linear Models with Blood Biomarkers
 
-### Individual PRS {.tabset}
+We build a general linear model that predict blood biomarkers using PRS, Age and PRS\*Age interaction
+
+### pTau217 {.tabset}
 
 #### GM
+
+```{r}
+model_ptau_gm <- glm(pTau217 ~ GM_ZSCORE*age, data = data)
+summary(model_ptau_gm)
+```
+
+#### WM
+
+```{r}
+model_ptau_wm <- glm(pTau217 ~ WM_ZSCORE*age, data = data)
+summary(model_ptau_wm)
+```
+
+#### FC
+
+```{r}
+model_ptau_fc <- glm(pTau217 ~ FC_ZSCORE*age, data = data)
+summary(model_ptau_fc)
+```
+
+### NFL {.tabset}
+
+#### GM
+
+```{r}
+model_nfl_gm <- glm(NF.L ~ GM_ZSCORE*age, data = data)
+summary(model_nfl_gm)
+```
+
+#### WM
+
+```{r}
+model_nfl_wm <- glm(NF.L ~ WM_ZSCORE*age, data = data)
+summary(model_nfl_wm)
+```
+
+#### FC
+
+```{r}
+model_nfl_fc <- glm(NF.L ~ FC_ZSCORE*age, data = data)
+summary(model_nfl_fc)
+```
+
+### GFAP {.tabset}
+
+#### GM
+
+```{r}
+model_gfap_gm <- glm(GFAP ~ GM_ZSCORE*age, data = data)
+summary(model_gfap_gm)
+```
+
+#### WM
+
+```{r}
+model_gfap_wm <- glm(GFAP ~ WM_ZSCORE*age, data = data)
+summary(model_gfap_wm)
+```
+
+#### FC
+
+```{r}
+model_gfap_fc <- glm(GFAP ~ FC_ZSCORE*age, data = data)
+summary(model_gfap_fc)
+```
+
+## pTau217 and PRS GM analysis
+
+Plot of pTau217 and PRS GM Zscore
 
 ```{r}
 ggplot(subset(data, !is.na(pTau217)), aes(x = GM_ZSCORE, y = pTau217)) +
@@ -379,46 +360,12 @@ ggplot(subset(data, !is.na(pTau217)), aes(x = GM_ZSCORE, y = pTau217)) +
   labs(title = 'Comparison of PRS to pTau217 at Baseline',
        x = 'PRS Zscore',
        y = 'pTau217')
-
-model_ptau <- glm(pTau217 ~ GM_ZSCORE*age, data = data)
-summary(model_ptau)
 ```
-
-#### WM
-
-```{r}
-ggplot(subset(data, !is.na(pTau217)), aes(x = WM_ZSCORE, y = pTau217)) +
-  geom_point() +
-  geom_smooth(method = 'lm', formula = y ~ x)+
-  stat_cor() +
-  labs(title = 'Comparison of PRS to pTau217 at Baseline',
-       x = 'PRS Zscore',
-       y = 'pTau217')
-model_ptau <- glm(pTau217 ~ WM_ZSCORE*age, data = data)
-summary(model_ptau)
-```
-
-#### FC
-
-```{r}
-ggplot(subset(data, !is.na(pTau217)), aes(x = FC_ZSCORE, y = pTau217)) +
-  geom_point() +
-  geom_smooth(method = 'lm', formula = y ~ x)+
-  stat_cor() +
-  labs(title = 'Comparison of PRS to pTau217 at Baseline',
-       x = 'PRS Zscore',
-       y = 'pTau217')
-model_ptau <- glm(pTau217 ~ FC_ZSCORE*age, data = data)
-summary(model_ptau)
-```
-
-### General linear model plots
+General linear model plot
 
 ```{r}
 # GLM
-model_ptau <- glm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
-summary(model_ptau)
-p <- plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
+p <- plot_model(model_ptau_gm, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
 p +
   ggtitle(NULL) +
   labs(color = 'Grey Matter PRS',
@@ -432,91 +379,203 @@ p +
     legend.text = element_text(size = 14),
     legend.title = element_text(size = 16)
   )
-# Save as png
-ggsave('~/Downloads/pTau217_GM.png')
-plot_model(model_ptau, type = c('pred'), terms = c('age', 'WM_ZSCORE'), show.values = TRUE)
 ```
 
 
 ```{r}
 # Scatter plot of GM Prs and pTau217 with best fit line
-p <- plot_model(model_ptau, type = c('pred'), terms = c('GM_ZSCORE'))+
+p <- plot_model(model_ptau_gm, type = c('pred'), terms = c('GM_ZSCORE'))+
   geom_point(data = data, aes(x = GM_ZSCORE, y = pTau217), 
              inherit.aes = F) +
   labs(title = NULL, 
        x = 'GM PRS Zscore',
        y = 'pTau217') 
-ggsave("~/Downloads/pTau217_prs.png", plot = p, width = 4.5, height = 3, units = "in")
+p
 ```
 
 ### Sensitivity analysis {.tabset}
 
 We cannot include Amyloid because pTau217 is only done in amyloid positive.
 
+#### Tertiles
+
+```{r}
+model_ptau_tertiles <- lm(pTau217 ~ GM_tertiles*age, data = data)
+summary(model_ptau_tertiles)
+p <- plot_model(model_ptau_tertiles, type = c('pred'), terms = c('age', 'GM_tertiles [1st, 2nd, 3rd]'), show.values = TRUE)
+p +
+  ggtitle(NULL) +
+  labs(color = 'Grey Matter PRS',
+      x = 'Age (years)')
+```
+#### PRS 
+
+```{r}
+# Sensitivity analysis
+model_ptau_prs <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age, data = data)
+summary(model_ptau_prs)
+p <- plot_model(model_ptau_prs, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
+p +
+  ggtitle(NULL) +
+  labs(color = 'Grey Matter PRS',
+      x = 'Age (years)') +
+# Make x-axis and y-axis more readable
+  theme(
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16)
+  )
+```
+
 #### Sex, e4 and YearsEd
 
 ```{r}
 # Sensitivity analysis
-model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX + e4 + YearsEd, data = data)
-summary(model_ptau)
-
+model_ptau_covars <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX + e4 + YearsEd, data = data)
+summary(model_ptau_covars)
 ```
 
 #### Sex, e4 and YearsEd interaction with Age
 
 ```{r}
 # Include interaction with age
-model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX*age + e4*age + YearsEd*age, data = data)
-summary(model_ptau)
+model_ptau_covars_interactions <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + SEX*age + e4*age + YearsEd*age, data = data)
+summary(model_ptau_covars_interactions)
 ```
 
 #### Blood Biomarkers
 
 ```{r}
 # Blood Biomarkers
-model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP + TPP181, data = data)
-summary(model_ptau)
-```
-
-#### Blood biomarkers without tpp181
-
-```{r}
-# Blood Biomarkers
-model_ptau <- lm(pTau217 ~ GM_ZSCORE*age + WM_ZSCORE*age + FC_ZSCORE*age + NF.L + AB42.AB40 + GFAP, data = data)
-summary(model_ptau)
-```
-
-### Correlation of pTau217 with biomarkers
-
-```{r}
-# Correlation of pTau217 with TPP181
-cor.test(data$pTau217, data$TPP181, method = 'pearson')
-# Correlation of pTau217 with GFAP
+model_ptau_blood <- lm(pTau217 ~ GM_ZSCORE*age + NF.L + GFAP, data = data)
+summary(model_ptau_blood)
 cor.test(data$pTau217, data$GFAP, method = 'pearson')
 ```
-## Sex differences
+
+
+### Sex differences
+
+Add sex interaction
 
 ```{r}
 data$SEX <- as.factor(data$SEX)
-model_ptau <- lm(pTau217 ~ GM_ZSCORE*age*SEX, data = data)
-summary(model_ptau)
-plot_model(model_ptau, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]', 'SEX'), show.values = TRUE)
+model_ptau_sex <- lm(pTau217 ~ GM_ZSCORE*age*SEX, data = data)
+summary(model_ptau_sex)
+plot_model(model_ptau_sex, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]', 'SEX'), show.values = TRUE)
 ```
 
-## Amyloid positive
+Stratified sex models
+
+```{r}
+model_ptau_male <- lm(pTau217 ~ GM_ZSCORE*age, data = subset(data, SEX == "Male"))
+summary(model_ptau_male)
+plot_model(model_ptau_male, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
+```
+
+```{r}
+model_ptau_female <- lm(pTau217 ~ GM_ZSCORE*age, data = subset(data, SEX == "Female"))
+summary(model_ptau_female)
+plot_model(model_ptau_female, type = c('pred'), terms = c('age', 'GM_ZSCORE [-1, 0, 1]'), show.values = TRUE)
+```
+
+By tertiles
+
+```{r}
+model_ptau_sex_tertiles <- lm(pTau217 ~ GM_tertiles*age*SEX, data = data)
+summary(model_ptau_sex_tertiles)
+plot_model(model_ptau_sex_tertiles, type = c('pred'), terms = c('age', 'GM_tertiles', 'SEX'), show.values = TRUE)
+```
+
+```{r}
+model_ptau_male_tertiles <- lm(pTau217 ~ GM_tertiles*age, data = subset(data, SEX == "Male"))
+summary(model_ptau_male_tertiles)
+plot_model(model_ptau_male_tertiles, type = c('pred'), terms = c('age', 'GM_tertiles'), show.values = TRUE)
+```
+
+```{r}
+model_ptau_female_tertiles <- lm(pTau217 ~ GM_tertiles*age, data = subset(data, SEX == "Female"))
+summary(model_ptau_female_tertiles)
+plot_model(model_ptau_female_tertiles, type = c('pred'), terms = c('age', 'GM_tertiles'), show.values = TRUE)
+```
+
+### Effect on Longidutinal PACC
+
+```{r}
+# Load PACC data
+pacc <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
+
+# Filter subjects with less than 2 data points
+pacc <- pacc %>% 
+  arrange(BID, pacc_time) %>%  
+  group_by(BID) %>% 
+  add_tally(name = 'nTimePoints', wt = !is.na(PACC)) %>%
+  filter(nTimePoints >= 2)
+
+# Arrange by pacc_time and calculate PACC_change_bl
+pacc <- pacc %>% 
+  arrange(BID, pacc_time) %>%
+  group_by(BID) %>%
+  mutate(PACC_bl = PACC[1]) %>%
+  mutate(PACC_change_bl = PACC - PACC_bl)
+
+# Create cohort variable
+pacc <- pacc %>%
+  group_by(BID) %>%
+  dplyr::mutate(Cohort = case_when(
+    SUBSTUDY == "SF" | SUBSTUDY == "LEARN" ~ "LEARN/SF",
+    SUBSTUDY == "A4" & TX == "Placebo" ~ "A4 Placebo",
+    SUBSTUDY == "A4" & TX == "Solanezumab" ~ "A4 Treated",
+    TRUE ~ NA))
+
+# Merge with data on GM Zscore, GM tertiles
+pacc <- merge(pacc, data[, c('BID', 'pTau217', 'GM_ZSCORE', 'GM_tertiles')], by = 'BID', all.x = TRUE)
+
+# Ensure variables are factors
+pacc <- pacc %>%
+  mutate_at(vars(SUBSTUDY, TX, Cohort, SEX, RACE, ETHNIC, APOE, APOEGN, QSVERSION_PACC), factor)
+```
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = pacc, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'pTau217'))
+```
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*GM_ZSCORE+ Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = pacc, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'GM_ZSCORE'))
+```
+
+```{r}
+lmm_results <- lme(PACC ~ I(pacc_time^2) + pacc_time*GM_tertiles+ Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = pacc, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results)
+plot_model(lmm_results, type = c('pred'), terms = c('pacc_time', 'GM_tertiles'))
+```
+
+```{r}
+lmm_results_gm <- lme(PACC ~ I(pacc_time^2) + pacc_time*pTau217*GM_ZSCORE + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = pacc, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results_gm)
+plot_model(lmm_results_gm, type = c('pred'), terms = c('pacc_time', 'GM_ZSCORE', 'pTau217'))
+```
+
+```{r}
+lmm_results_tertiles <- lme(PACC ~ I(pacc_time^2) + pacc_time*pTau217*GM_tertiles + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = pacc, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results_tertiles)
+plot_model(lmm_results_tertiles, type = c('pred'), terms = c('pacc_time', 'GM_tertiles', 'pTau217'))
+```
+
+
+## Amyloid positive subjects
 
 As we find significance for pTau217 but they are all apositive to we get significant results if we only look at Amyloid Positive in other biomarkers.
 
 ```{r}
 data_apos <- subset(data, Amyloid == 'positive')
-model_ptau <- lm(TPP181 ~ GM_ZSCORE*age, data = data_apos)
-summary(model_ptau)
-model_ptau <- lm(NF.L ~ GM_ZSCORE*age, data = data_apos)
-summary(model_ptau)
-model_ptau <- lm(GFAP ~ GM_ZSCORE*age, data = data_apos)
-summary(model_ptau)
-model_ptau <- lm(AB42.AB40 ~ GM_ZSCORE*age, data = data_apos)
-summary(model_ptau)
-model_ptau <- lm(APOE4 ~ GM_ZSCORE*age, data = data_apos)
-summary(model_ptau)
+model_apos_nfl <- lm(NF.L ~ GM_ZSCORE*age, data = data_apos)
+summary(model_apos_nfl)
+model_apos_gfap <- lm(GFAP ~ GM_ZSCORE*age, data = data_apos)
+summary(model_apos_gfap)
 ```
