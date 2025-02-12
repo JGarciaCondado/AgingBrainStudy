@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -342,6 +342,39 @@ p
 ggsave('~/Downloads/tau_a4_pacc.png', plot = p, width = 6, height = 3)
 ```
 
+
+### Treatment effects
+
+Simple model of time on PACC
+
+```{r}
+lmm_results_A4_pacc <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_A4_pacc)
+plot_model(lmm_results_A4_pacc, type = c('pred'), terms = c('pacc_time'))
+```
+
+Threshold to determine older looking subjects and repeat linear mixed effects model
+
+```{r}
+lmm_results_A4_pacc_old <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > 0), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results_A4_pacc_old)
+plot_model(lmm_results_A4_pacc_old, type = c('pred'), terms = c('pacc_time'))
+```
+
+Power analysis
+
+```{r}
+# Extract pacc_time value of linear mixed effects model
+beta_pacc_A4 <- fixef(lmm_results_A4_pacc)["pacc_time"]
+beta_old_A4 <- fixef(lmm_results_A4_pacc_old)["pacc_time"]
+pwr_pacc_A4 <- pwr.t.test(d = beta_pacc_A4, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
+pwr_old_A4 <- pwr.t.test(d = beta_old_A4, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
+# Print number of subjects needed for each case and reduction percentage
+print(pwr_pacc_A4$n)
+print(pwr_old_A4$n)
+print((pwr_old_A4$n - pwr_pacc_A4$n)/pwr_pacc_A4$n*100)
+```
+
 ## HABS
 
 ### Trajectories
@@ -463,3 +496,34 @@ p
 ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 6, height = 3)
 ```
 
+### Treatment effects
+
+Simple model of time on PACC
+
+```{r}
+lmm_results_habs_pacc <- lme(NP_PACC_PACC5 ~ time_from_bl, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_pacc)
+plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl'))
+```
+
+Threshold to determine older looking subjects and repeat linear mixed effects model
+
+```{r}
+lmm_results_habs_pacc_old <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > 0), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_pacc_old)
+plot_model(lmm_results_habs_pacc_old, type = c('pred'), terms = c('time_from_bl'))
+```
+
+Power analysis
+
+```{r}
+# Extract pacc_time value of linear mixed effects model
+beta_pacc_habs <- fixef(lmm_results_habs_pacc)["time_from_bl"]
+beta_old_habs <- fixef(lmm_results_habs_pacc_old)["time_from_bl"]
+pwr_pacc_habs <- pwr.t.test(d = beta_pacc_habs, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
+pwr_old_habs <- pwr.t.test(d = beta_old_habs, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
+# Print number of subjects needed for each case and reduction percentage
+print(pwr_pacc_habs$n)
+print(pwr_old_habs$n)
+print((pwr_old_habs$n - pwr_pacc_habs$n)/pwr_pacc_habs$n*100)
+```
