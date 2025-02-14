@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr); library(longpower)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -449,15 +449,11 @@ plot_model(lmm_results_A4_pacc_old, type = c('pred'), terms = c('pacc_time'))
 Power analysis
 
 ```{r}
-# Extract pacc_time value of linear mixed effects model
-beta_pacc_A4 <- fixef(lmm_results_A4_pacc)["pacc_time"]
-beta_old_A4 <- fixef(lmm_results_A4_pacc_old)["pacc_time"]
-pwr_pacc_A4 <- pwr.t.test(d = beta_pacc_A4, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
-pwr_old_A4 <- pwr.t.test(d = beta_old_A4, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
-# Print number of subjects needed for each case and reduction percentage
-print(pwr_pacc_A4$n)
-print(pwr_old_A4$n)
-print((pwr_old_A4$n - pwr_pacc_A4$n)/pwr_pacc_A4$n*100)
+pwr_pacc_A4 <- lmmpower(lmm_results_A4_pacc, parameter = "pacc_time", pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
+pwr_old_A4 <- lmmpower(lmm_results_A4_pacc_old, parameter = "pacc_time", pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
+print(pwr_pacc_A4$N)
+print(pwr_old_A4$N)
+print((pwr_old_A4$N - pwr_pacc_A4$N)/pwr_pacc_A4$N*100)
 ```
 
 ## HABS
@@ -619,100 +615,11 @@ plot_model(lmm_results_habs_pacc_old, type = c('pred'), terms = c('time_from_bl'
 
 Power analysis
 
-```{r}
-# Extract pacc_time value of linear mixed effects model
-beta_pacc_habs <- fixef(lmm_results_habs_pacc)["time_from_bl"]
-beta_old_habs <- fixef(lmm_results_habs_pacc_old)["time_from_bl"]
-pwr_pacc_habs <- pwr.t.test(d = beta_pacc_habs, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
-pwr_old_habs <- pwr.t.test(d = beta_old_habs, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
-# Print number of subjects needed for each case and reduction percentage
-print(pwr_pacc_habs$n)
-print(pwr_old_habs$n)
-print((pwr_old_habs$n - pwr_pacc_habs$n)/pwr_pacc_habs$n*100)
-```
-
-### Simulation
 
 ```{r}
-predict_pacc <- function(model, subject_id, time_point) {
-  # Create new data frame for prediction
-  new_data <- data.frame(
-    SubjIDshort = subject_id,
-    time_from_bl = time_point
-  )
-  
-  # Get prediction
-  predicted_value <- predict(model, newdata = new_data, allow.new.levels = FALSE)
-  
-  return(data.frame(
-    SubjIDshort = subject_id,
-    time_from_bl = time_point,
-    predicted_pacc = predicted_value
-  ))
-}
-
-# Predict for each subject PACC at time 2
-predicted_pacc <- sapply(unique(data_habs$SubjIDshort), function(id) predict_pacc(lmm_results_habs_pacc, id, 4))
-
-# Transpose dataframe
-predicted_pacc <- as.data.frame(t(predicted_pacc))
-rownames(predicted_pacc) <- NULL
-
-# Assign treatment group randomly in predicted_pacc
-predicted_pacc$treatment <- as.numeric(sample(c(0, 1), nrow(predicted_pacc), replace = TRUE))
-# QUESTION: Do we do 10% of mean or from each subject
-treatment_effect = 0.1
-
-# Ensure all variables are numeric
-predicted_pacc$predicted_pacc <- as.numeric(predicted_pacc$predicted_pacc)
-predicted_pacc$treatment <- as.numeric(predicted_pacc$treatment)
-predicted_pacc$predicted_pacc <- as.numeric(predicted_pacc$predicted_pacc)
-predicted_pacc$pacc_treatment <- predicted_pacc$predicted_pacc + abs(predicted_pacc$treatment*treatment_effect*predicted_pacc$predicted_pacc)
-
-# Calculate cohen's d between treatment and non treatment
-calculate_cohens_d <- function(data, pacc_column, treatment_column) {
-  # Extract the PACC values for each treatment group
-  group1 <- data[data[[treatment_column]] == levels(factor(data[[treatment_column]]))[1], pacc_column]
-  group2 <- data[data[[treatment_column]] == levels(factor(data[[treatment_column]]))[2], pacc_column]
-  
-  # Calculate Cohen's d
-  d <- cohen.d(group1, group2)
-  
-  return(d)
-}
-cohen_d <- calculate_cohens_d(predicted_pacc, 'pacc_treatment', 'treatment')
-pwr.t.test(d = cohen_d$estimate, power = 0.8, sig.level = 0.05, type = "two.sample", alternative = "two.sided")
-```
-
-
-```{r}
-# Assign to each subject to be sim_treatment either 0 or 1 using a random number
-treatment_assignment <- data_habs %>%
-  distinct(SubjIDshort) %>%           # Get unique subjects
-  mutate(treatment = sample(c(0, 1), n(), replace = TRUE))  # Randomly assign treatment
-data_treatment <- data_habs %>% 
-  left_join(treatment_assignment, by = 'SubjIDshort')
-# Simulate 10% treatment effect on PACC
-data_treatment <- data_treatment %>% 
-  mutate(pacc_treatment = NP_PACC_PACC5 + abs(treatment*0.1*NP_PACC_PACC5))
-
-lmm_results_habs_pacc <- lmer(pacc_treatment ~ time_from_bl + time_from_bl*treatment + (time_from_bl|SubjIDshort), data = data_treatment);
-summary(lmm_results_habs_pacc)
-plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl', 'treatment [0, 1]'))
-
-# data old HAVE TO THINK MORE CAREFULLY ABOUT THIS
-data_old <- subset(data_habs, data_habs$delta_all > threshold_habs)
-# Assign to each subject to be sim_treatment either 0 or 1 using a random number
-treatment_assignment <- data_old %>%
-  distinct(SubjIDshort) %>%           # Get unique subjects
-  mutate(treatment = sample(c(0, 1), n(), replace = TRUE))  # Randomly assign treatment
-data_treatment <- data_old %>%
-  left_join(treatment_assignment, by = 'SubjIDshort')
-# Simulate 10% treatment effect on PACC
-data_treatment <- data_treatment %>% 
-  mutate(pacc_treatment = NP_PACC_PACC5 + abs(treatment*0.1*NP_PACC_PACC5))
-
-lmm_results_habs_pacc <- lmer(pacc_treatment ~ time_from_bl + time_from_bl*treatment + (time_from_bl|SubjIDshort), data = data_treatment);
-summary(lmm_results_habs_pacc)
-plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl', 'treatment [0, 1]'))
+pwr_pacc_habs <- lmmpower(lmm_results_habs_pacc, pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
+pwr_old_habs <- lmmpower(lmm_results_habs_pacc_old, pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
+print(pwr_pacc_habs$N)
+print(pwr_old_habs$N)
+print((pwr_old_habs$N - pwr_pacc_habs$N)/pwr_pacc_habs$N*100)
 ```
