@@ -429,6 +429,66 @@ print(results_A4$plot)
 
 ### Treatment effects
 
+```{r}
+# Function to perform power analysis across different parameters
+compare_power_analysis <- function(model_list, param, treatment_effects = c(0.1, 0.2, 0.3, 0.4), 
+                                 years = c(2, 4, 6), interval = 0.5,
+                                 sig.level = 0.05, power = 0.8) {
+  # Initialize results dataframe
+  results <- data.frame()
+  
+  # Loop through each model
+  for (model_name in names(model_list)) {
+    model <- model_list[[model_name]]
+    
+    # Loop through treatment effects
+    for (effect in treatment_effects) {
+      # Loop through years
+      for (year in years) {
+        # Calculate time points based on years and interval
+        time_points <- seq(0, year, interval)
+        
+        # Perform power analysis
+        pwr_result <- lmmpower(model,
+                             parameter = param,
+                             pct.change = effect,
+                             t = time_points,
+                             sig.level = sig.level,
+                             power = power)
+        
+        # Store results
+        results <- rbind(results, data.frame(
+          model = model_name,
+          effect_size = effect,
+          years = year,
+          n_subjects = pwr_result$N
+        ))
+      }
+    }
+  }
+  
+  # Calculate percentage changes between models
+  results_wide <- reshape(results, 
+                         idvar = c("effect_size", "years"),
+                         timevar = "model",
+                         direction = "wide")
+  
+  # Calculate percentage changes
+  base_model <- "pacc"  # Assuming this is your reference model
+  model_names <- names(model_list)
+  other_models <- model_names[model_names != base_model]
+  
+  for (other_model in other_models) {
+    col_name <- paste0("pct_change_", other_model)
+    base_n <- results_wide[, paste0("n_subjects.", base_model)]
+    compare_n <- results_wide[, paste0("n_subjects.", other_model)]
+    results_wide[, col_name] <- ((compare_n - base_n) / base_n) * 100
+  }
+  
+  return(results_wide)
+}
+```
+
 Simple model of time on PACC
 
 ```{r}
@@ -439,21 +499,39 @@ plot_model(lmm_results_A4_pacc, type = c('pred'), terms = c('pacc_time'))
 
 Threshold to determine older looking subjects and repeat linear mixed effects model
 
+Using median
+
 ```{r}
-threshold_A4 = results_A4$optimal_threshold
-lmm_results_A4_pacc_old <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > threshold_A4), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-summary(lmm_results_A4_pacc_old)
-plot_model(lmm_results_A4_pacc_old, type = c('pred'), terms = c('pacc_time'))
+threshold_A4_median = median(data_A4$delta_all , na.rm = TRUE)
+lmm_results_A4_pacc_old_median <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > threshold_A4_median), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results_A4_pacc_old_median)
+plot_model(lmm_results_A4_pacc_old_median, type = c('pred'), terms = c('pacc_time'))
+```
+
+Using linear mixed effects model optimization
+
+```{r}
+threshold_A4_opt = results_A4$optimal_threshold
+lmm_results_A4_pacc_old_opt <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > threshold_A4_opt), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+summary(lmm_results_A4_pacc_old_opt)
+plot_model(lmm_results_A4_pacc_old_opt, type = c('pred'), terms = c('pacc_time'))
 ```
 
 Power analysis
 
 ```{r}
-pwr_pacc_A4 <- lmmpower(lmm_results_A4_pacc, parameter = "pacc_time", pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
-pwr_old_A4 <- lmmpower(lmm_results_A4_pacc_old, parameter = "pacc_time", pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
-print(pwr_pacc_A4$N)
-print(pwr_old_A4$N)
-print((pwr_old_A4$N - pwr_pacc_A4$N)/pwr_pacc_A4$N*100)
+
+models_A4 <- list(
+  pacc = lmm_results_A4_pacc,
+  old_median = lmm_results_A4_pacc_old_median,
+  old_opt = lmm_results_A4_pacc_old_opt
+)
+
+# Run the analysis
+power_results_A4 <- compare_power_analysis(models_A4, "pacc_time")
+
+# Print the results
+print(power_results_A4)
 ```
 
 ## HABS
@@ -606,20 +684,37 @@ plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl'))
 
 Threshold to determine older looking subjects and repeat linear mixed effects model
 
+Using median
+
 ```{r}
-threshold_habs = results_habs$optimal_threshold
-lmm_results_habs_pacc_old <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > threshold_habs), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_pacc_old)
-plot_model(lmm_results_habs_pacc_old, type = c('pred'), terms = c('time_from_bl'))
+threshold_habs_median = median(data_habs$delta_all , na.rm = TRUE)
+lmm_results_habs_pacc_old_median <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > threshold_habs_median), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_pacc_old_median)
+plot_model(lmm_results_habs_pacc_old_median, type = c('pred'), terms = c('time_from_bl'))
+```
+
+Using linear mixed effects model optimization
+
+```{r}
+threshold_habs_opt = results_habs$optimal_threshold
+lmm_results_habs_pacc_old_opt <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > threshold_habs_opt), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_pacc_old_opt)
+plot_model(lmm_results_habs_pacc_old_opt, type = c('pred'), terms = c('time_from_bl'))
 ```
 
 Power analysis
 
-
 ```{r}
-pwr_pacc_habs <- lmmpower(lmm_results_habs_pacc, pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
-pwr_old_habs <- lmmpower(lmm_results_habs_pacc_old, pct.change = 0.4, t = seq(0, 5, 0.5), sig.level = 0.05, power = 0.8)
-print(pwr_pacc_habs$N)
-print(pwr_old_habs$N)
-print((pwr_old_habs$N - pwr_pacc_habs$N)/pwr_pacc_habs$N*100)
+
+models_habs <- list(
+  pacc = lmm_results_habs_pacc,
+  old_median = lmm_results_habs_pacc_old_median,
+  old_opt = lmm_results_habs_pacc_old_opt
+)
+
+# Run the analysis
+power_results_habs <- compare_power_analysis(models_habs, "time_from_bl")
+
+# Print the results
+print(power_results_habs)
 ```
