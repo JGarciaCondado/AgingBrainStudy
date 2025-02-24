@@ -23,7 +23,7 @@ theme_set(theme_bw())
 
 # BrainAge modelling in A4/Learn study
 
-A linear regression BrainAge model was trained on e4 non-carriers and training separate models for males and females. The model was then applied to e4 carriers.
+A linear regression BrainAge model was trained on e4 non-carriers and AB-. The model was then applied to the rest of the cohort.
 
 The model was trained using the following features:
 
@@ -36,11 +36,11 @@ The model was trained using the following features:
 -   Parahippocampal cortical thickness
 -   Fusiform cortical thickness
 
-Command used: model_age -o analysis/A4/structural_brainage -f data/A4/processed/structural_features.csv --clinical data/A4/processed/e4.csv --covariates data/A4/processed/covariates.csv --covar_name sex
+Command used: model_age -o analysis/A4/structural_brainage -f data/A4/processed/structural_features.csv --clinical data/A4/processed/clinical.csv
 
 ```{r, include = FALSE}
 # Load data
-deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
 
 # Load factors
 factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
@@ -132,6 +132,20 @@ ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
        y = 'Delta')
 ```
 
+### Sex differences
+
+```{r}
+data$SEX <- as.factor(data$SEX)
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'SEX',
+       y = 'Delta')
+```
+
+
+
 ## Cognition {.tabset}
 
 ### PACC
@@ -162,6 +176,12 @@ regression_analysis(data, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', '
 
 ```{r}
 regression_analysis(data, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### YearsEd
+
+```{r}
+regression_analysis(data, 'YearsEd', 'delta_all', c('SEX', 'e4', 'Amyloid', 'BL_Age'))
 ```
 
 ## Blood Biomarkers {.tabset}

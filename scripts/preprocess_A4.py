@@ -61,9 +61,13 @@ df_covars.drop(columns=['APOEGN'], inplace=True)
 df_covars.to_csv('data/A4/processed/covariates.csv', index=False)
 
 # Create clinical file with type of Apoe4
-df_clinical = df_covars[['BID', 'e4']].copy()
-df_clinical['CN'] = ((df_clinical['e4'] == 0)).astype(int)
-df_clinical.to_csv('data/A4/processed/e4.csv', index=False)
+df_clinical = df_covars[['BID', 'e4', 'Amyloid']].copy()
+df_clinical['CN'] = ((df_clinical['e4'] == 0) & (df_clinical['Amyloid'] == 0)).astype(int)
+df_clinical['e4+'] = ((df_clinical['e4'] == 1) & (df_clinical['Amyloid'] == 0)).astype(int)
+df_clinical['e4+ab+'] = ((df_clinical['e4'] == 1) & (df_clinical['Amyloid'] == 1)).astype(int)
+df_clinical['ab+'] = ((df_clinical['e4'] == 0) & (df_clinical['Amyloid'] == 1)).astype(int)
+df_clinical.drop(columns=['e4', 'Amyloid'], inplace=True)
+df_clinical.to_csv('data/A4/processed/clinical.csv', index=False)
 
 # Obrain pTAU data make BID coulmn index and only extract ORRES column
 df_ptau = pd.read_csv('data/A4/raw/plasma/biomarker_pTau217.csv', usecols=['BID', 'VISCODE', 'ORRES'])

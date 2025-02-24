@@ -91,12 +91,14 @@ df_factors = pd.merge(df_factors, df_ptau, on='SubjIDshort', how='outer')
 df_factors.to_csv('data/HABS/processed/factors.csv')
 
 # Create clinical file with CN where 1 is E4_status is e4-
-df_clinical = df_factors[['E4_Status']].copy()
+df_clinical = df_factors[['SubjIDshort','E4_Status', 'PIB_FS_SUVR_Group']].copy()
 df_clinical = df_clinical.dropna()
-df_clinical['CN'] = (df_clinical['E4_Status'] == 'e4-').astype(int)
-df_clinical['e4'] = (df_clinical['E4_Status'] == 'e4+').astype(int)
-df_clinical.drop(columns='E4_Status', inplace=True)
-df_clinical.to_csv('data/HABS/processed/e4.csv')
+df_clinical['cn'] = ((df_clinical['E4_Status'] == 'e4-') & (df_clinical['PIB_FS_SUVR_Group'] == 'PIB-')).astype(int)
+df_clinical['e4+'] = ((df_clinical['E4_Status'] == 'e4+') & (df_clinical['PIB_FS_SUVR_Group'] == 'PIB-')).astype(int)
+df_clinical['e4+ab+'] = ((df_clinical['E4_Status'] == 'e4+') & (df_clinical['PIB_FS_SUVR_Group'] == 'PIB+')).astype(int)
+df_clinical['ab+'] = ((df_clinical['E4_Status'] == 'e4-') & (df_clinical['PIB_FS_SUVR_Group'] == 'PIB+')).astype(int)
+df_clinical.drop(columns=['E4_Status', 'PIB_FS_SUVR_Group'], inplace=True)
+df_clinical.to_csv('data/HABS/processed/clinical.csv', index=False)
 
 # Joint information on A4 and HABS
 

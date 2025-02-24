@@ -51,7 +51,7 @@ data_A4 <- data_A4 %>%
   filter(nTimePoints >= 2)
 
 # Load deltas
-delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age_sex.csv')
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
 
 # Merge the two datasets
 data_A4 <- merge(data_A4, delta_A4, by = 'BID')

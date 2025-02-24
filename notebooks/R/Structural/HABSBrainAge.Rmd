@@ -23,7 +23,7 @@ theme_set(theme_bw())
 
 # BrainAge modelling in HABS
 
-A linear regression BrainAge model was trained on e4 non-carriers. The model was then applied to e4 carriers.
+A linear regression BrainAge model was trained on e4 non-carriers and AB-. The model was then applied to the rest of the cohort.
 
 The model was trained using the following features:
 
@@ -36,7 +36,7 @@ The model was trained using the following features:
 -   Parahippocampal cortical thickness
 -   Fusiform cortical thickness
 
-Command used: model_age -o analysis/HABS/structural_brainage -f data/HABS/processed/structural_features.csv --clinical data/HABS/processed/e4.csv
+Command used: model_age -o analysis/HABS/structural_brainage -f data/HABS/processed/structural_features.csv --clinical data/HABS/processed/clinical.csv
 
 ```{r, include = FALSE}
 # Load deltas
@@ -161,6 +161,17 @@ ggplot(subset(data, !is.na(PIB_FS_SUVR_Group)), aes(x = PIB_FS_SUVR_Group, y = d
        y = 'Delta')
 ```
 
+### Sex differences
+
+```{r}
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = delta)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'SEX',
+       y = 'Delta')
+```
+
 ## Cognition {.tabset}
 
 ### PACC
@@ -191,6 +202,12 @@ regression_analysis(data, 'NP_DigitSym_DigitSym', 'delta', c('SEX', 'YrsEd', 'E4
 
 ```{r}
 regression_analysis(data, 'NP_LogicMem_LM1ADR', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+```
+
+### YearsEd
+
+```{r}
+regression_analysis(data, 'YrsEd', 'delta', c('SEX', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 ```
 
 ## Blood Biomarkers {.tabset}
