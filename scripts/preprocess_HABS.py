@@ -65,7 +65,7 @@ df_factors = df_factors[df_factors['FCTOTAL96'] != 0]
 tau_features = [col for col in df_pet.columns if '_bh' in col]
 df_pet['tau_composite'] = df_pet[tau_features].mean(axis=1)
 
-# Load blood biomarkers
+# Load blood biomarkers MSD
 df_blood = pd.read_csv('data/HABS/raw/raw_blood_biomarkers.csv')
 # Keep first sample
 df_blood['StudyArc'] = df_blood['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
@@ -74,10 +74,10 @@ df_blood = df_blood.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort'
 df_blood.set_index('SubjIDshort', inplace=True)
 df_blood = df_blood.filter(like='_conc')
 df_blood.columns = df_blood.columns.str.replace('_conc', '')
-df_blood.drop(columns='tota', inplace=True)
+df_blood.drop(columns=['ptau', 'tota'], inplace=True) # prefer blood biomarkers form C2N
 
-# Load ptau data
-df_ptau = pd.read_csv('data/HABS/raw/raw_pTau.csv', usecols=['SubjIDshort', 'StudyArc', 'p_tau217_ratio'])
+# Load ptau data from C2N
+df_ptau = pd.read_csv('data/HABS/raw/raw_pTau.csv', usecols=['SubjIDshort', 'StudyArc', 'p_tau217', 'p_tau217_ratio'])
 df_ptau['StudyArc'] = df_ptau['StudyArc'].str.replace('HAB_', '').str.replace('.0', '').astype(int)
 df_ptau = df_ptau.sort_values('StudyArc').drop_duplicates(subset='SubjIDshort', keep='first')
 df_ptau.drop(columns='StudyArc', inplace=True)

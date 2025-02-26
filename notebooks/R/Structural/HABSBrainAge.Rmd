@@ -215,13 +215,13 @@ regression_analysis(data, 'YrsEd', 'delta', c('SEX', 'E4_Status', 'PIB_FS_SUVR_G
 ### pTau217
 
 ```{r}
-regression_analysis(data, 'ptau', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+regression_analysis(data, 'p_tau217', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 
-regression_analysis(data, 'ptau', 'delta', c('nfl', 'gfap'))
+regression_analysis(data, 'p_tau217', 'delta', c('nfl', 'gfap'))
 ```
 
 ```{r}
-fig <- scatter_plot <- ggplot(data, aes(x = delta, y = ptau)) +
+fig <- scatter_plot <- ggplot(data, aes(x = delta, y = p_tau217)) +
     geom_point() +
     geom_smooth(method = 'lm', formula = y ~ x) +
     stat_cor(method = 'pearson') +
@@ -232,13 +232,22 @@ fig <- scatter_plot <- ggplot(data, aes(x = delta, y = ptau)) +
 ggsave("~/Downloads/pTau217_habs_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
 ```
 
+### pTau217 ratio
+
+```{r}
+regression_analysis(data, 'p_tau217_ratio', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+
+regression_analysis(data, 'p_tau217_ratio', 'delta', c('nfl', 'gfap'))
+```
+
+
 
 ### NFL
 
 ```{r}
 regression_analysis(data, 'nfl', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 
-regression_analysis(data, 'nfl', 'delta', c('ptau', 'gfap'))
+regression_analysis(data, 'nfl', 'delta', c('p_tau217', 'gfap'))
 
 ```
 
@@ -247,7 +256,7 @@ regression_analysis(data, 'nfl', 'delta', c('ptau', 'gfap'))
 ```{r}
 regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
 
-regression_analysis(data, 'gfap', 'delta', c('SEX', 'YrsEd', 'E4_Status', 'PIB_FS_SUVR_Group', 'age'))
+regression_analysis(data, 'gfap', 'delta', c('p_tau217', 'nfl'))
 ```
 
 

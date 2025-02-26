@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr); library(longpower)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr); library(longpower); library(gt)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -101,7 +101,7 @@ data_habs <- data_habs %>%
 # Add factors
 factors_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv')
 factors_habs <- factors_habs %>% 
-  select(SubjIDshort, ptau, p_tau217_ratio, PIB_FS_SUVR_FLR, PIB_FS_SUVR_Group, tau_composite)
+  select(SubjIDshort, p_tau217, p_tau217_ratio, PIB_FS_SUVR_FLR, PIB_FS_SUVR_Group, tau_composite)
 data_habs <- merge(data_habs, factors_habs, by = 'SubjIDshort', all.x = TRUE)
 
 # Ensure correct typing
@@ -136,6 +136,7 @@ data_habs <- data_habs %>%
 
 ```{r}
 data_A4_demo <- data_A4 %>% 
+  filter(!is.na(delta_all)) %>% # remove those that do not have delta calcualted
   arrange(BID, pacc_time) %>%  
   group_by(BID) %>%
   mutate(follow_up_time = max(pacc_time, na.rm = TRUE)) %>%
@@ -143,41 +144,61 @@ data_A4_demo <- data_A4 %>%
   select(BID, AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, PACC_bl, follow_up_time) %>%
   # Add a column Cohort that has in its entry A4/Learn
   mutate(Cohort = 'A4/Learn') %>%
-  mutate(Amyloid = ifelse(Amyloid == 1.0, 'positive', 'negative'))
+  mutate(Amyloid = ifelse(Amyloid == 1.0, 'positive', 'negative')) %>%
+  mutate(pTau217_ratio = as.numeric(NA))
 
 data_HABS_demo <- data_habs %>% 
+  filter(!is.na(delta_all)) %>% # remove those that do not have delta calcualted
   arrange(SubjIDshort, NP_SessionDate) %>%  
   group_by(SubjIDshort) %>% 
   mutate(follow_up_time = max(time_from_bl, na.rm = TRUE)) %>%
   slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
-  select(SubjIDshort, NP_Age, SEX, YrsEd, E4_Status, PIB_FS_SUVR_Group, PIB_FS_SUVR_FLR, ptau, tau_composite, BL_PACC, follow_up_time) %>%
-  rename(BID=SubjIDshort, AGEYR = NP_Age, EDCCNTU = YrsEd, APOE = E4_Status, Amyloid = PIB_FS_SUVR_Group, amyloid_composite = PIB_FS_SUVR_FLR, PACC_bl = BL_PACC, pTau217 = ptau) %>%
+  select(SubjIDshort, NP_Age, SEX, YrsEd, E4_Status, PIB_FS_SUVR_Group, PIB_FS_SUVR_FLR, p_tau217, p_tau217_ratio, tau_composite, BL_PACC, follow_up_time) %>%
+  rename(BID=SubjIDshort, AGEYR = NP_Age, EDCCNTU = YrsEd, APOE = E4_Status, Amyloid = PIB_FS_SUVR_Group, amyloid_composite = PIB_FS_SUVR_FLR, PACC_bl = BL_PACC, pTau217 = p_tau217, pTau217_ratio = p_tau217_ratio) %>%
   mutate(Cohort = 'HABS') %>%
   # Convert PIB- and PIB + to 0 and 1
   mutate(Amyloid = ifelse(Amyloid == 'PIB-', 'negative', 'positive')) %>%
   mutate(SEX = case_when(
     SEX == "F" ~ "Female",
-    SEX == "M" ~ "Male"))
+    SEX == "M" ~ "Male")) 
+
+# Only keep in data habs those with delta
+data_HABS_demo <- data_HABS_demo
 
 habs_t <- tbl_summary(data_HABS_demo,
-            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, PACC_bl, follow_up_time),
+            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, pTau217_ratio, PACC_bl, follow_up_time),
             missing = "no",
             statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
-            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
+            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", pTau217_ratio ~ "pTau217 ratio", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
             digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
             by = Amyloid) %>%
   bold_labels()
 
 A4_t <- tbl_summary(data_A4_demo,
-            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, PACC_bl, follow_up_time),
+            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, pTau217_ratio, PACC_bl, follow_up_time),
             missing = "no",
             statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
-            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
+            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", pTau217_ratio ~ "pTau217 ratio", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
             digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
             by = Amyloid) %>%
-  bold_labels()
+        bold_labels()
 
-table <- tbl_merge(list(A4_t, habs_t), tab_spanner = c("A4/LEARN", "HABS")) 
+table <- tbl_merge(list(A4_t, habs_t), tab_spanner = c("A4/LEARN", "HABS")) %>%
+modify_table_styling(
+    columns = label,
+    rows = label == "pTau217 (U/ml)",
+    footnote = "A4 uses Lilly platform and HABs uses C2N platform for pTau217"
+  ) %>%
+modify_table_styling(
+    columns = label,
+    rows = label == "pTau217 ratio",
+    footnote = "Phosphortilated to non-phosphortilated ratio",
+  ) %>%
+modify_table_styling(
+    columns = label,
+    rows = label == "AB-PET SUVR",
+    footnote = "A4 uses X tracer and HABs uses Y tracer",
+  )
 
 table
 
