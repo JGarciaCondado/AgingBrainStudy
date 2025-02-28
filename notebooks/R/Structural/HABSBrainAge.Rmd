@@ -57,6 +57,14 @@ factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/fa
 data <- merge(data, factors, by = 'SubjIDshort', all = TRUE)
 ```
 
+```{r}
+# Distribution of deltas
+mean <- mean(data$delta, na.rm=TRUE)
+print(mean)
+std <- sqrt(var(data$delta, na.rm=TRUE))
+print(std)
+```
+
 ## Comparison of BrainAge models
 
 We also trained a model on A4 and applied it to HABS.

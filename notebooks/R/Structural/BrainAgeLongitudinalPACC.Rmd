@@ -130,6 +130,10 @@ baseline_habs <- data_habs %>%
 # Add age at baseline of subjects
 data_habs <- data_habs %>%
   left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
+
+# Ensure factors
+data_habs <- data_habs %>%
+  mutate_at(vars(SEX, E4_Status), factor)
 ```
 
 ## Demographics
@@ -244,7 +248,7 @@ PACC \~ pacc_time\^2 + pacc_timeXdelta + Cumulative_Dose_Scaled + QSVERSION_PACC
 ```{r}
 lmm_results_A4 <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_A4)
-p <- plot_model(lmm_results_A4, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]')) +
+p <- plot_model(lmm_results_A4, type = c('pred'), terms = c('pacc_time', 'delta_all')) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
@@ -269,7 +273,7 @@ The quadratic model explains the model better.
 ```{r} 
 lmm_results_A4_placebo <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_placebo, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_A4_placebo)
-p <- plot_model(lmm_results_A4_placebo, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]')) +
+p <- plot_model(lmm_results_A4_placebo, type = c('pred'), terms = c('pacc_time', 'delta_all')) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
@@ -279,14 +283,14 @@ p
 
 Similar results when excluding the treatment group.
 
-#### Age, e4 and amyloid
+#### Demographics
 
-Adding Age, APOE and Amyloid status:
+Adding Age, APOE, Years of Education, Sex and Amyloid status:
 
 ```{r} 
-lmm_results_A4_sens <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*Amyloid, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
+lmm_results_A4_sens <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*Amyloid + pacc_time*SEX + pacc_time*EDCCNTU, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 summary(lmm_results_A4_sens)
-p <- plot_model(lmm_results_A4_sens, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]')) +
+p <- plot_model(lmm_results_A4_sens, type = c('pred'), terms = c('pacc_time', 'delta_all')) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
       x = 'Time from baseline (years)',
@@ -303,9 +307,9 @@ Analysis of modelling PACC change instead of PACC to include PACC at baseline ef
 ```{r} 
 lmm_results_A4_change <- lme(PACC_change_bl ~ I(pacc_time^2) + pacc_time*delta_all + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*Amyloid + pacc_time*PACC_bl, data = data_A4, random = ~ 0 + pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_A4_change)
-plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]'))
-plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
-plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'PACC_bl [-3, 0, 2]'), show.values = TRUE)
+plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'delta_all'))
+plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'PACC_bl'), show.values = TRUE)
+plot_model(lmm_results_A4_change, type = c('pred'), terms = c('pacc_time', 'delta_all', 'PACC_bl'), show.values = TRUE)
 ```
 
 Resutls still stay significant. 
@@ -317,8 +321,8 @@ Resutls still stay significant.
 ```{r}
 lmm_results_A4_pTau217 <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_A4_pTau217)
-p <- plot_model(lmm_results_A4_pTau217, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'pTau217 [0.14, 0.28, 0.42]'))
-levels(p$data$facet) <- c("pTau217 = 0.14", "pTau217 = 0.28", "pTau217 = 0.42")
+p <- plot_model(lmm_results_A4_pTau217, type = c('pred'), terms = c('pacc_time', 'delta_all', 'pTau217'))
+#levels(p$data$facet) <- c("pTau217 = 0.14", "pTau217 = 0.28", "pTau217 = 0.42")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -327,6 +331,13 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/pTau217_a4_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_A4_pTau217)$tTable["pacc_time:delta_all:pTau217", 5])
+```
+Sensitivity analysis adding Age, APOE, SEX and Education. Amyloid is excluded as all subjects are amyloid positive who had ptau217 measures taken.
+
+```{r}
+lmm_results_A4_pTau217_sens <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*pTau217 + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*SEX + pacc_time*EDCCNTU, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+print(summary(lmm_results_A4_pTau217_sens)$tTable["pacc_time:delta_all:pTau217", 5])
 ```
 
 #### PET Amyloid
@@ -334,8 +345,8 @@ ggsave('~/Downloads/pTau217_a4_pacc.png', plot = p, width = 6, height = 3)
 ```{r}
 lmm_results_A4_amyl <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*amyloid_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 summary(lmm_results_A4_amyl)
-p <- plot_model(lmm_results_A4_amyl, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'amyloid_composite [1.0, 1.17, 1.39]'))
-levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.17", "AB-PET SUVR = 1.39")
+p <- plot_model(lmm_results_A4_amyl, type = c('pred'), terms = c('pacc_time', 'delta_all', 'amyloid_composite'))
+#levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.17", "AB-PET SUVR = 1.39")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -344,6 +355,13 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/ab_a4_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_A4_amyl)$tTable["pacc_time:delta_all:amyloid_composite", 5])
+```
+Sensitivity analysis adding Age, APOE, Amyloid Status, SEX and Education
+
+```{r}
+lmm_results_A4_amyl_sens <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*amyloid_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*Amyloid + pacc_time*SEX + pacc_time*EDCCNTU, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+print(summary(lmm_results_A4_amyl_sens)$tTable["pacc_time:delta_all:amyloid_composite", 5])
 ```
 
 #### PET Tau
@@ -351,8 +369,8 @@ ggsave('~/Downloads/ab_a4_pacc.png', plot = p, width = 6, height = 3)
 ```{r}
 lmm_results_A4_tau <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_A4_tau)
-p <- plot_model(lmm_results_A4_tau, type = c('pred'), terms = c('pacc_time', 'delta_all [-3, 0, 3]', 'tau_composite [1.19, 1.4, 1.62]'))
-levels(p$data$facet) <- c("Tau-PET SUVR = 1.19", "Tau-PET SUVR = 1.4", "Tau-PET SUVR = 1.62")
+p <- plot_model(lmm_results_A4_tau, type = c('pred'), terms = c('pacc_time', 'delta_all', 'tau_composite'))
+#levels(p$data$facet) <- c("Tau-PET SUVR = 1.19", "Tau-PET SUVR = 1.4", "Tau-PET SUVR = 1.62")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -361,6 +379,13 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/tau_a4_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_A4_tau)$tTable["pacc_time:delta_all:tau_composite", 5])
+```
+Sensitivity analysis adding Age, APOE, SEX and Education. Amyloid is excluded as all subjects are Amyloid positive who had PET Tau.
+
+```{r}
+lmm_results_A4_tau_sens <- lme(PACC ~ I(pacc_time^2) + pacc_time*delta_all*tau_composite + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort + pacc_time*bl_pacc_age + pacc_time*APOE + pacc_time*SEX + pacc_time*EDCCNTU, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+print(summary(lmm_results_A4_tau_sens)$tTable["pacc_time:delta_all:tau_composite", 5])
 ```
 
 
@@ -588,7 +613,7 @@ PACC \~ pacc_timeXdelta
 ```{r}
 lmm_results_habs <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_habs)
-p <- plot_model(lmm_results_habs, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]'))
+p <- plot_model(lmm_results_habs, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
 p <- p +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
@@ -602,12 +627,12 @@ ggsave('~/Downloads/habs_pacc.png', plot = p, width = 3.5, height = 2)
 
 #### Age, e4 and amyloid
 
-Add Age, APOE and Amyloid status:
+Add Age, APOE, Sex, Education and Amyloid status:
 
 ```{r}
-lmm_results_habs_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl+ time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+lmm_results_habs_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_habs_sens)
-p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]'))
+p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
 p
 ```
 
@@ -618,7 +643,7 @@ We keep significant results although the trajectories also depend on the other f
 ```{r}
 lmm_results_habs_sens <- lme(PACC_change_bl ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl+ time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*BL_PACC, data = data_habs, random = ~ 0 + time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_habs_sens)
-p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]'))
+p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
 p
 ```
 
@@ -627,10 +652,10 @@ p
 #### pTau217
 
 ```{r}
-lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'p_tau217_ratio [0.71, 3.46, 6.21]'))
-levels(p$data$facet) <- c("pTau217 = 0.71", "pTau217 = 3.46", "pTau217 = 6.21")
+lmm_results_habs_ptau <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_ptau)
+p <- plot_model(lmm_results_habs_ptau, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'p_tau217_ratio'))
+#levels(p$data$facet) <- c("pTau217 = 0.71", "pTau217 = 3.46", "pTau217 = 6.21")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -640,15 +665,23 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_habs_ptau)$tTable["time_from_bl:delta_all:p_tau217_ratio", 5])
 ```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_habs_ptau_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_habs_ptau_sens)$tTable["time_from_bl:delta_all:p_tau217_ratio", 5])
+```
+
 
 #### PET Amyloid
 
 ```{r}
-lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'PIB_FS_SUVR_FLR [1.0, 1.24, 1.49]'))
-levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.24", "AB-PET SUVR = 1.49")
+lmm_results_habs_amyl <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_amyl)
+p <- plot_model(lmm_results_habs_amyl, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'PIB_FS_SUVR_FLR [1.0, 1.24, 1.49]'))
+#levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.24", "AB-PET SUVR = 1.49")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -657,15 +690,22 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_habs_amyl)$tTable["time_from_bl:delta_all:PIB_FS_SUVR_FLR", 5])
+```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_habs_amyl_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_habs_amyl_sens)$tTable["time_from_bl:delta_all:PIB_FS_SUVR_FLR", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results)
-p <- plot_model(lmm_results, type = c('pred'), terms = c('time_from_bl', 'delta_all [-4, 0, 4]', 'tau_composite [1.17, 1.35, 1.52]'))
-levels(p$data$facet) <- c("Tau-PET SUVR = 1.17", "Tau-PET SUVR = 1.35", "Tau-PET SUVR = 1.52")
+lmm_results_habs_tau <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs_tau)
+p <- plot_model(lmm_results_habs_tau, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'tau_composite [1.17, 1.35, 1.52]'))
+#levels(p$data$facet) <- c("Tau-PET SUVR = 1.17", "Tau-PET SUVR = 1.35", "Tau-PET SUVR = 1.52")
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
@@ -674,6 +714,13 @@ p <- p +
       y = 'PACC')
 p
 ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 6, height = 3)
+print(summary(lmm_results_habs_tau)$tTable["time_from_bl:delta_all:tau_composite", 5])
+```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_habs_tau_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_habs_tau_sens)$tTable["time_from_bl:delta_all:tau_composite", 5])
 ```
 
 ### Delta Threshold

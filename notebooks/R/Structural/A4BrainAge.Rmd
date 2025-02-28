@@ -108,6 +108,14 @@ regression_analysis <- function(data, x, y, covars) {
 }
 ```
 
+```{r}
+# Distribution of deltas
+mean <- mean(data$delta_all)
+print(mean)
+std <- sqrt(var(data$delta_all))
+print(std)
+```
+
 ## Delta differences {.tabset}
 
 ### E4 status
