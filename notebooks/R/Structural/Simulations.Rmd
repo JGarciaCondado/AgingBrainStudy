@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(MASS); library(dplyr);library(nlme);library(sjPlot);library(longpower);
+library(ggplot2); library(ggpubr); library(MASS); library(dplyr);library(nlme);library(sjPlot);library(longpower);library(parallel);
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -76,7 +76,7 @@ Linear mixed effects model
 
 ```{r}
 # remove those with delta lower than 2
-#data_habs <- data_habs %>% filter(delta_all > 0)
+data_habs <- data_habs %>% filter(delta_all > 0)
 lmm_results_habs_pacc <- lme(NP_PACC_PACC5 ~ time_from_bl, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_habs_pacc)
 plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl'))
@@ -133,7 +133,7 @@ simulate_longitudinal_data <- function(
     id = 1:numsubj,
     randint = randeff[, 1],
     randsl = randeff[, 2],
-    txt = rep(c(0, 1), each = numsubj / 2)
+    txt = rep(c(0, 1), length.out=numsubj)
   )
   
   # Simulate observations dynamically
@@ -226,6 +226,113 @@ for (i in 1:numsim) {
   results_sim$time_txt_pval[i] <- time_txt_pval
 }
 ```
+
+```{r}
+# Create simulate trial function
+simulate_trial <- function(n) {
+  data_long <- simulate_longitudinal_data(
+    numsubj = n,
+    t = t,
+    intercept = intercept,
+    slope = slope,
+    random_intercept_var = random_intercept_var,
+    random_slope_var = random_slope_var,
+    corr_intercept_slope = corr_intercept_slope,
+    random_residual_var = random_residual_var,
+    effect = effect
+  )
+  
+  # Create lme model
+  results <- lme(obs ~ time*txt, random = ~time|id, data = data_long, control=lmeControl(maxiter=100,opt="optim"))
+  time_txt_pval <- summary(results)$tTable[4, 5]
+  
+  return(time_txt_pval)
+}
+```
+
+```{r}
+estimate_power_parallel <- function(n, reps = 100, alpha = 0.05, cores = detectCores() - 1) {
+  # Create the cluster
+  cl <- makeCluster(cores)
+  
+  # Export necessary functions and objects to the cluster
+  clusterExport(cl, c("simulate_trial", "simulate_longitudinal_data", 
+                      "t", "intercept", "slope", "random_intercept_var", 
+                      "random_slope_var", "corr_intercept_slope", 
+                      "random_residual_var", "effect"))
+  
+  # Ensure required libraries are loaded on each cluster node
+  clusterEvalQ(cl, {
+    library(MASS); library(dplyr);library(nlme);
+  })
+  
+  # Use parLapply to compute p-values
+  p_values <- parLapply(cl, 1:reps, function(i) {
+    simulate_trial(n)
+  })
+  
+  # Stop the cluster
+  stopCluster(cl)
+  
+  # Compute power
+  power <- mean(unlist(p_values) < alpha)
+  return(power)
+}
+```
+
+```{r}
+simulate_trial(2000)
+estimate_power_parallel(2500, 100)
+```
+
+```{r}
+find_sample_size_parallel <- function(n_min = 1000, n_max = 4000, power_target = 0.9, 
+                                      alpha = 0.05, reps = 100, nearest = 50, 
+                                      cores = detectCores() - 1) {
+  
+  # Ensure n_min and n_max are multiples of `nearest`
+  n_min <- ceiling(n_min / nearest) * nearest
+  n_max <- floor(n_max / nearest) * nearest
+  
+  prev_n_mid <- -1  # Track previous n_mid to detect stagnation
+
+  while (n_min < n_max) {
+    n_mid <- round((n_min + n_max) / (2 * nearest)) * nearest  # Round to nearest multiple
+    print(n_mid)
+
+    # If n_mid is the same as the last iteration, break to avoid infinite loop
+    if (n_mid == prev_n_mid) {
+      break
+    }
+    prev_n_mid <- n_mid  # Update tracker
+
+    power_est <- estimate_power_parallel(n_mid, reps, alpha, cores)
+    print(power_est)
+
+    if (power_est >= power_target) {
+      n_max <- n_mid  # Reduce upper bound
+    } else {
+      n_min <- min(n_mid + nearest, n_max)  # Ensure we don’t exceed n_max
+    }
+
+    # Stop if the search range is smaller than `nearest`
+    if ((n_max - n_min) < nearest) {
+      break
+    }
+  }
+
+  return(n_mid)
+}
+
+find_sample_size_parallel()
+```
+```{r}
+# Run sample size calculation 10 times, store the results and plot mean and standard deviations
+sample_sizes <- replicate(10, find_sample_size_parallel())
+mean_sample_sizes <- mean(sample_sizes)
+sd_sample_sizes <- sd(sample_sizes)
+```
+
 
 ```{r}
 # Calculate power of simulation
