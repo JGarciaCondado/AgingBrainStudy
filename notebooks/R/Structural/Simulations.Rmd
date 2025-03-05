@@ -70,46 +70,96 @@ baseline_habs <- data_habs %>%
 # Add age at baseline of subjects
 data_habs <- data_habs %>%
   left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
+
+# Ensure factors
+data_habs <- data_habs %>%
+  mutate_at(vars(SEX, E4_Status), factor)
 ```
 
 Linear mixed effects model
 
 ```{r}
 # remove those with delta lower than 2
-data_habs <- data_habs %>% filter(delta_all > 0)
+data_habs <- data_habs %>% filter(delta_all > 4)
 lmm_results_habs_pacc <- lme(NP_PACC_PACC5 ~ time_from_bl, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
+#lmm_results_habs_pacc <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_habs_pacc)
 plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl'))
 ```
-Power caclulations with object
-
 ```{r}
+# Variables of model
+
+# Trial
 effect = 0.27
 time_points = seq(0, 2, 0.5)
 sig.level = 0.05
-power = 0.8
-lmmpower(lmm_results_habs_pacc, pct.change = effect, t = time_points, sig.level = sig.level, power = power)
-```
+power = 0.9
 
-Power calculations with measurments
-
-```{r}
+# LMM metrics
 vc_matrix <- VarCorr(lmm_results_habs_pacc)
 vc_numeric <- as.numeric(vc_matrix)
 random_intercept_var = vc_numeric[1]
 random_slope_var = vc_numeric[2]
 random_residual_var = vc_numeric[3]
 corr_intercept_slope = vc_numeric[8]
-lmmpower(sig2.i = random_intercept_var, sig2.s = random_slope_var, sig2.e = random_residual_var, cor.s.i = corr_intercept_slope, pct.change = effect, t = time_points, sig.level = sig.level, power = power)
-lmmpower(n=100, sig2.i = 0.1, sig2.s = 0.1, sig2.e = 0.1, cor.s.i = 0.1, 
-         pct.change = 0.1, t = 3, sig.level = 0.05, power = 0.08)
+slope = summary(lmm_results_habs_pacc)$tTable["time_from_bl", 1]
+intercept = summary(lmm_results_habs_pacc)$tTable["(Intercept)", 1]
+
+# Delta expected
+delta_expected = slope * effect
 ```
 
-Simulations
+## Formulas
+
+```{r}
+lmmpower(lmm_results_habs_pacc, delta = delta_expected, t = time_points, sig.level = sig.level, power = power)
+lmmpower(object=lmm_results_habs_pacc, sig2.i = random_intercept_var, sig2.s = random_slope_var, sig2.e = random_residual_var, cor.s.i = corr_intercept_slope, pct.change = effect, t = time_points, sig.level = sig.level, power = power)
+```
+
+```{r}
+# Using formula directly
+
+# Generate time points
+t <- time_points
+n <- length(t)
+
+# Covariance function
+cov.t <- function(t1, t2, sig2.i, sig2.s, cov.s.i){
+    sig2.i + t1*t2*sig2.s + (t1+t2)*cov.s.i 
+}
+
+# Create covariance matrix R
+# Use the variance components from your model
+R <- outer(t, t, function(x,y){
+    cov.t(x, y, 
+          sig2.i = random_intercept_var, 
+          sig2.s = random_slope_var, 
+          cov.s.i = corr_intercept_slope)
+})
+
+# Add residual variance to the diagonal
+R <- R + diag(random_residual_var, n, n)
+
+# Perform power calculation
+power_result <- diggle.linear.power(
+    d = delta_expected,     # Treatment effect
+    t = t,                    # Time points
+    R = R,                    # Covariance matrix
+    sig.level = 0.05,         # Significance level
+    power = 0.90              # Desired power
+)
+
+# Print results
+print(power_result)
+```
+
+## Simulations
+
+### Data simulations
 
 ```{r}
 simulate_longitudinal_data <- function(
-  numsubj,                # Number of subjects
+  n,                      # Number of subjects
   t,                      # Vector of time points
   intercept,              # Fixed intercept
   slope,                  # Fixed slope
@@ -126,21 +176,21 @@ simulate_longitudinal_data <- function(
     c(random_intercept_var, cov_intercept_slope, cov_intercept_slope, random_slope_var),
     nrow = 2, byrow = TRUE
   )
-  randeff <- MASS::mvrnorm(n = numsubj, mu = c(0, 0), Sigma = sigma_matrix)
+  randeff <- MASS::mvrnorm(n = n, mu = c(0, 0), Sigma = sigma_matrix)
   
   # Assignation of treatment
   data <- data.frame(
-    id = 1:numsubj,
+    id = 1:n,
     randint = randeff[, 1],
     randsl = randeff[, 2],
-    txt = rep(c(0, 1), length.out=numsubj)
+    txt = rep(c(0, 1), length.out=n)
   )
   
   # Simulate observations dynamically
   for (i in seq_along(t)) {
     data[[paste0("obs", i)]] <- intercept + data$randint + 
       t[i] * (slope + data$randsl - slope * effect * data$txt) +
-      rnorm(numsubj, 0, random_residual_var)
+      rnorm(n, 0, random_residual_var)
   }
   
   # Convert to long format
@@ -150,7 +200,7 @@ simulate_longitudinal_data <- function(
       names_to = "timepoint",
       values_to = "obs"
     ) %>%
-    mutate(time = rep(t, times = numsubj))
+    mutate(time = rep(t, times = n))
   
   # Sort by subject ID and time
   data_long <- data_long[order(data_long$id, data_long$time), ]
@@ -159,28 +209,15 @@ simulate_longitudinal_data <- function(
 }
 ```
 
+
+### Modelling
 ```{r}
 # Specific trial metrics
-numsubj = 2000
-effect = 0.27
-t <- seq(0, 2, 0.5)
-
-# Fixe effects extrcted from lme model
-results_table <- summary(lmm_results_habs_pacc)$tTable
-intercept <- results_table[1, 1]
-slope <- results_table[2, 1]
-
-# Random effect variance
-vc_matrix <- VarCorr(lmm_results_habs_pacc)
-vc_numeric <- as.numeric(vc_matrix)
-random_intercept_var = vc_numeric[1]
-random_slope_var = vc_numeric[2]
-random_residual_var = vc_numeric[3]
-corr_intercept_slope = vc_numeric[8]
+numsubj = 1100
 
 # Simulate data
 data_long <- simulate_longitudinal_data(
-  numsubj = numsubj,
+  n = numsubj,
   t = t,
   intercept = intercept,
   slope = slope,
@@ -191,47 +228,28 @@ data_long <- simulate_longitudinal_data(
   effect = effect
 )
 
-# Create lme model and show restuls
+# Create lme model and show results
 results <- lme(obs ~ time*txt, random = ~time|id, data = data_long, control=lmeControl(maxiter=100,opt="optim"))
-summary(results)$tTable[4, 5]
+summary(results)
 plot_model(results, type = c('pred'), terms = c('time', 'txt'))
 ```
 
 ```{r}
-# Create dataframe to store results of simulation
-numsim = 100
-results_sim <- data.frame(
-  time_txt_pval = rep(NA, numsim)
-)
-
-# Simulate data 
-for (i in 1:numsim) {
-  data_long <- simulate_longitudinal_data(
-    numsubj = numsubj,
-    t = t,
-    intercept = intercept,
-    slope = slope,
-    random_intercept_var = random_intercept_var,
-    random_slope_var = random_slope_var,
-    corr_intercept_slope = corr_intercept_slope,
-    random_residual_var = random_residual_var,
-    effect = effect
-  )
-  
-  # Create lme model
-  results <- lme(obs ~ time*txt, random = ~time|id, data = data_long, control=lmeControl(maxiter=100,opt="optim"))
-  time_txt_pval <- summary(results)$tTable[4, 5]
-  
-  # Store results
-  results_sim$time_txt_pval[i] <- time_txt_pval
-}
-```
-
-```{r}
 # Create simulate trial function
-simulate_trial <- function(n) {
+simulate_trial <- function(
+  n,                      # Number subjects
+  t,                    # Vector of time points
+  intercept,            # Fixed intercept
+  slope,                # Fixed slope
+  random_intercept_var, # Variance of random intercept
+  random_slope_var,     # Variance of random slope
+  corr_intercept_slope, # Correlation between intercept and slope
+  random_residual_var,  # Variance of residual error
+  effect               # Treatment effec
+) 
+ {
   data_long <- simulate_longitudinal_data(
-    numsubj = n,
+    n = n,
     t = t,
     intercept = intercept,
     slope = slope,
@@ -244,14 +262,33 @@ simulate_trial <- function(n) {
   
   # Create lme model
   results <- lme(obs ~ time*txt, random = ~time|id, data = data_long, control=lmeControl(maxiter=100,opt="optim"))
-  time_txt_pval <- summary(results)$tTable[4, 5]
+  time_txt_pval <- summary(results)$tTable["time:txt", 5]
   
   return(time_txt_pval)
 }
 ```
 
+
+### Power estiamtion
 ```{r}
-estimate_power_parallel <- function(n, reps = 100, alpha = 0.05, cores = detectCores() - 1) {
+estimate_power_parallel <- function(  
+  # Basic simulation parameters
+  t,                    # Vector of time points
+  intercept,            # Fixed intercept
+  slope,                # Fixed slope
+  random_intercept_var, # Variance of random intercept
+  random_slope_var,     # Variance of random slope
+  corr_intercept_slope, # Correlation between intercept and slope
+  random_residual_var,  # Variance of residual error
+  effect,               # Treatment effect
+  
+  # Sample size search parameters
+  n,                      # Number subjects
+  alpha = 0.05,           # Significance level
+  reps = 100,             # Number of repetitions of trials
+  cores = parallel::detectCores() - 1 # Number of cores to use
+)
+  {
   # Create the cluster
   cl <- makeCluster(cores)
   
@@ -259,7 +296,7 @@ estimate_power_parallel <- function(n, reps = 100, alpha = 0.05, cores = detectC
   clusterExport(cl, c("simulate_trial", "simulate_longitudinal_data", 
                       "t", "intercept", "slope", "random_intercept_var", 
                       "random_slope_var", "corr_intercept_slope", 
-                      "random_residual_var", "effect"))
+                      "random_residual_var", "effect", "n"))
   
   # Ensure required libraries are loaded on each cluster node
   clusterEvalQ(cl, {
@@ -268,7 +305,17 @@ estimate_power_parallel <- function(n, reps = 100, alpha = 0.05, cores = detectC
   
   # Use parLapply to compute p-values
   p_values <- parLapply(cl, 1:reps, function(i) {
-    simulate_trial(n)
+    simulate_trial(
+      n = n,
+      t = t,
+      intercept = intercept,
+      slope = slope,
+      random_intercept_var = random_intercept_var,
+      random_slope_var = random_slope_var,
+      corr_intercept_slope = corr_intercept_slope,
+      random_residual_var = random_residual_var,
+      effect = effect
+    )
   })
   
   # Stop the cluster
@@ -281,14 +328,44 @@ estimate_power_parallel <- function(n, reps = 100, alpha = 0.05, cores = detectC
 ```
 
 ```{r}
-simulate_trial(2000)
-estimate_power_parallel(2500, 100)
+estimate_power_parallel(
+  t = t,
+  intercept = intercept,
+  slope = slope,
+  random_intercept_var = random_intercept_var,
+  random_slope_var = random_slope_var,
+  corr_intercept_slope = corr_intercept_slope,
+  random_residual_var = random_residual_var,
+  effect = effect,
+  n = 2000,
+  reps = 100,
+)
 ```
 
+### Estimating sample size
+
 ```{r}
-find_sample_size_parallel <- function(n_min = 1000, n_max = 4000, power_target = 0.9, 
-                                      alpha = 0.05, reps = 100, nearest = 50, 
-                                      cores = detectCores() - 1) {
+find_sample_size_parallel <- function(  
+  # Basic simulation parameters
+  t,                    # Vector of time points
+  intercept,            # Fixed intercept
+  slope,                # Fixed slope
+  random_intercept_var, # Variance of random intercept
+  random_slope_var,     # Variance of random slope
+  corr_intercept_slope, # Correlation between intercept and slope
+  random_residual_var,  # Variance of residual error
+  effect,               # Treatment effect
+  
+  # Sample size search parameters
+  n_min = 1000,                      # Minimum sample size to try
+  n_max = 4000,                      # Maximum sample size to try
+  power_target = 0.9,                # Target power
+  alpha = 0.05,                      # Significance level
+  reps = 100,                        # Number of repetitions for each sample size
+  nearest = 50,                      # Round sample sizes to nearest multiple
+  cores = parallel::detectCores() - 1 # Number of cores to use
+)
+  {
   
   # Ensure n_min and n_max are multiples of `nearest`
   n_min <- ceiling(n_min / nearest) * nearest
@@ -306,7 +383,20 @@ find_sample_size_parallel <- function(n_min = 1000, n_max = 4000, power_target =
     }
     prev_n_mid <- n_mid  # Update tracker
 
-    power_est <- estimate_power_parallel(n_mid, reps, alpha, cores)
+    power_est <- estimate_power_parallel(
+      n = n_mid,
+      reps = reps,
+      alpha = alpha,
+      cores = cores,
+      t = t,
+      intercept = intercept,
+      slope = slope,
+      random_intercept_var = random_intercept_var,
+      random_slope_var = random_slope_var,
+      corr_intercept_slope = corr_intercept_slope,
+      random_residual_var = random_residual_var,
+      effect = effect
+    )      
     print(power_est)
 
     if (power_est >= power_target) {
@@ -323,20 +413,27 @@ find_sample_size_parallel <- function(n_min = 1000, n_max = 4000, power_target =
 
   return(n_mid)
 }
-
-find_sample_size_parallel()
 ```
+
 ```{r}
 # Run sample size calculation 10 times, store the results and plot mean and standard deviations
-sample_sizes <- replicate(10, find_sample_size_parallel())
+sample_sizes <- replicate(10, find_sample_size_parallel(
+  n_min = 500,
+  n_max = 3000,
+  power_target = 0.9,
+  reps = 100,
+  alpha = 0.05,
+  cores = 4,
+  t = t,
+  intercept = intercept,
+  slope = slope,
+  random_intercept_var = random_intercept_var,
+  random_slope_var = random_slope_var,
+  corr_intercept_slope = corr_intercept_slope,
+  random_residual_var = random_residual_var,
+  effect = effect
+))
 mean_sample_sizes <- mean(sample_sizes)
 sd_sample_sizes <- sd(sample_sizes)
-```
-
-
-```{r}
-# Calculate power of simulation
-sig.level = 0.05
-power = mean(results_sim$time_txt_pval < sig.level)
 ```
 
