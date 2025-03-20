@@ -1,0 +1,262 @@
+---
+title: "ADNI BrainAge"
+author: "Jorge Garcia Condado"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+knit: (
+  function(inputFile, encoding) { 
+    rmarkdown::render('ADNIBrainAge.Rmd',
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/ADNIBrainAge', '.html', sep=''))
+      })
+---
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot)
+
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+theme_set(theme_bw())
+```
+
+# BrainAge modelling in A4/Learn study
+
+A linear regression BrainAge model was trained on e4 non-carriers and AB-. The model was then applied to the rest of the cohort.
+
+The model was trained using the following features:
+
+-   Amygdala normalized volume
+-   Hippocampus normalized volume
+-   Inferior parietal cortical thickness
+-   Inferior temporal cortical thickness
+-   Middle temporal cortical thickness
+-   Entorhinal cortical thickness
+-   Parahippocampal cortical thickness
+-   Fusiform cortical thickness
+
+Command used: model_age -o analysis/A4/structural_brainage -f data/A4/processed/structural_features.csv --clinical data/A4/processed/clinical.csv
+
+```{r, include = FALSE}
+# Load data
+deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/ADNI/ageml/model_age/predicted_age.csv')
+
+# Load factors
+factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
+data <- merge(deltas, factors, by = 'ID', all.x = TRUE)
+
+# Amyloid status
+covars <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/processed/covariates.csv', na.strings = c("", " ", "NaN", "NA", NA))
+covars$AMYLOID_STATUS <- ifelse(covars$AMYLOID_STATUS == 1, 'positive', 'negative')
+covars$e4_carrier <- ifelse(covars$e4_carrier == 1, 'carrier', 'non-carrier')
+covars <- covars %>%
+  rename(Amyloid = AMYLOID_STATUS) %>%
+  rename(e4 = e4_carrier) %>%
+  rename(SEX = Sex) %>%
+  rename(BL_Age = Age) %>%
+  rename(YearsEd = Education)
+data <- merge(data, covars, by = 'ID', all.x = TRUE)
+```
+
+```{r}
+regression_analysis <- function(data, x, y, covars) {
+  
+  # Filter nan values
+  data <- data[complete.cases(data[, c(x, y, covars)]), ]
+  
+  # Scatter plot with correlation
+  scatter_plot <- ggplot(data, aes(x = !!sym(y), y = !!sym(x))) +
+    geom_point() +
+    geom_smooth(method = 'lm', formula = y ~ x) +
+    stat_cor(method = 'pearson') +
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
+    
+  # Create a formula for the regression model
+  covar_formula <- paste(covars, collapse = " + ")
+  full_formula <- as.formula(paste(x, "~", y, "+", covar_formula))
+  
+  # Linear regression model
+  ols_results <- lm(as.formula(paste(x, "~", y)), data = data)
+  ols_full_results <- lm(full_formula, data = data)
+  
+  # Model summary
+  model_summary <- summary(ols_results)
+  model_full_summary <- summary(ols_full_results)
+  
+  # Plot model
+  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE) +
+    geom_point(data = data, aes(x = !!sym(y), y = !!sym(x)), 
+             inherit.aes = F) + 
+    labs(title = paste(x, "vs", y),
+         x = y,
+         y = x)
+  
+  # Return a list with all results
+  return(list(
+    scatter_plot = scatter_plot,
+    simple_model = ols_results,
+    regression_model = ols_full_results,
+    model_summary = model_summary,
+    model_full_summary = model_full_summary,
+    predicted_values_plot = pred_plot
+  ))
+}
+```
+
+```{r}
+# Distribution of deltas
+mean <- mean(data$delta_all)
+print(mean)
+std <- sqrt(var(data$delta_all))
+print(std)
+```
+
+## Delta differences {.tabset}
+
+### E4 status
+
+```{r}
+ggplot(subset(data, !is.na(e4)), aes(x = e4, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by E4 status',
+       x = 'E4 status',
+       y = 'Delta')
+```
+
+### Amyloid status
+
+```{r}
+ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'Amyloid status',
+       y = 'Delta')
+```
+
+### Sex differences
+
+```{r}
+data$SEX <- as.factor(data$SEX)
+ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = delta_all)) +
+  geom_boxplot() +
+  stat_compare_means(method = 't.test') +
+  labs(title = 'Delta differences by Amyloid status',
+       x = 'SEX',
+       y = 'Delta')
+```
+
+
+
+## Cognition {.tabset}
+
+### PACC
+
+```{r}
+regression_analysis(data, 'zPACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### YearsEd
+
+```{r}
+regression_analysis(data, 'YearsEd', 'delta_all', c('SEX', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+## Blood Biomarkers {.tabset}
+
+### pTau217
+
+```{r}
+regression_analysis(data, 'pT217', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data, 'pT217', 'BL_Age', c('SEX'))
+
+regression_analysis(data, 'pT217', 'delta_all', c('NfL', 'AB42_AB40', 'GFAP'))
+```
+
+
+### NFL
+
+```{r}
+regression_analysis(data, 'NfL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data, 'NfL', 'delta_all', c('pT217', 'AB42_AB40', 'GFAP'))
+
+```
+
+### GFAP
+
+```{r}
+regression_analysis(data, 'GFAP', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data, 'GFAP', 'delta_all', c('pT217', 'AB42_AB40', 'NfL'))
+```
+
+### AB42/40
+
+```{r}
+regression_analysis(data, 'AB42_AB40', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+
+regression_analysis(data, 'AB42_AB40', 'delta_all', c('pT217', 'NfL', 'GFAP'))
+```
+
+## PET Amyloid
+
+### Composite
+
+```{r}
+regression_analysis(data, 'amyloid_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+```
+
+## PET Tau {.tabset}
+
+### Composite
+```{r}
+regression_analysis(data, 'tau_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Inferior temporal
+
+```{r}
+regression_analysis(data, 'inferiortemporal_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Inferior parietal
+
+```{r}
+regression_analysis(data, 'inferiorparietal_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Middle temporal
+
+```{r}
+regression_analysis(data, 'middletemporal_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Entorhinal
+
+```{r}
+regression_analysis(data, 'entorhinal_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Parahippocampal
+
+```{r}
+regression_analysis(data, 'parahippocampal_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Fusiform
+
+```{r}
+regression_analysis(data, 'fusiform_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```
+
+### Amygdala
+
+```{r}
+regression_analysis(data, 'pvc_amygdala_tau', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+```

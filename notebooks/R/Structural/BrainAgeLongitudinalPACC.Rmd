@@ -136,6 +136,33 @@ data_habs <- data_habs %>%
   mutate_at(vars(SEX, E4_Status), factor)
 ```
 
+```{r}
+
+# Load ADNI data
+data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/raw/adni_03192025.csv')
+
+# Concert time from baseline to years
+data_adni <- data_adni %>% 
+  rename(time_from_bl = MonthsFromBaseline_PACC) %>%
+  mutate(time_from_bl = time_from_bl/12)
+
+# Load deltas
+deltas_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/ADNI/ageml/model_age/predicted_age.csv')
+data_adni <- merge(data_adni, deltas_adni, by = 'ID', all.x = TRUE)
+
+# Create new variable delta_group where is 0 below younger and older above zero
+data_adni <- data_adni %>% 
+  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
+
+# Arrange by pacc_time and calculate PACC_change_bl
+data_adni <- data_adni %>% 
+  arrange(ID, time_from_bl) %>%
+  group_by(ID) %>%
+  mutate(PACC_bl = zPACC[1]) %>%
+  mutate(PACC_change_bl = zPACC - PACC_bl)
+
+```
+
 ## Demographics
 
 ```{r}
@@ -785,4 +812,46 @@ power_results_habs <- compare_power_analysis(models_habs, "time_from_bl")
 
 # Print the results
 print(power_results_habs)
+```
+
+## ADNI
+
+### Trajectories
+
+Plot PACC trajectories with spaghetti plot.
+
+```{r}
+ggplot(data_adni, aes(x = time_from_bl, y = zPACC, group = ID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
+  theme_minimal()
+```
+
+Plot PACC change from baseline trajectories with spaghetti plot.
+
+```{r}
+ggplot(data_adni, aes(x = time_from_bl, y = PACC_change_bl, group = ID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
+  theme_minimal()
+```
+
+### Mixed Effects Model
+
+Simplest Quadratic mixed effects models with delta at baseline:
+
+PACC \~ pacc_timeXdelta
+
+```{r}
+lmm_results_adni <- lme(zPACC ~ time_from_bl*delta_all, data = data_adni, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni)
+p <- plot_model(lmm_results_adni, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from baseline (years)',
+      y = 'PACC')
+p
 ```
