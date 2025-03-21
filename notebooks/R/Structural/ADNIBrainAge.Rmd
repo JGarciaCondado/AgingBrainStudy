@@ -206,6 +206,12 @@ regression_analysis(data, 'AB42_AB40', 'delta_all', c('pT217', 'NfL', 'GFAP'))
 
 ## PET Amyloid
 
+### Centiloids
+
+```{r}
+regression_analysis(data, 'CENTILOIDS_AMYLOID', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+```
+
 ### Composite
 
 ```{r}

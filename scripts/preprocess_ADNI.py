@@ -56,7 +56,7 @@ df_clinical.to_csv('data/ADNI/processed/clinical.csv', index=False)
 # Extract factors of interest
 factors_cog = ['zPACC']
 factors_blood = ['pT217_F', 'AB42_AB40_F', 'NfL_Q', 'GFAP_Q']
-factors_pet_amyl = ['SUMMARY_SUVR_AMYLOID']
+factors_pet_amyl = ['SUMMARY_SUVR_AMYLOID', 'CENTILOIDS_AMYLOID']
 factors_pet_tau = [col for col in df_baseline.columns if 'SUVR_TAU' in col]
 df_factors = df_baseline[['ID'] + factors_cog + factors_blood + factors_pet_amyl + factors_pet_tau].copy()
 
