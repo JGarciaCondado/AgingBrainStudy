@@ -1,0 +1,209 @@
+---
+title: "Clinical Enrichment with BrainAge"
+author: "Jorge Garcia Condado"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    self_contained: true
+knit: (
+  function(inputFile, encoding) { 
+    rmarkdown::render('ClinicalEnrichment.Rmd',
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/ClinicalEnrichment', '.html', sep=''))
+      })
+---
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2); library(ggpubr); library(dplyr);
+
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+theme_set(theme_bw())
+```
+
+# Brain Age Longitudinal PACC
+
+We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on A4/Learn and HABS data.
+
+```{r}
+
+# Load A4 data
+data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
+
+# Filter subjects with less than 2 data points
+data_A4 <- data_A4 %>% 
+  arrange(BID, pacc_time) %>%  
+  group_by(BID) %>% 
+  add_tally(name = 'nTimePoints', wt = !is.na(PACC)) %>%
+  filter(nTimePoints >= 2)
+
+# Load deltas
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
+
+# Merge the two datasets
+data_A4 <- merge(data_A4, delta_A4, by = 'BID')
+
+# Load covariates
+covars_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv')
+covars_A4 <- covars_A4 %>% 
+  select(BID, Amyloid)
+data_A4 <- merge(data_A4, covars_A4, by = 'BID', all.x = TRUE)
+
+# Arrange by pacc_time and calculate PACC_change_bl
+data_A4 <- data_A4 %>% 
+  arrange(BID, pacc_time) %>%
+  group_by(BID) %>%
+  mutate(PACC_bl = PACC[1]) %>%
+  mutate(PACC_change_bl = PACC - PACC_bl)
+
+# Create cohort variable
+data_A4 <- data_A4 %>%
+  group_by(BID) %>%
+  dplyr::mutate(Cohort = case_when(
+    SUBSTUDY == "SF" | SUBSTUDY == "LEARN" ~ "LEARN/SF",
+    SUBSTUDY == "A4" & TX == "Placebo" ~ "A4 Placebo",
+    SUBSTUDY == "A4" & TX == "Solanezumab" ~ "A4 Treated",
+    TRUE ~ NA))
+
+# Ensure variables are factors
+data_A4 <- data_A4 %>%
+  mutate_at(vars(SUBSTUDY, TX, Cohort, SEX, RACE, ETHNIC, APOE, APOEGN, QSVERSION_PACC), factor)
+
+# Placebo data
+data_placebo <- data_A4 %>% 
+  filter(TX == 'Placebo')
+
+# Remove time points after visit 36 and only keep AB positive subjects
+data_placebo <- data_A4 %>% 
+  #filter(NP_VISCODE <= 36) %>%
+  filter(Amyloid == 1)
+
+# Extract those with delta_all above median
+data_placebo_median <- data_placebo %>% 
+  filter(delta_all > median(data_placebo$delta_all, na.rm = TRUE))
+
+# Extract those with optimum threshold that is 1 sd above median
+data_placebo_opt <- data_placebo %>% 
+  filter(delta_all > (median(data_placebo$delta_all, na.rm = TRUE) + sd(data_placebo$delta_all, na.rm = TRUE)))
+```
+
+```{r}
+
+# Load HABS data
+data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/raw/longitudinal_PACC.csv')
+
+# Load delta
+deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/HABS/structural_brainage/ageml/model_age/predicted_age.csv')
+data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort', all.x = TRUE)
+
+# Add factors
+factors_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv')
+factors_habs <- factors_habs %>% 
+  select(SubjIDshort, PIB_FS_SUVR_Group)
+data_habs <- merge(data_habs, factors_habs, by = 'SubjIDshort', all.x = TRUE)
+
+# Ensure correct typing
+data_habs$NP_SessionDate <- as.Date(data_habs$NP_SessionDate)
+data_habs <- data_habs %>%
+  mutate(across(c(E4_Status, PIB_FS_SUVR_Group, SEX), as.factor))
+  
+
+# Filter subjects with less than 2 data points
+data_habs <- data_habs %>% 
+  arrange(SubjIDshort, NP_SessionDate) %>%  
+  group_by(SubjIDshort) %>% 
+  add_tally(name = 'nTimePoints', wt = !is.na(NP_PACC_PACC5)) %>%
+  filter(nTimePoints >= 2) %>%
+  mutate(time_from_bl = as.numeric(NP_SessionDate - min(NP_SessionDate, na.rm = TRUE))/365.25)  %>%
+  mutate(PACC_change_bl = NP_PACC_PACC5 - NP_PACC_PACC5[1])
+
+# Renamt NP_PACC_PACC5 to PACC and time_from_bl to pacc_time and SubjIDShort to BID
+data_habs <- data_habs %>% 
+  rename(PACC = NP_PACC_PACC5, pacc_time = time_from_bl, BID = SubjIDshort)
+
+# HABS
+data <- data_habs %>% 
+  filter(PIB_FS_SUVR_Group == 'PIB+') %>%
+  filter(pacc_time <= 5)
+
+# HABS median
+data_median <- data %>% 
+  filter(delta_all > median(data$delta_all, na.rm = TRUE))
+```
+
+# Linear Mixed Effects Model
+
+```{r}
+library(nlme); library(sjPlot)
+lmm <- lme(PACC ~ pacc_time, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), data = data, control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000)  )
+summary(lmm)
+plot_model(lmm, type = 'pred', terms = c('pacc_time'))
+```
+
+# Sample and power caclulations
+
+```{r}
+library(longpower)
+source("../../../scripts/longpower_fix.R") # fixes an error in lmmpowwer (see https://github.com/mcdonohue/longpower/issues/6)
+
+# Set parameters
+outcome = 'PACC'
+t_visits = seq(0, 5, 0.5)
+treatment_eff = 0.27
+power = 0.9
+sig_level = 0.05
+n = NULL
+method = 'edland'
+
+# create a linear mixed model of outcome progression on which we base the sample size/power estimation
+lmm <- lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data)
+
+# calculate power / sample size using longpower package
+pwr <- lmmpower(lmm, pct.change = treatment_eff, t = t_visits, power = power, sig.level = sig_level, n = n, method = method)
+```
+
+```{r}
+# create a linear mixed model of outcome progression on which we base the sample size/power estimation
+lmm_median <- lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_median)
+
+# calculate power / sample size using longpower package
+pwr_median <- lmmpower(lmm_median, pct.change = treatment_eff, t = t_visits, power = power, sig.level = sig_level, n = n, method = method)
+```
+
+```{r}
+# create a linear mixed model of outcome progression on which we base the sample size/power estimation
+lmm_opt <- lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_placebo_opt)
+
+# calculate power / sample size using longpower package
+pwr_opt <- lmmpower(lmm_opt, pct.change = treatment_eff, t = t_visits, power = power, sig.level = sig_level, n = n, method = method)
+```
+
+# Calculate savings
+
+```{r}
+screened_org = 5967
+recruited_org = 1796
+treatment_cost_per_year = 26500
+years = 2
+scren_cost = 6957
+screen_pass = recruited_org / screened_org
+```
+
+```{r}
+# Original costs
+total_treatment = treatment_cost_per_year * years * recruited_org/2 # half of pariticpants get recruitment
+total_screen = scren_cost * screened_org
+total_cost = total_treatment + total_screen
+```
+
+```{r}
+percentage_reduction = 0.65
+increase_screens = 0.5 # calculate this ratio directly from data 
+mri_cost = 353
+recruited_enriched = recruited_org * (1 - percentage_reduction)
+screened_enriched = recruited_enriched / (increase_screens * screen_pass)
+total_treatment_enriched = treatment_cost_per_year * years * recruited_enriched/2
+total_screen_enriched = (scren_cost + mri_cost) * screened_enriched
+total_cost_enriched = total_treatment_enriched + total_screen_enriched
+```
