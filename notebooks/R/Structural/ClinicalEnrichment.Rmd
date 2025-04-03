@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
@@ -25,6 +25,81 @@ theme_set(theme_bw())
 # Brain Age Longitudinal PACC
 
 We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on A4/Learn and HABS data.
+
+```{r}
+# Trial variables
+treatment_eff = 0.27
+power = 0.9
+sig_level = 0.05
+n = NULL
+method = 'edland'
+
+# Lecanemab costs
+screened_lecanemab = 5967
+recruited_lecanemab = 1796
+treatment_cost_per_year = 26500
+scren_cost = 6957
+screen_cost_mri = 353
+screen_pass_lecanemab = recruited_lecanemab / screened_lecanemab
+
+# Function to calculate drug trial costs
+calculate_drug_trial_costs <- function(
+  years,                     # Total years of the trial
+  participants_required,     # Number of participants required in the trial
+  screen_pass_rate,       # Percentage of participants that screen fail (0-100)
+  screen_cost,               # Cost per screening (default value)
+  mri_cost,                  # Cost per MRI screening (default value)
+  treatment_cost_per_year,   # Treatment cost per participant per year (default value)
+  has_mri_screening = FALSE, # Whether there are MRI screenings (TRUE/FALSE)
+  mri_pass_rate = 0      # Percentage of participants that don't pass MRI screening (0-100)
+) {
+  
+  # Calculate number of participants to screen
+  if (has_mri_screening) {
+    # If using MRI screening, account for both regular screening and MRI screening failures
+    participants_to_screen = participants_required / (screen_pass_rate * mri_pass_rate)
+  } else {
+    # Without MRI, only account for regular screening failures
+    participants_to_screen = participants_required / screen_pass_rate
+  }
+  
+  # Calculate screening costs
+  if (has_mri_screening) {
+    # For participants who pass initial screening, they also get an MRI
+    participants_passing_initial = participants_to_screen * screen_pass_rate
+    screening_cost = (participants_to_screen * screen_cost) + (participants_passing_initial * mri_cost)
+  } else {
+    screening_cost = participants_to_screen * screen_cost
+  }
+  
+  # Calculate treatment costs
+  # Assuming half of the enrolled participants receive the treatment (other half is control)
+  treatment_cost = treatment_cost_per_year * years * participants_required / 2
+  
+  # Calculate total costs
+  total_cost = screening_cost + treatment_cost
+  
+  # Create and return results list
+  results <- list(
+    screening_cost = screening_cost,
+    participants_to_screen = participants_to_screen,
+    treatment_cost = treatment_cost,
+    total_cost = total_cost
+  )
+  
+  return(results)
+}
+
+# Outcome of interest
+outcome = 'zPACC'
+
+# Library of longpower 
+library(longpower)
+source("../../../scripts/longpower_fix.R") # fixes an error in lmmpowwer (see https://github.com/mcdonohue/longpower/issues/6)
+```
+
+
+## ADNI
 
 ```{r}
 
@@ -57,82 +132,283 @@ data <- data_adni %>%
 data_median <- data %>% 
   filter(delta_all > median(data$delta_all, na.rm = TRUE))
 
-# Extract those with delta_all above 0
-data_median_control <- data %>% 
-  filter(delta_all > 0)
-
-# Optimum threshold
+# Extract those with Optimum Threshold
+data_opt <- data %>% 
+  filter(delta_all > 4.35)
 
 # Total number of unique participants in each
-n_participants <- length(unique(data$ID))
-n_participants_median <- length(unique(data_median$ID))
-n_participants_median_control <- length(unique(data_median_control$ID))
+n_adni_participants <- length(unique(data$ID))
+n_adni_participants_median <- length(unique(data_median$ID))
+n_adni_participants_opt <- length(unique(data_opt$ID))
 ```
 
-# Linear Mixed Effects Model
+### Linear Mixed Effects Model {.tabset}
+
+#### All
+```{r}
+lmm_adni_all <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data)
+summary(lmm_adni_all)
+plot_model(lmm_adni_all, type = 'pred', terms = c('pacc_time'))
+```
+#### Median
 
 ```{r}
-library(nlme); library(sjPlot)
-lmm <- lme(zPACC ~ pacc_time, random = ~ pacc_time|ID, na.action = 'na.omit', method = c('ML'), data = data, control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000)  )
-summary(lmm)
-plot_model(lmm, type = 'pred', terms = c('pacc_time'))
+lmm_adni_median <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data_median)
+summary(lmm_adni_median)
+plot_model(lmm_adni_median, type = 'pred', terms = c('pacc_time'))
 ```
 
-# Sample and power caclulations
+#### Optimum
 
 ```{r}
-library(longpower)
-source("../../../scripts/longpower_fix.R") # fixes an error in lmmpowwer (see https://github.com/mcdonohue/longpower/issues/6)
+lmm_adni_opt <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data_opt)
+summary(lmm_adni_opt)
+plot_model(lmm_adni_opt, type = 'pred', terms = c('pacc_time'))
+```
 
-# Set parameters
-outcome = 'zPACC'
-t_visits = seq(0, 2, 0.5)
-treatment_eff = 0.27
-power = 0.9
-sig_level = 0.05
-n = NULL
-method = 'edland'
 
-# create a linear mixed model of outcome progression on which we base the sample size/power estimation
-lmm <- lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data)
+### Sample and power caclulations {.tabset}
 
+```{r}
+# Set parameters for ADNI two years
+t_visits_adni = seq(0, 2, 0.5)
+```
+
+#### All
+
+```{r}
 # calculate power / sample size using longpower package
-pwr_all <- lmmpower(lmm, pct.change = treatment_eff, t = t_visits, power = power, sig.level = sig_level, n = n, method = method)
+pwr_all <- lmmpower(lmm_adni_all, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_adni_all <- pwr_all$N
+n_adni_all
 ```
+#### Median
 
 ```{r}
-# create a linear mixed model of outcome progression on which we base the sample size/power estimation
-lmm_median <- lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data_median_control)
-
 # calculate power / sample size using longpower package
-pwr_median <- lmmpower(lmm_median, pct.change = treatment_eff, t = t_visits, power = power, sig.level = sig_level, n = n, method = method)
+pwr_median <- lmmpower(lmm_adni_median, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_adni_median <- pwr_median$N
+n_adni_median
 ```
 
-# Calculate savings
+#### Optimum
 
 ```{r}
-screened_org = 5967
-recruited_org = 1796
-treatment_cost_per_year = 26500
-years = 2
-scren_cost = 6957
-screen_pass = recruited_org / screened_org
+# calculate power / sample size using longpower package
+pwr_opt <- lmmpower(lmm_adni_opt, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_adni_opt <- pwr_opt$N
+n_adni_opt
 ```
 
+### Calculate savings {.tabset}
+
+#### All
 ```{r}
-# Original costs
-total_treatment = treatment_cost_per_year * years * recruited_org/2 # half of pariticpants get recruitment
-total_screen = scren_cost * screened_org
-total_cost = total_treatment + total_screen
+cost_adni_all <- calculate_drug_trial_costs(
+  years = 2,
+  participants_required = n_adni_all,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = FALSE,
+  mri_pass_rate = 0
+)
+
+cost_adni_all
 ```
 
+#### Median
 ```{r}
-percentage_reduction = pwr_median$N / pwr_all$N
-increase_screens = n_participants_median_control/n_participants # calculate this ratio directly from data 
-mri_cost = 353
-recruited_enriched = recruited_org * percentage_reduction
-screened_enriched = recruited_enriched / (increase_screens * screen_pass)
-total_treatment_enriched = treatment_cost_per_year * years * recruited_enriched/2
-total_screen_enriched = (scren_cost + mri_cost) * screened_enriched
-total_cost_enriched = total_treatment_enriched + total_screen_enriched
+mri_pass_rate_median = n_adni_participants_median / n_adni_participants
+mri_pass_rate_median
+cost_adni_median <- calculate_drug_trial_costs(
+  years = 2,
+  participants_required = n_adni_median,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = TRUE,
+  mri_pass_rate = mri_pass_rate_median
+)
+cost_adni_median
+```
+
+#### Optimum
+```{r}
+mri_pass_rate_opt = n_adni_participants_opt / n_adni_participants
+mri_pass_rate_opt
+cost_adni_opt <- calculate_drug_trial_costs(
+  years = 2,
+  participants_required = n_adni_opt,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = TRUE,
+  mri_pass_rate = mri_pass_rate_opt
+)
+cost_adni_opt
+```
+## A4
+
+```{r}
+# Load A4 data
+data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
+
+# Load covariates
+covars_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv')
+covars_A4 <- covars_A4 %>% 
+  select(BID, Amyloid)
+data_A4 <- merge(data_A4, covars_A4, by = 'BID', all.x = TRUE)
+
+# Filter subjects with less than 2 data points
+data_A4 <- data_A4 %>% 
+  arrange(BID, pacc_time) %>%  
+  group_by(BID) %>% 
+  add_tally(name = 'nTimePoints', wt = !is.na(PACC)) %>%
+  filter(nTimePoints >= 2)
+
+# Load deltas
+delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
+
+# Merge the two datasets
+data_A4 <- merge(data_A4, delta_A4, by = 'BID')
+
+# Placebo data
+data_placebo <- data_A4 %>% 
+  filter(TX == 'Placebo' | SUBSTUDY != 'A4') %>% # Filter only with placebo
+  filter(Amyloid == 1) %>% # Only placebo
+  filter(NP_VISCODE <= 60) # Only before the first 5 years
+
+# Extract those with delta_all above median
+data_a4_median <- data_placebo %>% 
+  filter(delta_all > median(data_placebo$delta_all, na.rm = TRUE))
+
+# Extract those with Optimum Threshold
+data_a4_opt <- data_placebo %>% 
+  filter(delta_all > 1.73)
+
+# Total number of unique participants in each
+n_a4_participants <- length(unique(data_placebo$BID))
+n_a4_participants_median <- length(unique(data_a4_median$BID))
+n_a4_participants_opt <- length(unique(data_a4_opt$BID))
+```
+
+### Linear Mixed Effects Model {.tabset}
+
+#### All
+```{r}
+outcome = 'PACC'
+lmm_a4_all <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_placebo)
+summary(lmm_a4_all)
+plot_model(lmm_a4_all, type = 'pred', terms = c('pacc_time'))
+```
+#### Median
+
+```{r}
+lmm_a4_median <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_a4_median)
+summary(lmm_a4_median)
+plot_model(lmm_a4_median, type = 'pred', terms = c('pacc_time'))
+```
+
+#### Optimum
+
+```{r}
+lmm_a4_opt <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_a4_opt)
+summary(lmm_a4_opt)
+plot_model(lmm_a4_opt, type = 'pred', terms = c('pacc_time'))
+```
+
+
+### Sample and power caclulations {.tabset}
+
+```{r}
+# Set parameters for A4 5 years
+t_visits_a4 = seq(0, 5, 0.5)
+```
+
+#### All
+
+```{r}
+# calculate power / sample size using longpower package
+pwr_all_a4 <- lmmpower(lmm_a4_all, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_a4_all <- pwr_all_a4$N
+n_a4_all
+```
+#### Median
+
+```{r}
+# calculate power / sample size using longpower package
+pwr_median_a4 <- lmmpower(lmm_a4_median, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_a4_median <- pwr_median_a4$N
+n_a4_median
+```
+
+#### Optimum
+
+```{r}
+# calculate power / sample size using longpower package
+pwr_opt_a4 <- lmmpower(lmm_a4_opt, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+# Print number of subjects
+n_a4_opt <- pwr_opt_a4$N
+n_a4_opt
+```
+
+### Calculate savings {.tabset}
+
+#### All
+```{r}
+cost_a4_all <- calculate_drug_trial_costs(
+  years = 5,
+  participants_required = n_a4_all,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = FALSE,
+  mri_pass_rate = 0
+)
+
+cost_a4_all
+```
+
+#### Median
+```{r}
+mri_pass_rate_a4_median = n_a4_participants_median / n_a4_participants
+mri_pass_rate_a4_median
+cost_a4_median <- calculate_drug_trial_costs(
+  years = 5,
+  participants_required = n_a4_median,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = TRUE,
+  mri_pass_rate = mri_pass_rate_a4_median
+)
+cost_a4_median
+```
+
+#### Optimum
+```{r}
+mri_pass_rate_a4_opt = n_a4_participants_opt / n_a4_participants
+mri_pass_rate_a4_opt
+cost_a4_opt <- calculate_drug_trial_costs(
+  years = 5,
+  participants_required = n_a4_opt,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = TRUE,
+  mri_pass_rate = mri_pass_rate_a4_opt
+)
+cost_a4_opt
 ```
