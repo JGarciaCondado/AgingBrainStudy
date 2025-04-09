@@ -9,6 +9,8 @@ df_long = pd.read_csv('data/final/habs/habs_long_040725.csv',
                       index_col='ID',
                       usecols=lambda x: x != 'Unnamed: 0')
 
+# Rename index column to ID
+df_baseline.index.name = 'ID'
 
 # Keep only participants with more than two time points
 df_long = df_long.sort_values(by=['ID', 'NP_SessionDate'])
@@ -24,14 +26,14 @@ df_baseline = df_baseline[df_baseline['Diagnosis'] == 'CN']
 df_structural = df_baseline.filter(like='MRI_').copy()
 df_structural.columns = df_structural.columns.str.replace('MRI_FS7_rnr_', '')
 
-# Combine those with lh and rh 
+# Combine those with lh and rh cortical thickness
 lh = df_structural.filter(like='lh_').columns
 rh = df_structural.filter(like='rh_').columns
 for l, r in zip(lh, rh):
     df_structural['bi_' + l.split('_')[1]] = df_structural[l] + df_structural[r]
     df_structural.drop(columns=[l, r], inplace=True)
 
-# Combine those with Left and Right
+# Combine those with Left and Right Hippocampus and Amygdala
 left = df_structural.filter(like='Left').columns
 right = df_structural.filter(like='Right').columns
 for l, r in zip(left, right):
@@ -59,11 +61,11 @@ df_structural.to_csv('data/final/habs/processed/structural_features.csv')
 
 # Create clinical file with CN bein e4- and ab-
 df_clinical = df_baseline[['e4_carrier', 'PIB_FS_DVR_Group']].copy()
-df_clinical = df_clinical.dropna()
 df_clinical['cn'] = ((df_clinical['e4_carrier'] == 0) & (df_clinical['PIB_FS_DVR_Group'] == 'PIB-')).astype(int)
 df_clinical['e4+'] = ((df_clinical['e4_carrier'] == 1) & (df_clinical['PIB_FS_DVR_Group'] == 'PIB-')).astype(int)
 df_clinical['e4+ab+'] = ((df_clinical['e4_carrier'] == 1) & (df_clinical['PIB_FS_DVR_Group'] == 'PIB+')).astype(int)
 df_clinical['ab+'] = ((df_clinical['e4_carrier'] == 0) & (df_clinical['PIB_FS_DVR_Group'] == 'PIB+')).astype(int)
+df_clinical['unknown'] = ((df_clinical['e4_carrier'].isna() | df_clinical['PIB_FS_DVR_Group'].isna())).astype(int)
 df_clinical.drop(columns=['e4_carrier', 'PIB_FS_DVR_Group'], inplace=True)
 df_clinical.to_csv('data/final/habs/processed/clinical.csv')
 
@@ -102,10 +104,9 @@ df_baseline.rename(columns={
     'PIB_FS_DVR_Group': 'ab_status',
     'PIB_FS_DVR_FLR': 'ab_composite',
     'p_tau217_ratio': 'ptau',
+    'MRI_SessionDate': 'mri_date',
 }, inplace=True)
 
-# Rename index column to ID
-df_baseline.index.name = 'ID'
 
 # Convert to human redable codes and standardized codes 
 df_baseline['sex'] = df_baseline['sex'].map({1: 'Female', 0: 'Male'})
@@ -113,7 +114,7 @@ df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
 df_baseline['ab_status'] = df_baseline['ab_status'].map({'PIB+': 'ab+', 'PIB-': 'ab-'})
 
 # Columns of interest with all the other data
-common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'PACC', 'time_diff_pacc',
+common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC', 'time_diff_pacc',
                'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau']
 df_baseline = df_baseline[common_cols]
 
