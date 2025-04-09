@@ -142,7 +142,7 @@ ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
 ### PACC
 
 ```{r}
-regression_analysis(cn_data, 'PACC', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+regression_analysis(cn_data, 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 ```
 
 ### AB
@@ -251,7 +251,7 @@ ggplot(subset(mci_data, !is.na(sex)), aes(x = sex, y = delta)) +
 ### PACC
 
 ```{r}
-regression_analysis(mci_data, 'PACC', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+regression_analysis(mci_data, 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 ```
 
 ### AB

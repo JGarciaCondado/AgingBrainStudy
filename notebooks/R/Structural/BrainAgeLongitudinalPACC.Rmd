@@ -17,6 +17,7 @@ knit: (
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr); library(longpower); library(gt)
 
+source('~/Documents/Projects/AgingBrainStudy/scripts/functions.R')
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 theme_set(theme_bw())
@@ -139,42 +140,17 @@ data_habs <- data_habs %>%
 ```{r}
 
 # Load ADNI data
-data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/raw/adni_03242025.csv')
+data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/longitudinal.csv')
 
-# Concert time from baseline to years
-data_adni <- data_adni %>% 
-  rename(time_from_bl = MonthsFromBaseline_PACC) %>%
-  mutate(time_from_bl = time_from_bl/12)
-
-# Load deltas
-deltas_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/ADNI/ageml/model_age/predicted_age.csv')
-data_adni <- merge(data_adni, deltas_adni, by = 'ID')
-
-# Create new variable delta_group where is 0 below younger and older above zero
-data_adni <- data_adni %>% 
-  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
-
-# Arrange by pacc_time and calculate PACC_change_bl
-data_adni <- data_adni %>% 
-  arrange(ID, time_from_bl) %>%
-  group_by(ID) %>%
-  add_tally(name = 'nTimePoints', wt = !is.na(zPACC)) %>%
-  filter(nTimePoints >= 2) %>%
-  mutate(PACC_bl = zPACC[1]) %>%
-  mutate(PACC_change_bl = zPACC - PACC_bl)
-
-# Load factors
-factors_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
-factors_adni <- factors_adni %>%
-  rename(amyloid_composite = CENTILOIDS_AMYLOID) %>%
-  select(ID, pT217, amyloid_composite, tau_composite)
-data_adni <- merge(data_adni, factors_adni, by = 'ID', all.x = TRUE)
+# Ensure factors
+data_adni <- data_adni %>%
+  mutate_at(vars(sex, e4_carrier, ab_status), factor)
 
 # Devide between Baseline_diagnosis CN and MCI
 data_adni_mci <- data_adni %>% 
-  filter(Baseline_Diagnosis == 'MCI')
+  filter(diagnosis == 'MCI')
 data_adni_cn <- data_adni %>%
-  filter(Baseline_Diagnosis == 'CN')
+  filter(diagnosis == 'CN')
 ```
 
 ## Demographics
@@ -431,73 +407,6 @@ print(summary(lmm_results_A4_tau_sens)$tTable["pacc_time:delta_all:tau_composite
 
 
 ### Delta threshold
-
-```{r}
-find_optimal_threshold <- function(data, 
-                                 threshold_range,
-                                 outcome,
-                                 measure,
-                                 fixed_formula,
-                                 random_formula) {
-  
-  # Function to fit model for a given threshold
-  fit_threshold_model <- function(cut, data) {
-    # Create binary amyloid status
-    data$delta_status <- ifelse(data[[measure]] >= cut, 1, 0)
-    
-    # Remove rows with missing outcome
-    data <- data[!is.na(data[[outcome]]), ]
-
-    # Fit linear mixed effects model
-    model <- lme(
-      fixed = as.formula(paste(outcome, "~", fixed_formula)),
-      random = as.formula(random_formula),
-      data = data,
-      na.action = 'na.omit',
-      method = c('ML'),
-      control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000)
-    )
-    
-    return(AIC(model))
-  }
-  
-
-  # Calculate AIC for each threshold
-  results <- data.frame(
-    threshold = threshold_range,
-    aic = sapply(threshold_range, fit_threshold_model, data = data)
-  )
-  
-  # Find optimal threshold
-  optimal_threshold <- results$threshold[which.min(results$aic)]
-  
-  # Create plot
-  plot <- ggplot(results, aes(x = threshold, y = aic)) +
-    geom_point(color = '#377eb8', size = 2) + 
-    geom_line(color = '#377eb8', size = 1.5) +
-    geom_vline(xintercept = optimal_threshold, 
-               color = "black", 
-               linetype = 'longdash') +
-    geom_text(aes(x = optimal_threshold + 0.06, 
-                  y = max(aic) - (max(aic) - min(aic))/10),
-              label = sprintf('Delta = %.2f', optimal_threshold)) +
-    labs(x = 'Delta threshold (years)',
-         y = "AIC") +
-    theme_bw() + 
-    theme(
-      axis.title = element_text(size = 12, face = "bold"),
-      axis.text = element_text(size = 12, colour = "#333333"),
-      panel.grid = element_blank()
-    )
-  
-  # Return results
-  return(list(
-    optimal_threshold = optimal_threshold,
-    aic_values = results,
-    plot = plot
-  ))
-}
-```
 
 ```{r}
 a4_formula = "I(pacc_time^2) + pacc_time*delta_status + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort"
@@ -836,20 +745,20 @@ print(power_results_habs)
 Plot PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_cn, aes(x = time_from_bl, y = zPACC, group = ID, colour = delta_group)) +
+ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
   theme_minimal()
 ```
 
 Plot PACC change from baseline trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_cn, aes(x = time_from_bl, y = PACC_change_bl, group = ID, colour = delta_group)) +
+ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
   theme_minimal()
 ```
 
@@ -860,13 +769,13 @@ Simplest Quadratic mixed effects models with delta at baseline:
 PACC \~ pacc_timeXdelta
 
 ```{r}
-lmm_results_adni_cn <- lme(zPACC ~ time_from_bl*delta_all, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_adni_cn <- lme(PACC ~ time_mri*delta, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_adni_cn)
-p <- plot_model(lmm_results_adni_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+p <- plot_model(lmm_results_adni_cn, type = c('pred'), terms = c('time_mri', 'delta'))
 p <- p +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 ```
@@ -878,9 +787,9 @@ p
 Add Age, APOE, Sex, Education and Amyloid status:
 
 ```{r}
-lmm_results_adni_sens_cn <- lme(zPACC ~ time_from_bl*delta_all + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn)
-p <- plot_model(lmm_results_adni_sens_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+lmm_results_adni_sens_cn_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_cn_demo)
+p <- plot_model(lmm_results_adni_sens_cn_demo, type = c('pred'), terms = c('time_mri', 'delta'))
 p
 ```
 
@@ -889,104 +798,104 @@ We keep significant results although the trajectories also depend on the other f
 #### Change from baseline
 
 ```{r}
-lmm_results_adni_sens_cn <- lme(PACC_change_bl ~ time_from_bl*delta_all + time_from_bl*MRI_Age + time_from_bl*Sex + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*PACC_bl, data = data_adni_cn, random = ~ 0 + time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn)
-p <- plot_model(lmm_results_adni_sens_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+lmm_results_adni_sens_cn_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_adni_cn, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_cn_change)
+p <- plot_model(lmm_results_adni_sens_cn_change, type = c('pred'), terms = c('time_mri', 'delta'))
 p
 ```
 
 ### Interactions {.tabset}
 
-#### pTau217
-
-```{r}
-lmm_results_ADNI_ptau_cn <- lme(zPACC ~ time_from_bl*delta_all*pT217, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_ptau_cn)
-p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'pT217'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-
-print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_from_bl:delta_all:pT217", 5])
-```
-Add Age, Sex, Education, E4 Status and Amyloid status.
-
-```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(zPACC~ time_from_bl*delta_all*pT217 + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_from_bl:delta_all:pT217", 5])
-```
-
-
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(zPACC ~ time_from_bl*delta_all*amyloid_composite, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_cn)
-p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'amyloid_composite'))
+p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 
-print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_from_bl:delta_all:amyloid_composite", 5])
+print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(zPACC~ time_from_bl*delta_all*amyloid_composite + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_from_bl:delta_all:amyloid_composite", 5])
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+#### pTau217
+
+```{r}
+lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_ADNI_ptau_cn)
+p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
+p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+
+print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
+```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(zPACC ~ time_from_bl*delta_all*tau_composite, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_tau_cn)
-p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'tau_composite'))
+p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 
-print(summary(lmm_results_ADNI_tau_cn)$tTable["time_from_bl:delta_all:tau_composite", 5])
+print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(zPACC~ time_from_bl*delta_all*tau_composite + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_cn, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_from_bl:delta_all:tau_composite", 5])
+lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 ### Delta Threshold
 
 ```{r}
-adni_formula = "time_from_bl*delta_status"
-adni_random_formula = " ~ time_from_bl|ID"
-mean_adni_delta_cn = mean(data_adni_cn$delta_all, na.rm = TRUE)
-sd_adni_delta_cn = sd(data_adni_cn$delta_all, na.rm = TRUE)
+adni_formula = "time_mri*delta_status"
+adni_random_formula = " ~ time_mri|ID"
+mean_adni_delta_cn = mean(data_adni_cn$delta, na.rm = TRUE)
+sd_adni_delta_cn = sd(data_adni_cn$delta, na.rm = TRUE)
 results_adni_cn <- find_optimal_threshold(data_adni_cn, seq(mean_adni_delta_cn-2*sd_adni_delta_cn, 
                                                     mean_adni_delta_cn + 2*sd_adni_delta_cn, by = 0.5), 
-                                   outcome = "zPACC", 
-                                   measure = "delta_all", 
+                                   outcome = "PACC", 
+                                   measure = "delta", 
                                    fixed_formula = adni_formula, 
                                    random_formula = adni_random_formula)
 print(results_adni_cn$optimal_threshold)
 print(results_adni_cn$plot)
+print((results_adni_cn$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```
 
 ## ADNI MCI
@@ -996,20 +905,20 @@ print(results_adni_cn$plot)
 Plot PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_mci, aes(x = time_from_bl, y = zPACC, group = ID, colour = delta_group)) +
+ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
   theme_minimal()
 ```
 
 Plot PACC change from baseline trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_mci, aes(x = time_from_bl, y = PACC_change_bl, group = ID, colour = delta_group)) +
+ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
   theme_minimal()
 ```
 
@@ -1020,13 +929,13 @@ Simplest Quadratic mixed effects models with delta at baseline:
 PACC \~ pacc_timeXdelta
 
 ```{r}
-lmm_results_adni_mci <- lme(zPACC ~ time_from_bl*delta_all, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_adni_mci <- lme(PACC ~ time_mri*delta, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_adni_mci)
-p <- plot_model(lmm_results_adni_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+p <- plot_model(lmm_results_adni_mci, type = c('pred'), terms = c('time_mri', 'delta'))
 p <- p +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 ```
@@ -1038,9 +947,9 @@ p
 Add Age, APOE, Sex, Education and Amyloid status:
 
 ```{r}
-lmm_results_adni_sens_mci <- lme(zPACC ~ time_from_bl*delta_all + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_mci)
-p <- plot_model(lmm_results_adni_sens_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+lmm_results_adni_sens_mci_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_mci_demo)
+p <- plot_model(lmm_results_adni_sens_mci_demo, type = c('pred'), terms = c('time_mri', 'delta'))
 p
 ```
 
@@ -1049,102 +958,103 @@ We keep significant results although the trajectories also depend on the other f
 #### Change from baseline
 
 ```{r}
-lmm_results_adni_sens_mci <- lme(PACC_change_bl ~ time_from_bl*delta_all + time_from_bl*MRI_Age + time_from_bl*Sex + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*PACC_bl, data = data_adni_mci, random = ~ 0 + time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_mci)
-p <- plot_model(lmm_results_adni_sens_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
+lmm_results_adni_sens_mci_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_adni_mci, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_mci_change)
+p <- plot_model(lmm_results_adni_sens_mci_change, type = c('pred'), terms = c('time_mri', 'delta'))
 p
 ```
 
 ### Interactions {.tabset}
 
-#### pTau217
-
-```{r}
-lmm_results_ADNI_ptau_mci <- lme(zPACC ~ time_from_bl*delta_all*pT217, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_ptau_mci)
-p <- plot_model(lmm_results_ADNI_ptau_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'pT217'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-
-print(summary(lmm_results_ADNI_ptau_mci)$tTable["time_from_bl:delta_all:pT217", 5])
-```
-Add Age, Sex, Education, E4 Status and Amyloid status.
-
-```{r}
-lmm_results_ADNI_ptau_sens_mci <- lme(zPACC~ time_from_bl*delta_all*pT217 + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_mci)$tTable["time_from_bl:delta_all:pT217", 5])
-```
-
-
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_mci <- lme(zPACC ~ time_from_bl*delta_all*amyloid_composite, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_mci)
-p <- plot_model(lmm_results_ADNI_amyl_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'amyloid_composite'))
+p <- plot_model(lmm_results_ADNI_amyl_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 
-print(summary(lmm_results_ADNI_amyl_mci)$tTable["time_from_bl:delta_all:amyloid_composite", 5])
+print(summary(lmm_results_ADNI_amyl_mci)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_mci <- lme(zPACC~ time_from_bl*delta_all*amyloid_composite + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_mci)$tTable["time_from_bl:delta_all:amyloid_composite", 5])
+lmm_results_ADNI_amyl_sens_mci <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_mci)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+#### pTau217
+
+```{r}
+lmm_results_ADNI_ptau_mci <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_ADNI_ptau_mci)
+p <- plot_model(lmm_results_ADNI_ptau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
+p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+
+print(summary(lmm_results_ADNI_ptau_mci)$tTable["time_mri:delta:ptau", 5])
+```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_ptau_sens_mci)$tTable["time_mri:delta:ptau", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results_ADNI_tau_mci <- lme(zPACC ~ time_from_bl*delta_all*tau_composite, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_mci <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_tau_mci)
-p <- plot_model(lmm_results_ADNI_tau_mci, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'tau_composite'))
+p <- plot_model(lmm_results_ADNI_tau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
 p <- p +
   ggtitle(NULL) +
   theme(strip.background = element_rect(fill = "white")) +
   ggtitle(NULL) +
   labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
+      x = 'Time from MRI (years)',
       y = 'PACC')
 p
 
-print(summary(lmm_results_ADNI_tau_mci)$tTable["time_from_bl:delta_all:tau_composite", 5])
+print(summary(lmm_results_ADNI_tau_mci)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_tau_sens_mci <- lme(zPACC~ time_from_bl*delta_all*tau_composite + time_from_bl*MRI_Age + time_from_bl*e4_carrier + time_from_bl*AMYLOID_STATUS + time_from_bl*Sex + time_from_bl*Education, data = data_adni_mci, random = ~time_from_bl|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_mci)$tTable["time_from_bl:delta_all:tau_composite", 5])
+lmm_results_ADNI_tau_sens_mci <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_tau_sens_mci)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 ### Delta Threshold
 
 ```{r}
-adni_formula = "time_from_bl*delta_status"
-adni_random_formula = " ~ time_from_bl|ID"
-mean_adni_delta_mci = mean(data_adni_mci$delta_all, na.rm = TRUE)
-sd_adni_delta_mci = sd(data_adni_mci$delta_all, na.rm = TRUE)
+adni_formula = "time_mri*delta_status"
+adni_random_formula = " ~ time_mri|ID"
+mean_adni_delta_mci = mean(data_adni_mci$delta, na.rm = TRUE)
+sd_adni_delta_mci = sd(data_adni_mci$delta, na.rm = TRUE)
 results_adni_mci <- find_optimal_threshold(data_adni_mci, seq(mean_adni_delta_mci-2*sd_adni_delta_mci, 
                                                     mean_adni_delta_mci + 2*sd_adni_delta_mci, by = 0.5), 
-                                   outcome = "zPACC", 
-                                   measure = "delta_all", 
+                                   outcome = "PACC", 
+                                   measure = "delta", 
                                    fixed_formula = adni_formula, 
                                    random_formula = adni_random_formula)
 print(results_adni_mci$optimal_threshold)
 print(results_adni_mci$plot)
+print((results_adni_mci$optimal_threshold - mean_adni_delta_mci) / sd_adni_delta_mci)
+print((results_adni_mci$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```

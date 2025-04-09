@@ -100,7 +100,7 @@ df_baseline.rename(columns={
     'Sex': 'sex',
     'Education': 'edu',
     'Diagnosis': 'diagnosis',
-    'zPACC': 'PACC',
+    'zPACC': 'PACC_mri',
     'PIB_FS_DVR_Group': 'ab_status',
     'PIB_FS_DVR_FLR': 'ab_composite',
     'p_tau217_ratio': 'ptau',
@@ -114,7 +114,7 @@ df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
 df_baseline['ab_status'] = df_baseline['ab_status'].map({'PIB+': 'ab+', 'PIB-': 'ab-'})
 
 # Columns of interest with all the other data
-common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC', 'time_diff_pacc',
+common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc',
                'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau']
 df_baseline = df_baseline[common_cols]
 
