@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 
 # Load baseline and longitudinal data
-df_baseline = pd.read_csv('data/final/habs/habs_baseline_040725.csv', 
+df_baseline = pd.read_csv('data/final/habs/habs_baseline_040925.csv', 
                           index_col='SubjIDshort',
                           usecols=lambda x: x != 'Unnamed: 0')
-df_long = pd.read_csv('data/final/habs/habs_long_040725.csv',
+df_long = pd.read_csv('data/final/habs/habs_long_040925.csv',
                       index_col='ID',
                       usecols=lambda x: x != 'Unnamed: 0')
 
@@ -18,6 +18,10 @@ df_long['nTimePoints'] = df_long.groupby('ID')['zPACC'].transform(lambda x: x.no
 df_long = df_long[df_long['nTimePoints'] >= 2]
 long_ids = df_long.index.unique()
 df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
+
+# Extract followup time of subjects from longitudinal data
+max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
+df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
 
 # Remove any participants with diagnosis of MCI because only interested in cognitively unimpaired
 df_baseline = df_baseline[df_baseline['Diagnosis'] == 'CN']
@@ -81,11 +85,9 @@ df_baseline['TAU_SessionDate'] = pd.to_datetime(df_baseline['TAU_SessionDate'], 
 # TODO: FIX NP date is very far from MRI date
 
 # Time differences
-#df_baseline['time_diff_pacc'] = df_baseline['NP_SessionDate'] - df_baseline['MRI_SessionDate']
-df_baseline['time_diff_pacc'] = np.nan
+df_baseline['time_diff_pacc'] = (df_baseline['NP_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25
 df_baseline['time_diff_ab'] = (df_baseline['PIB_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25
-#df_baseline['time_diff_ptau'] = df_baseline['NP_SessionDate'] - df_baseline['MRI_SessionDate']
-df_baseline['time_diff_ptau'] = np.nan
+df_baseline['time_diff_ptau'] = (df_baseline['NP_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25
 df_baseline['time_diff_tau'] = (df_baseline['TAU_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25
 
 # Calculate Tau composite by averaging over regions with _bh

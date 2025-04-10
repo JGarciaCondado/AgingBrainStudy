@@ -19,6 +19,10 @@ df_long = df_long[df_long['nTimePoints'] >= 2]
 long_ids = df_long.index.unique()
 df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
 
+# Extract followup time of subjects from longitudinal data
+max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
+df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
+
 # Process MRI features for BrainAge modelling by keeping only columns that start with MRI_
 df_structural = df_baseline.filter(like='MRI_').copy()
 df_structural.columns = df_structural.columns.str.replace('MRI_FS7_rnr_', '')

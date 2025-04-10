@@ -89,52 +89,11 @@ data_placebo <- data_A4 %>%
 ```{r}
 
 # Load HABS data
-data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/raw/longitudinal_PACC.csv')
-
-# Load delta
-deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/HABS/structural_brainage/ageml/model_age/predicted_age.csv')
-data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort', all.x = TRUE)
-
-# Create new variable delta_group where is 0 below younger and older above zero
-data_habs <- data_habs %>% 
-  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
-
-# Add factors
-factors_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv')
-factors_habs <- factors_habs %>% 
-  select(SubjIDshort, p_tau217, p_tau217_ratio, PIB_FS_SUVR_FLR, PIB_FS_SUVR_Group, tau_composite)
-data_habs <- merge(data_habs, factors_habs, by = 'SubjIDshort', all.x = TRUE)
-
-# Ensure correct typing
-data_habs$NP_SessionDate <- as.Date(data_habs$NP_SessionDate)
-data_habs <- data_habs %>%
-  mutate(across(c(E4_Status, PIB_FS_SUVR_Group), as.factor))
-
-# Filter subjects with less than 2 data points
-data_habs <- data_habs %>% 
-  arrange(SubjIDshort, NP_SessionDate) %>%  
-  group_by(SubjIDshort) %>% 
-  add_tally(name = 'nTimePoints', wt = !is.na(NP_PACC_PACC5)) %>%
-  filter(nTimePoints >= 2) %>%
-  mutate(time_from_bl = as.numeric(NP_SessionDate - min(NP_SessionDate, na.rm = TRUE))/365.25)  %>%
-  mutate(PACC_change_bl = NP_PACC_PACC5 - NP_PACC_PACC5[1])
-
-# Create baseline data set
-baseline_habs <- data_habs %>% 
-  group_by(SubjIDshort) %>%
-  arrange(NP_SessionDate) %>%
-  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
-  rename(BL_Age = NP_Age) %>%
-  rename(BL_PACC = NP_PACC_PACC5) %>%
-  ungroup()
-
-# Add age at baseline of subjects
-data_habs <- data_habs %>%
-  left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
+data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/habs/processed/longitudinal.csv')
 
 # Ensure factors
 data_habs <- data_habs %>%
-  mutate_at(vars(SEX, E4_Status), factor)
+  mutate_at(vars(sex, e4_carrier, ab_status), factor)
 ```
 
 ```{r}
@@ -423,329 +382,14 @@ print(results_A4$optimal_threshold)
 print(results_A4$plot)
 ```
 
-### Treatment effects
-
-```{r}
-# Function to perform power analysis across different parameters
-compare_power_analysis <- function(model_list, param, treatment_effects = c(0.1, 0.2, 0.3, 0.4), 
-                                 years = c(2, 4, 6), interval = 0.5,
-                                 sig.level = 0.05, power = 0.8) {
-  # Initialize results dataframe
-  results <- data.frame()
-  
-  # Loop through each model
-  for (model_name in names(model_list)) {
-    model <- model_list[[model_name]]
-    
-    # Loop through treatment effects
-    for (effect in treatment_effects) {
-      # Loop through years
-      for (year in years) {
-        # Calculate time points based on years and interval
-        time_points <- seq(0, year, interval)
-        
-        # Perform power analysis
-        pwr_result <- lmmpower(model,
-                             parameter = param,
-                             pct.change = effect,
-                             t = time_points,
-                             sig.level = sig.level,
-                             power = power)
-        
-        # Store results
-        results <- rbind(results, data.frame(
-          model = model_name,
-          effect_size = effect,
-          years = year,
-          n_subjects = pwr_result$N
-        ))
-      }
-    }
-  }
-  
-  # Calculate percentage changes between models
-  results_wide <- reshape(results, 
-                         idvar = c("effect_size", "years"),
-                         timevar = "model",
-                         direction = "wide")
-  
-  # Calculate percentage changes
-  base_model <- "pacc"  # Assuming this is your reference model
-  model_names <- names(model_list)
-  other_models <- model_names[model_names != base_model]
-  
-  for (other_model in other_models) {
-    col_name <- paste0("pct_change_", other_model)
-    base_n <- results_wide[, paste0("n_subjects.", base_model)]
-    compare_n <- results_wide[, paste0("n_subjects.", other_model)]
-    results_wide[, col_name] <- ((compare_n - base_n) / base_n) * 100
-  }
-  
-  return(results_wide)
-}
-```
-
-Simple model of time on PACC
-
-```{r}
-lmm_results_A4_pacc <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = data_A4, random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_A4_pacc)
-plot_model(lmm_results_A4_pacc, type = c('pred'), terms = c('pacc_time'))
-```
-
-Threshold to determine older looking subjects and repeat linear mixed effects model
-
-Using median
-
-```{r}
-threshold_A4_median = median(data_A4$delta_all , na.rm = TRUE)
-lmm_results_A4_pacc_old_median <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > threshold_A4_median), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-summary(lmm_results_A4_pacc_old_median)
-plot_model(lmm_results_A4_pacc_old_median, type = c('pred'), terms = c('pacc_time'))
-```
-
-Using linear mixed effects model optimization
-
-```{r}
-threshold_A4_opt = results_A4$optimal_threshold
-lmm_results_A4_pacc_old_opt <- lme(PACC ~ pacc_time + Cumulative_Dose_Scaled + QSVERSION_PACC + pacc_time*Cohort, data = subset(data_A4, data_A4$delta_all > threshold_A4_opt), random = ~ pacc_time|BID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-summary(lmm_results_A4_pacc_old_opt)
-plot_model(lmm_results_A4_pacc_old_opt, type = c('pred'), terms = c('pacc_time'))
-```
-
-Power analysis
-
-```{r}
-
-models_A4 <- list(
-  pacc = lmm_results_A4_pacc,
-  old_median = lmm_results_A4_pacc_old_median,
-  old_opt = lmm_results_A4_pacc_old_opt
-)
-
-# Run the analysis
-power_results_A4 <- compare_power_analysis(models_A4, "pacc_time")
-
-# Print the results
-print(power_results_A4)
-```
-
 ## HABS
-
-### Trajectories
-
-Plot PACC trajectories with spaghetti plot
-
-```{r}
-ggplot(subset(data_habs, !is.na(delta_group)), aes(x = time_from_bl, y = NP_PACC_PACC5, group = SubjIDshort, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC') +
-  theme_minimal()
-```
-
-Plot PACC change from baseline trajectories with spaghetti plot.
-
-```{r}
-ggplot(subset(data_habs, !is.na(delta_group)), aes(x =  time_from_bl, y = PACC_change_bl, group = SubjIDshort, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from Baseline', y = 'PACC change from Basline') +
-  theme_minimal()
-```
-
-### Mixed Effects Model
-
-Simplest linear mixed effects models with delta at baseline:
-
-PACC \~ pacc_timeXdelta 
-
-```{r}
-lmm_results_habs <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs)
-p <- plot_model(lmm_results_habs, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-ggsave('~/Downloads/habs_pacc.png', plot = p, width = 3.5, height = 2)
-```
-
-### Sensitivity Analysis {.tabset}
-
-#### Age, e4 and amyloid
-
-Add Age, APOE, Sex, Education and Amyloid status:
-
-```{r}
-lmm_results_habs_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_sens)
-p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
-p
-```
-
-We keep significant results although the trajectories also depend on the other factors.
-
-#### Change from baseline
-
-```{r}
-lmm_results_habs_sens <- lme(PACC_change_bl ~ time_from_bl*delta_all + time_from_bl*BL_Age + time_from_bl*SEX + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*BL_PACC, data = data_habs, random = ~ 0 + time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_sens)
-p <- plot_model(lmm_results_habs_sens, type = c('pred'), terms = c('time_from_bl', 'delta_all'))
-p
-```
-
-### Interactions {.tabset}
-
-#### pTau217
-
-```{r}
-lmm_results_habs_ptau <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_ptau)
-p <- plot_model(lmm_results_habs_ptau, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'p_tau217_ratio'))
-#levels(p$data$facet) <- c("pTau217 = 0.71", "pTau217 = 3.46", "pTau217 = 6.21")
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-ggsave('~/Downloads/pTau217_habs_pacc.png', plot = p, width = 6, height = 3)
-print(summary(lmm_results_habs_ptau)$tTable["time_from_bl:delta_all:p_tau217_ratio", 5])
-```
-Add Age, Sex, Education, E4 Status and Amyloid status.
-
-```{r}
-lmm_results_habs_ptau_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*p_tau217_ratio + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_habs_ptau_sens)$tTable["time_from_bl:delta_all:p_tau217_ratio", 5])
-```
-
-
-#### PET Amyloid
-
-```{r}
-lmm_results_habs_amyl <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_amyl)
-p <- plot_model(lmm_results_habs_amyl, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'PIB_FS_SUVR_FLR [1.0, 1.24, 1.49]'))
-#levels(p$data$facet) <- c("AB-PET SUVR = 1.0", "AB-PET SUVR = 1.24", "AB-PET SUVR = 1.49")
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-ggsave('~/Downloads/ab_habs_pacc.png', plot = p, width = 6, height = 3)
-print(summary(lmm_results_habs_amyl)$tTable["time_from_bl:delta_all:PIB_FS_SUVR_FLR", 5])
-```
-
-Add Age, Sex, Education, E4 Status and Amyloid status.
-
-```{r}
-lmm_results_habs_amyl_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*PIB_FS_SUVR_FLR + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_habs_amyl_sens)$tTable["time_from_bl:delta_all:PIB_FS_SUVR_FLR", 5])
-```
-
-#### PET Tau
-
-```{r}
-lmm_results_habs_tau <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_tau)
-p <- plot_model(lmm_results_habs_tau, type = c('pred'), terms = c('time_from_bl', 'delta_all', 'tau_composite [1.17, 1.35, 1.52]'))
-#levels(p$data$facet) <- c("Tau-PET SUVR = 1.17", "Tau-PET SUVR = 1.35", "Tau-PET SUVR = 1.52")
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  labs(color = 'Delta (years)',
-      x = 'Time from baseline (years)',
-      y = 'PACC')
-p
-ggsave('~/Downloads/tau_habs_pacc.png', plot = p, width = 6, height = 3)
-print(summary(lmm_results_habs_tau)$tTable["time_from_bl:delta_all:tau_composite", 5])
-```
-Add Age, Sex, Education, E4 Status and Amyloid status.
-
-```{r}
-lmm_results_habs_tau_sens <- lme(NP_PACC_PACC5 ~ time_from_bl*delta_all*tau_composite + time_from_bl*BL_Age + time_from_bl*E4_Status + time_from_bl*PIB_FS_SUVR_Group + time_from_bl*SEX + time_from_bl*YrsEd, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_habs_tau_sens)$tTable["time_from_bl:delta_all:tau_composite", 5])
-```
-
-### Delta Threshold
-
-```{r}
-habs_formula = "time_from_bl*delta_status"
-habs_random_formula = " ~ time_from_bl|SubjIDshort"
-mean_habs_delta = mean(data_habs$delta_all, na.rm = TRUE)
-sd_habs_delta = sd(data_habs$delta_all, na.rm = TRUE)
-results_habs <- find_optimal_threshold(data_habs, seq(mean_habs_delta-2*sd_habs_delta, 
-                                                    mean_habs_delta + 2*sd_habs_delta, by = 0.5), 
-                                   outcome = "NP_PACC_PACC5", 
-                                   measure = "delta_all", 
-                                   fixed_formula = habs_formula, 
-                                   random_formula = habs_random_formula)
-print(results_habs$optimal_threshold)
-print(results_habs$plot)
-```
-
-### Treatment effects
-
-Simple model of time on PACC
-
-```{r}
-lmm_results_habs_pacc <- lme(NP_PACC_PACC5 ~ time_from_bl, data = data_habs, random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_pacc)
-plot_model(lmm_results_habs_pacc, type = c('pred'), terms = c('time_from_bl'))
-```
-
-Threshold to determine older looking subjects and repeat linear mixed effects model
-
-Using median
-
-```{r}
-threshold_habs_median = median(data_habs$delta_all , na.rm = TRUE)
-lmm_results_habs_pacc_old_median <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > threshold_habs_median), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_pacc_old_median)
-plot_model(lmm_results_habs_pacc_old_median, type = c('pred'), terms = c('time_from_bl'))
-```
-
-Using linear mixed effects model optimization
-
-```{r}
-threshold_habs_opt = results_habs$optimal_threshold
-lmm_results_habs_pacc_old_opt <- lme(NP_PACC_PACC5 ~ time_from_bl, data = subset(data_habs, data_habs$delta_all > threshold_habs_opt), random = ~time_from_bl|SubjIDshort, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs_pacc_old_opt)
-plot_model(lmm_results_habs_pacc_old_opt, type = c('pred'), terms = c('time_from_bl'))
-```
-
-Power analysis
-
-```{r}
-
-models_habs <- list(
-  pacc = lmm_results_habs_pacc,
-  old_median = lmm_results_habs_pacc_old_median,
-  old_opt = lmm_results_habs_pacc_old_opt
-)
-
-# Run the analysis
-power_results_habs <- compare_power_analysis(models_habs, "time_from_bl")
-
-# Print the results
-print(power_results_habs)
-```
-
-## ADNI CU
 
 ### Trajectories
 
 Plot PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+ggplot(data_habs, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
@@ -755,7 +399,7 @@ ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC, group = I
 Plot PACC change from baseline trajectories with spaghetti plot.
 
 ```{r}
-ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
+ggplot(data_habs, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
@@ -764,7 +408,168 @@ ggplot(subset(data_adni_cn, !is.na(PACC)), aes(x = time_mri, y = PACC_change, gr
 
 ### Mixed Effects Model
 
-Simplest Quadratic mixed effects models with delta at baseline:
+Simplest linear mixed effects models with delta at baseline:
+
+PACC \~ pacc_timeXdelta
+
+```{r}
+lmm_results_habs <- lme(PACC ~ time_mri*delta, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_habs)
+p <- plot_model(lmm_results_habs, type = c('pred'), terms = c('time_mri', 'delta'))
+p <- p +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+```
+
+### Sensitivity Analysis {.tabset}
+
+#### Age, e4 and amyloid
+
+Add Age, APOE, Sex, Education and Amyloid status:
+
+```{r}
+lmm_results_adni_sens_cn_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_cn_demo)
+p <- plot_model(lmm_results_adni_sens_cn_demo, type = c('pred'), terms = c('time_mri', 'delta'))
+p
+```
+
+We keep significant results although the trajectories also depend on the other factors.
+
+#### Change from baseline
+
+```{r}
+lmm_results_adni_sens_cn_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_habs, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_adni_sens_cn_change)
+p <- plot_model(lmm_results_adni_sens_cn_change, type = c('pred'), terms = c('time_mri', 'delta'))
+p
+```
+
+### Interactions {.tabset}
+
+#### PET Amyloid
+
+```{r}
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_ADNI_amyl_cn)
+p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
+p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+
+print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+#### pTau217
+
+```{r}
+lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_ADNI_ptau_cn)
+p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
+p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+
+print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
+```
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+```
+
+#### PET Tau
+
+```{r}
+lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+summary(lmm_results_ADNI_tau_cn)
+p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
+p <- p +
+  ggtitle(NULL) +
+  theme(strip.background = element_rect(fill = "white")) +
+  ggtitle(NULL) +
+  labs(color = 'Delta (years)',
+      x = 'Time from MRI (years)',
+      y = 'PACC')
+p
+
+print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5])
+```
+
+Add Age, Sex, Education, E4 Status and Amyloid status.
+
+```{r}
+lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+```
+
+### Delta Threshold
+
+```{r}
+adni_formula = "time_mri*delta_status"
+adni_random_formula = " ~ time_mri|ID"
+mean_adni_delta_cn = mean(data_habs$delta, na.rm = TRUE)
+sd_adni_delta_cn = sd(data_habs$delta, na.rm = TRUE)
+results_habs <- find_optimal_threshold(data_habs, seq(mean_adni_delta_cn-2*sd_adni_delta_cn, 
+                                                    mean_adni_delta_cn + 2*sd_adni_delta_cn, by = 0.5), 
+                                   outcome = "PACC", 
+                                   measure = "delta", 
+                                   fixed_formula = adni_formula, 
+                                   random_formula = adni_random_formula)
+print(results_habs$optimal_threshold)
+print(results_habs$plot)
+print((results_habs$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
+```
+
+
+## ADNI CU
+
+### Trajectories
+
+Plot PACC trajectories with spaghetti plot.
+
+```{r}
+ggplot(data_adni_cn, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
+  theme_minimal()
+```
+
+Plot PACC change from baseline trajectories with spaghetti plot.
+
+```{r}
+ggplot(data_adni_cn, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
+  geom_line() +
+  geom_point() +
+  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
+  theme_minimal()
+```
+
+### Mixed Effects Model
+
+Simplest linear mixed effects models with delta at baseline:
 
 PACC \~ pacc_timeXdelta
 
@@ -905,7 +710,7 @@ print((results_adni_cn$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_c
 Plot PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+ggplot(data_adni_mci, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
@@ -915,7 +720,7 @@ ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC, group = 
 Plot PACC change from baseline trajectories with spaghetti plot.
 
 ```{r}
-ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
+ggplot(data_adni_mci, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
   geom_line() +
   geom_point() +
   labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
@@ -924,7 +729,7 @@ ggplot(subset(data_adni_mci, !is.na(PACC)), aes(x = time_mri, y = PACC_change, g
 
 ### Mixed Effects Model
 
-Simplest Quadratic mixed effects models with delta at baseline:
+Simplest linear mixed effects models with delta at baseline:
 
 PACC \~ pacc_timeXdelta
 
