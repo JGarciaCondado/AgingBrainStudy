@@ -12,14 +12,17 @@ __pycache__/
 # OS or Editor folders
 .DS_Store
 
-# Distribution / packaging
-.Python
+# Ignore fodlers 
+data/
 analysis/
 results/
+tables/
+
+# Distribution / packaging
+.Python
 build/
 develop-eggs/
 dist/
-data/
 downloads/
 eggs/
 .eggs/

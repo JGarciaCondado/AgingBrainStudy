@@ -138,22 +138,49 @@ ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
 
 ```{r}
 regression_analysis(cn_data, 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
 ```
 
 ### AB
 
 ```{r}
-regression_analysis(cn_data, 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+regression_analysis(cn_data[cn_data$secondary == 1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
 ### ptau217
 
 ```{r}
-regression_analysis(cn_data, 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+regression_analysis(cn_data[cn_data$exploratory == 1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
 ### TAU
 
 ```{r}
-regression_analysis(cn_data, 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+regression_analysis(cn_data[cn_data$exploratory == 1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+```
+
+## Time sensitivity analysis {.tabset}
+
+### PACC
+
+```{r}
+regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,], 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+```
+
+### AB
+
+```{r}
+regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+```
+
+### ptau217
+
+```{r}
+regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+```
+
+### TAU
+
+```{r}
+regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```

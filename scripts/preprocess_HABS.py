@@ -115,9 +115,16 @@ df_baseline['sex'] = df_baseline['sex'].map({1: 'Female', 0: 'Male'})
 df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
 df_baseline['ab_status'] = df_baseline['ab_status'].map({'PIB+': 'ab+', 'PIB-': 'ab-'})
 
+# Create three new columns for type of analysis, secondary and exploratory
+# Primary includes those who have MRI measures and longitudinal PACC which we already filtered for
+# Secondary is those who have ab_composite AND ptau measures
+df_baseline['secondary'] = (df_baseline['ab_composite'].notna()).astype(int)
+# Exploratory is those who have ab_composite AND ptau AND tau_composite measures
+df_baseline['exploratory'] = ((df_baseline['ab_composite'].notna()) & (df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
+
 # Columns of interest with all the other data
-common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc',
-               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau']
+common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
+               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'secondary', 'exploratory']
 df_baseline = df_baseline[common_cols]
 
 # Save as csv

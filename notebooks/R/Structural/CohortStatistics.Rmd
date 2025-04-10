@@ -24,162 +24,238 @@ theme_set(theme_bw())
 
 # Data load
 
+```{r}
+# Load HABS data
+data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/habs/processed/baseline.csv',
+                      na.strings = c("", "NA"))
+
+# Load ADNI data
+data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/baseline.csv',
+                      na.strings = c("", "NA"))
+
+# Create cohort variables
+data_habs <- data_habs %>%
+  mutate(cohort = 'HABS')
+data_adni <- data_adni %>%
+  mutate(cohort = ifelse(diagnosis == 'CN', 'ADNI CU', 'ADNI MCI'))
+
+# Paste together
+data_all <- rbind(data_habs, data_adni)
+
+# Change NaN in e4_carrier and ab_status to Unknown
+data_all <- data_all %>%
+  mutate(e4_carrier = ifelse(is.na(e4_carrier), 'Unknown', e4_carrier),
+         ab_status = ifelse(is.na(ab_status), 'Unknown', ab_status))
+
+# Ensure factors
+data_all <- data_all %>%
+  mutate_at(vars(sex, e4_carrier, ab_status), factor)
+```
+
+
+# Demogprahics
+
+```{r}
+# Specify order of cohorts
+data_all$cohort <- factor(data_all$cohort, levels = c("HABS", "ADNI CU", "ADNI MCI"))
+
+demo_table <- tbl_summary(data_all,
+            include = c(mri_age, sex, edu, e4_carrier, ab_status,  PACC_mri, time_diff_pacc, follow_up_time, ab_composite, time_diff_ab, ptau, time_diff_ptau, tau_composite, time_diff_tau),
+            missing = "no",
+            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
+            label = list(
+              mri_age ~ "Age", 
+              edu ~ "Education (Years)", 
+              sex ~ "Sex",
+              e4_carrier ~ "APOEe4",
+              ab_status ~ "AB status",
+              PACC_mri ~ "PACC at MRI",
+              time_diff_pacc ~ "PACC Time from MRI (Years)",
+              follow_up_time ~ "Follow-up Time (Years)", 
+              ab_composite ~ "AB-PET",
+              time_diff_ab ~ "AB PET Time from MRI (Years)",
+              ptau ~ "pTau217",
+              time_diff_ptau ~ "pTau217 Time from MRI (Years)",
+              tau_composite ~ "Tau-PET",
+              time_diff_tau ~ "Tau PET Time from MRI (Years)"),
+            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
+            by = cohort) %>%
+        bold_labels() %>%
+        add_p() %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "AB-PET",
+          footnote = "A4/LEARN and ADNI use 18F-Florbetapir (FBP) tracer and SUVRs and HABS uses 11C Pittsburgh compound-B (PiB) and DVR",
+        )  %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "pTau217",
+          footnote = "A4 uses levels of pTau217 from E-Lilly, HABS uses the ratio of pTau217 to npTau217 from C2N and ADNI uses the ratio of pTau217 to AB42 from Lumipulse."
+        )   %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "Tau-PET",
+          footnote = "A4/LEARN, HABS and ADNI all use 18F-Flortaucipir (FTP) and PVC SUVR."
+        ) 
+
+# Print table
+demo_table
+
+# Save to docx
+demo_table %>%
+  as_flex_table() %>% 
+  fontsize(size = 9, part = "all") %>%
+  line_spacing(space = 1.05, part = "all") %>%
+  autofit() %>%
+  save_as_docx(path = "~/Documents/Projects/AgingBrainStudy/tables/demographics.docx")
+```
+
+# Analysis breakdown {.tabset}
+
+```{r}
+
+# First, create a base dataset with "analysis" column set to "primary" for all rows
+data_primary <- data_all %>%
+  mutate(analysis = "primary")
+
+# Create dataset with rows that have secondary = 1
+data_secondary <- data_all %>%
+  filter(secondary == 1) %>%
+  mutate(analysis = "secondary")
+
+# Create dataset with rows that have exploratory = 1
+data_exploratory <- data_all %>%
+  filter(exploratory == 1) %>%
+  mutate(analysis = "exploratory")
+
+# Now combine all datasets
+data_combined <- bind_rows(data_primary, data_secondary, data_exploratory)
+
+# Sort the data to keep related rows together (optional)
+# Assuming you have an ID column, otherwise use other columns that uniquely identify the original rows
+data_combined <- data_combined %>%
+  arrange(ID)
+
+# Set order of anlaysis
+data_combined$analysis <- factor(data_combined$analysis, levels = c("primary", "secondary", "exploratory"))
+
+# First create a summary table stratified by analysis
+analysis_table <- data_combined %>%
+  tbl_strata(
+    strata = cohort,  # First stratify by cohort
+    .tbl_fun =
+      ~ .x %>%
+        tbl_summary(  # Then create summary tables with analysis as the by variable
+          include = c(mri_age, sex, edu, e4_carrier, ab_status, PACC_mri, time_diff_pacc, follow_up_time),
+          missing = "no",
+          statistic = list(all_continuous() ~ c("{mean} ({sd})")),
+          label = list(
+            mri_age ~ "Age", 
+            edu ~ "Education (Years)", 
+            sex ~ "Sex",
+            e4_carrier ~ "APOEe4",
+            ab_status ~ "AB status",
+            PACC_mri ~ "PACC at MRI",
+            time_diff_pacc ~ "PACC Time from MRI (Years)",
+            follow_up_time ~ "Follow-up Time (Years)"), 
+          digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
+          by = analysis) %>%
+        bold_labels() %>%
+        add_p()
+    )
+
+# Print the table
+analysis_table
+
+#Save to docx
+analysis_table %>%
+  as_flex_table() %>% 
+  fontsize(size = 9, part = "all") %>%
+  line_spacing(space = 1.05, part = "all") %>%
+  autofit() %>%
+  save_as_docx(path = "~/Documents/Projects/AgingBrainStudy/tables/analysis.docx")
+```
+
 ## HABS
 
 ```{r}
+# Count total observations in the dataset
+total_obs <- nrow(data_habs)
 
-# Load HABS data
-data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/raw/longitudinal_PACC.csv')
+# Count how many have values for each variable
+have_ab_composite <- sum(!is.na(data_habs$ab_composite))
+have_ptau217 <- sum(!is.na(data_habs$ptau))
+have_tau <- sum(!is.na(data_habs$tau_composite))
 
-# Load delta
-deltas_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/HABS/structural_brainage/ageml/model_age/predicted_age.csv')
-data_habs <- merge(data_habs, deltas_habs, by = 'SubjIDshort', all.x = TRUE)
+# Count how many have both variables
+have_both <- sum(!is.na(data_habs$ab_composite) & !is.na(data_habs$ptau))
+have_all <- sum(!is.na(data_habs$ab_composite) & !is.na(data_habs$ptau) & !is.na(data_habs$tau_composite))
 
-# Create new variable delta_group where is 0 below younger and older above zero
-data_habs <- data_habs %>% 
-  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
+# Create a summary
+cat("Total observations:", total_obs, "\n")
+cat("Have ab_composite:", have_ab_composite, "(", round(have_ab_composite/total_obs*100, 1), "%)\n")
+cat("Have ptau217:", have_ptau217, "(", round(have_ptau217/total_obs*100, 1), "%)\n")
+cat("Have both:", have_both, "(", round(have_both/total_obs*100, 1), "%)\n")
+cat("Have tau:", have_tau, "(", round(have_tau/total_obs*100, 1), "%)\n")
+cat("Have all:", have_all, "(", round(have_all/total_obs*100, 1), "%)\n")
 
-# Add factors
-factors_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/HABS/processed/factors.csv')
-factors_habs <- factors_habs %>% 
-  select(SubjIDshort, p_tau217, p_tau217_ratio, PIB_FS_SUVR_FLR, PIB_FS_SUVR_Group, tau_composite)
-data_habs <- merge(data_habs, factors_habs, by = 'SubjIDshort', all.x = TRUE)
-
-# Ensure correct typing
-data_habs$NP_SessionDate <- as.Date(data_habs$NP_SessionDate)
-data_habs <- data_habs %>%
-  mutate(across(c(E4_Status, PIB_FS_SUVR_Group), as.factor))
-
-# Filter subjects with less than 2 data points
-data_habs <- data_habs %>% 
-  arrange(SubjIDshort, NP_SessionDate) %>%  
-  group_by(SubjIDshort) %>% 
-  add_tally(name = 'nTimePoints', wt = !is.na(NP_PACC_PACC5)) %>%
-  filter(nTimePoints >= 2) %>%
-  mutate(time_from_bl = as.numeric(NP_SessionDate - min(NP_SessionDate, na.rm = TRUE))/365.25)  %>%
-  mutate(PACC_change_bl = NP_PACC_PACC5 - NP_PACC_PACC5[1])
-
-# Create baseline data set
-baseline_habs <- data_habs %>% 
-  group_by(SubjIDshort) %>%
-  arrange(NP_SessionDate) %>%
-  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
-  rename(BL_Age = NP_Age) %>%
-  rename(BL_PACC = NP_PACC_PACC5) %>%
-  ungroup()
-
-# Add age at baseline of subjects
-data_habs <- data_habs %>%
-  left_join(baseline_habs %>% select(SubjIDshort, BL_Age, BL_PACC), by = 'SubjIDshort')
-
-# Ensure factors
-data_habs <- data_habs %>%
-  mutate_at(vars(SEX, E4_Status), factor)
+# Analysis type
+cat("Secondary analysis:", sum(data_habs$secondary), "(", round(sum(data_habs$secondary)/total_obs*100, 1), "%)\n")
+cat("Exploratory analysis:", sum(data_habs$exploratory), "(", round(sum(data_habs$exploratory)/total_obs*100, 1), "%)\n")
 ```
-
-## ADNI
+## ADNI CU
 
 ```{r}
+# Count total observations in the dataset
+total_obs <- nrow(data_adni[data_adni$diagnosis == 'CN',])
 
-# Load ADNI data
-data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/raw/adni_03242025.csv')
+# Count how many have values for each variable
+have_ab_composite <- sum(!is.na(data_adni[data_adni$diagnosis == 'CN',]$ab_composite))
+have_ptau217 <- sum(!is.na(data_adni[data_adni$diagnosis == 'CN',]$ptau))
+have_tau <- sum(!is.na(data_adni[data_adni$diagnosis == 'CN',]$tau_composite))
 
-# Concert time from baseline to years
-data_adni <- data_adni %>% 
-  rename(time_from_bl = MonthsFromBaseline_PACC) %>%
-  mutate(time_from_bl = time_from_bl/12)
+# Count how many have both variables
+have_both <- sum(!is.na(data_adni[data_adni$diagnosis == 'CN',]$ab_composite) & !is.na(data_adni[data_adni$diagnosis == 'CN',]$ptau))
+have_all <- sum(!is.na(data_adni[data_adni$diagnosis == 'CN',]$ab_composite) & !is.na(data_adni[data_adni$diagnosis == 'CN',]$ptau) & !is.na(data_adni[data_adni$diagnosis == 'CN',]$tau_composite))
 
-# Load deltas
-deltas_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/ADNI/ageml/model_age/predicted_age.csv')
-data_adni <- merge(data_adni, deltas_adni, by = 'ID')
+# Create a summary
+cat("Total observations:", total_obs, "\n")
+cat("Have ab_composite:", have_ab_composite, "(", round(have_ab_composite/total_obs*100, 1), "%)\n")
+cat("Have ptau217:", have_ptau217, "(", round(have_ptau217/total_obs*100, 1), "%)\n")
+cat("Have both:", have_both, "(", round(have_both/total_obs*100, 1), "%)\n")
+cat("Have tau:", have_tau, "(", round(have_tau/total_obs*100, 1), "%)\n")
+cat("Have all:", have_all, "(", round(have_all/total_obs*100, 1), "%)\n")
 
-# Create new variable delta_group where is 0 below younger and older above zero
-data_adni <- data_adni %>% 
-  mutate(delta_group = ifelse(delta_all < 0, 'younger', 'older'))
-
-# Arrange by pacc_time and calculate PACC_change_bl
-data_adni <- data_adni %>% 
-  arrange(ID, time_from_bl) %>%
-  group_by(ID) %>%
-  add_tally(name = 'nTimePoints', wt = !is.na(zPACC)) %>%
-  filter(nTimePoints >= 2) %>%
-  mutate(PACC_bl = zPACC[1]) %>%
-  mutate(PACC_change_bl = zPACC - PACC_bl)
-
-# Load factors
-factors_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
-factors_adni <- factors_adni %>%
-  rename(amyloid_composite = CENTILOIDS_AMYLOID) %>%
-  select(ID, pT217, amyloid_composite, tau_composite)
-data_adni <- merge(data_adni, factors_adni, by = 'ID', all.x = TRUE)
-
-# Ensur MRI_SessionDate and TAU_SCANDATE are in the format YYYY-MM-DD
-data_adni <- data_adni %>%
-  mutate(MRI_SessionDate = as.Date(MRI_SessionDate, format = "%Y-%m-%d"),
-         PACC_Date = as.Date(PACC_Date, format = "%Y-%m-%d"),
-         AB_SCANDATE = as.Date(AB_SCANDATE, format = "%Y-%m-%d"),
-         TAU_SCANDATE = as.Date(TAU_SCANDATE, format = "%Y-%m-%d"),
-         EXAMDATE_PLASMA = as.Date(EXAMDATE_PLASMA, format = "%Y-%m-%d"))
-
-data_adni <- data_adni %>%
-  mutate(TAU_MRI_Diff = ifelse(!is.na(TAU_SCANDATE) & !is.na(MRI_SessionDate), 
-                               as.numeric(difftime(TAU_SCANDATE, MRI_SessionDate, units = "days"))/365, NA)) %>%
-  mutate(AB_MRI_Diff = ifelse(!is.na(AB_SCANDATE) & !is.na(MRI_SessionDate), 
-                               as.numeric(difftime(AB_SCANDATE, MRI_SessionDate, units = "days"))/365, NA)) %>%
-  mutate(Plasma_MRI_Diff= ifelse(!is.na(EXAMDATE_PLASMA) & !is.na(MRI_SessionDate), 
-                               as.numeric(difftime(EXAMDATE_PLASMA, MRI_SessionDate, units = "days"))/365, NA)) %>%
-  mutate(PACC_MRI_Diff = ifelse(!is.na(PACC_Date) & !is.na(MRI_SessionDate), 
-                               as.numeric(difftime(PACC_Date, MRI_SessionDate, units = "days"))/365, NA))
-
-# Devide between Baseline_diagnosis CN and MCI
-data_adni_mci <- data_adni %>% 
-  filter(Baseline_Diagnosis == 'MCI')
-data_adni_cn <- data_adni %>%
-  filter(Baseline_Diagnosis == 'CN')
-
-# Data ADNI baseline
-data_adni_baseline <- data_adni %>%
-  group_by(ID) %>%
-  arrange(MRI_SessionDate) %>%
-  slice(1) # Select the first time point for each ID
+# Analysis type
+cat("Secondary analysis:", sum(data_adni[data_adni$diagnosis == 'CN',]$secondary), "(", round(sum(data_adni[data_adni$diagnosis == 'CN',]$secondary)/total_obs*100, 1), "%)\n")
+cat("Exploratory analysis:", sum(data_adni[data_adni$diagnosis == 'CN',]$exploratory), "(", round(sum(data_adni[data_adni$diagnosis == 'CN',]$exploratory)/total_obs*100, 1), "%)\n")
 ```
 
-# Imaging times statistics
+## ADNI MCI
 
 ```{r}
-ggplot(subset(data_adni_baseline, !is.na(PACC_MRI_Diff)), aes(x = PACC_MRI_Diff)) +
-  geom_histogram(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Histogram of PACC_MRI_DiffDays at Baseline",
-       x = "PACC_MRI_Diff",
-       y = "Count") +
-  theme_minimal()
+# Count total observations in the dataset
+total_obs <- nrow(data_adni[data_adni$diagnosis == 'MCI',])
 
-ggplot(subset(data_adni_baseline, !is.na(TAU_MRI_Diff)), aes(x = TAU_MRI_Diff)) +
-  geom_histogram(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Histogram of TAU_MRI_DiffDays at Baseline",
-       x = "TAU_MRI_Diff",
-       y = "Count") +
-  theme_minimal()
+# Count how many have values for each variable
+have_ab_composite <- sum(!is.na(data_adni[data_adni$diagnosis == 'MCI',]$ab_composite))
+have_ptau217 <- sum(!is.na(data_adni[data_adni$diagnosis == 'MCI',]$ptau))
+have_tau <- sum(!is.na(data_adni[data_adni$diagnosis == 'MCI',]$tau_composite))
 
-ggplot(subset(data_adni_baseline, !is.na(AB_MRI_Diff)), aes(x = AB_MRI_Diff)) +
-  geom_histogram(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Histogram of AB_MRI_DiffDays at Baseline",
-       x = "AB_MRI_Diff",
-       y = "Count") +
-  theme_minimal()
+# Count how many have both variables
+have_both <- sum(!is.na(data_adni[data_adni$diagnosis == 'MCI',]$ab_composite) & !is.na(data_adni[data_adni$diagnosis == 'MCI',]$ptau))
+have_all <- sum(!is.na(data_adni[data_adni$diagnosis == 'MCI',]$ab_composite) & !is.na(data_adni[data_adni$diagnosis == 'MCI',]$ptau) & !is.na(data_adni[data_adni$diagnosis == 'MCI',]$tau_composite))
 
-ggplot(subset(data_adni_baseline, !is.na(Plasma_MRI_Diff)), aes(x = Plasma_MRI_Diff)) +
-  geom_histogram(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Histogram of Plasma_MRI_DiffDays at Baseline",
-       x = "Plasma_MRI_Diff",
-       y = "Count") +
-  theme_minimal()
+# Create a summary
+cat("Total observations:", total_obs, "\n")
+cat("Have ab_composite:", have_ab_composite, "(", round(have_ab_composite/total_obs*100, 1), "%)\n")
+cat("Have ptau217:", have_ptau217, "(", round(have_ptau217/total_obs*100, 1), "%)\n")
+cat("Have both:", have_both, "(", round(have_both/total_obs*100, 1), "%)\n")
+cat("Have tau:", have_tau, "(", round(have_tau/total_obs*100, 1), "%)\n")
+cat("Have all:", have_all, "(", round(have_all/total_obs*100, 1), "%)\n")
 
-# Save in processed this difference data
-save_path <- '~/Documents/Projects/AgingBrainStudy/data/ADNI/processed/'
-data_adni_time_diff <- data_adni_baseline %>%
-  select(ID, TAU_MRI_Diff, AB_MRI_Diff, Plasma_MRI_Diff, PACC_MRI_Diff)
-write.csv(data_adni_time_diff, 
-          file = paste0(save_path, 'data_adni_time_diff.csv'), 
-          row.names = FALSE)
+# Analysis type
+cat("Secondary analysis:", sum(data_adni[data_adni$diagnosis == 'MCI',]$secondary), "(", round(sum(data_adni[data_adni$diagnosis == 'MCI',]$secondary)/total_obs*100, 1), "%)\n")
+cat("Exploratory analysis:", sum(data_adni[data_adni$diagnosis == 'MCI',]$exploratory), "(", round(sum(data_adni[data_adni$diagnosis == 'MCI',]$exploratory)/total_obs*100, 1), "%)\n")
 ```
+

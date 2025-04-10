@@ -112,85 +112,6 @@ data_adni_cn <- data_adni %>%
   filter(diagnosis == 'CN')
 ```
 
-## Demographics
-
-```{r}
-data_A4_demo <- data_A4 %>% 
-  filter(!is.na(delta_all)) %>% # remove those that do not have delta calcualted
-  arrange(BID, pacc_time) %>%  
-  group_by(BID) %>%
-  mutate(follow_up_time = max(pacc_time, na.rm = TRUE)) %>%
-  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
-  select(BID, AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, PACC_bl, follow_up_time) %>%
-  # Add a column Cohort that has in its entry A4/Learn
-  mutate(Cohort = 'A4/Learn') %>%
-  mutate(Amyloid = ifelse(Amyloid == 1.0, 'positive', 'negative')) %>%
-  mutate(pTau217_ratio = as.numeric(NA))
-
-data_HABS_demo <- data_habs %>% 
-  filter(!is.na(delta_all)) %>% # remove those that do not have delta calcualted
-  arrange(SubjIDshort, NP_SessionDate) %>%  
-  group_by(SubjIDshort) %>% 
-  mutate(follow_up_time = max(time_from_bl, na.rm = TRUE)) %>%
-  slice(1) %>% #extract first rows - can also use slice_head() for first and slice_tail() for last
-  select(SubjIDshort, NP_Age, SEX, YrsEd, E4_Status, PIB_FS_SUVR_Group, PIB_FS_SUVR_FLR, p_tau217, p_tau217_ratio, tau_composite, BL_PACC, follow_up_time) %>%
-  rename(BID=SubjIDshort, AGEYR = NP_Age, EDCCNTU = YrsEd, APOE = E4_Status, Amyloid = PIB_FS_SUVR_Group, amyloid_composite = PIB_FS_SUVR_FLR, PACC_bl = BL_PACC, pTau217 = p_tau217, pTau217_ratio = p_tau217_ratio) %>%
-  mutate(Cohort = 'HABS') %>%
-  # Convert PIB- and PIB + to 0 and 1
-  mutate(Amyloid = ifelse(Amyloid == 'PIB-', 'negative', 'positive')) %>%
-  mutate(SEX = case_when(
-    SEX == "F" ~ "Female",
-    SEX == "M" ~ "Male")) 
-
-# Only keep in data habs those with delta
-data_HABS_demo <- data_HABS_demo
-
-habs_t <- tbl_summary(data_HABS_demo,
-            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, pTau217_ratio, PACC_bl, follow_up_time),
-            missing = "no",
-            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
-            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", pTau217_ratio ~ "pTau217 ratio", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
-            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
-            by = Amyloid) %>%
-  bold_labels()
-
-A4_t <- tbl_summary(data_A4_demo,
-            include = c(AGEYR, SEX, EDCCNTU, APOE, Amyloid, amyloid_composite, tau_composite, pTau217, pTau217_ratio, PACC_bl, follow_up_time),
-            missing = "no",
-            statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
-            label = list(AGEYR ~ "Age", EDCCNTU ~ "Education (Years)", SEX ~ "Sex", follow_up_time ~ "Follow-up Time (Years)", pTau217 ~ "pTau217 (U/ml)", pTau217_ratio ~ "pTau217 ratio", amyloid_composite ~ "AB-PET SUVR", tau_composite ~ "Tau-PET SUVR", PACC_bl ~ "PACC at Baseline"),
-            digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
-            by = Amyloid) %>%
-        bold_labels()
-
-table <- tbl_merge(list(A4_t, habs_t), tab_spanner = c("A4/LEARN", "HABS")) %>%
-modify_table_styling(
-    columns = label,
-    rows = label == "pTau217 (U/ml)",
-    footnote = "A4 uses Lilly platform and HABs uses C2N platform for pTau217"
-  ) %>%
-modify_table_styling(
-    columns = label,
-    rows = label == "pTau217 ratio",
-    footnote = "Phosphortilated to non-phosphortilated ratio",
-  ) %>%
-modify_table_styling(
-    columns = label,
-    rows = label == "AB-PET SUVR",
-    footnote = "A4 uses X tracer and HABs uses Y tracer",
-  )
-
-table
-
-table %>%
-  as_flex_table() %>% 
-  fontsize(size = 14, part = "all") %>%
-  line_spacing(space = 1.5, part = "all") %>%
-  autofit() %>%
-  save_as_docx(path = "~/Downloads/DemographicsTable.docx")
-```
-
-
 ## A4 Structural BrainAge
 
 ### Trajectories
@@ -453,7 +374,7 @@ p
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs[data_habs$secondary == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_cn)
 p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -471,14 +392,21 @@ print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$secondary == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$secondary == 1 & data_habs$time_diff_ab <=1 & data_habs$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 #### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_ptau_cn)
 p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
 p <- p +
@@ -495,14 +423,21 @@ print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1 & data_habs$time_diff_ptau <=1 & data_habs$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_tau_cn)
 p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
 p <- p +
@@ -520,7 +455,14 @@ print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1 & data_habs$time_diff_tau <=1 & data_habs$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
@@ -614,7 +556,7 @@ p
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn[data_adni_cn$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_cn)
 p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -632,14 +574,21 @@ print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary == 1 & data_adni_cn$time_diff_ab <=1 & data_adni_cn$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 #### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_ptau_cn)
 p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
 p <- p +
@@ -656,14 +605,21 @@ print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory == 1 & data_adni_cn$time_diff_ptau <=1 & data_adni_cn$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ptau", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_tau_cn)
 p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
 p <- p +
@@ -681,8 +637,15 @@ print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary == 1 & data_adni_cn$time_diff_tau <=1 & data_adni_cn$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 ### Delta Threshold
@@ -774,7 +737,7 @@ p
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci[data_adni_mci$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_mci)
 p <- plot_model(lmm_results_ADNI_amyl_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -792,14 +755,21 @@ print(summary(lmm_results_ADNI_amyl_mci)$tTable["time_mri:delta:ab_composite", 5
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_mci <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_mci <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_mci)$tTable["time_mri:delta:ab_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$secondary == 1 & data_adni_mci$time_diff_ab <=1 & data_adni_mci$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 #### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_mci <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_mci <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_ptau_mci)
 p <- plot_model(lmm_results_ADNI_ptau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
 p <- p +
@@ -816,14 +786,21 @@ print(summary(lmm_results_ADNI_ptau_mci)$tTable["time_mri:delta:ptau", 5])
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_ptau_sens_mci)$tTable["time_mri:delta:ptau", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory == 1 & data_adni_mci$time_diff_ptau <=1 & data_adni_mci$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ptau", 5])
 ```
 
 #### PET Tau
 
 ```{r}
-lmm_results_ADNI_tau_mci <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_mci <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_tau_mci)
 p <- plot_model(lmm_results_ADNI_tau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
 p <- p +
@@ -841,8 +818,15 @@ print(summary(lmm_results_ADNI_tau_mci)$tTable["time_mri:delta:tau_composite", 5
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_tau_sens_mci <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_tau_sens_mci <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_tau_sens_mci)$tTable["time_mri:delta:tau_composite", 5])
+```
+
+Only samples within 1 year of MRI.
+
+```{r}
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory == 1 & data_adni_mci$time_diff_tau <=1 & data_adni_mci$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'),  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
 ### Delta Threshold
