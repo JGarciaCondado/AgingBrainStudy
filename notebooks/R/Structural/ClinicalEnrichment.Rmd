@@ -15,16 +15,18 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot);library(longpower)
 
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 theme_set(theme_bw())
 ```
 
-# Brain Age Longitudinal PACC
+# Brain Age in Clinical Trials
 
-We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on A4/Learn and HABS data.
+We will explore usign BrainAge as a clinical enrichment biomarker in two clinical trials:
+- ADNI: MCI participants with amyloid positivity in two year trial looking at CDR sum of boxes
+- A4: Preclinical AD participants with amyloid positivity in five year trial looking at PACC
 
 ```{r}
 # Trial variables
@@ -90,12 +92,6 @@ calculate_drug_trial_costs <- function(
   return(results)
 }
 
-# Outcome of interest
-outcome = 'zPACC'
-
-# Library of longpower 
-library(longpower)
-source("../../../scripts/longpower_fix.R") # fixes an error in lmmpowwer (see https://github.com/mcdonohue/longpower/issues/6)
 ```
 
 
@@ -103,67 +99,54 @@ source("../../../scripts/longpower_fix.R") # fixes an error in lmmpowwer (see ht
 
 ```{r}
 
-# Load ADNI data
-data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/ADNI/raw/adni_03242025.csv')
+# Load ADNI data for MCI
+data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/longitudinal.csv')
 
-# Concert time from baseline to years
-data_adni <- data_adni %>% 
-  rename(pacc_time = MonthsFromBaseline_PACC) %>%
-  mutate(pacc_time = pacc_time/12)
-
-# Load deltas
-deltas_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/ADNI/ageml/model_age/predicted_age.csv')
-data_adni <- merge(data_adni, deltas_adni, by = 'ID')
-
-# Arrange by pacc_time and calculate PACC_change_bl
-data_adni <- data_adni %>% 
-  arrange(ID, pacc_time) %>%
-  group_by(ID) %>%
-  add_tally(name = 'nTimePoints', wt = !is.na(zPACC)) %>%
-  filter(nTimePoints >= 2)
-
-# Remove time points of visits up to m24
+# Filter only MCI, Amyloid Positive and first 24 months
 data <- data_adni %>% 
   filter(VISCODE %in% c('bl', 'm06', 'm12', 'm18', 'm24')) %>%
-  filter(AMYLOID_STATUS == 1) %>%
-  filter(Baseline_Diagnosis == 'MCI')
+  filter(ab_status == 'ab+') %>%
+  filter(diagnosis == 'MCI')
 
 # Extract those with delta_all above median
 data_median <- data %>% 
-  filter(delta_all > median(data$delta_all, na.rm = TRUE))
+  filter(delta > median(data$delta))
 
-# Extract those with Optimum Threshold
+# Extract those with Optimum Threshold from previous notebook
 data_opt <- data %>% 
-  filter(delta_all > 4.35)
+  filter(delta > 3.88)
 
 # Total number of unique participants in each
 n_adni_participants <- length(unique(data$ID))
 n_adni_participants_median <- length(unique(data_median$ID))
 n_adni_participants_opt <- length(unique(data_opt$ID))
+
+# Outcome of interest
+outcome = 'CDRSUM'
 ```
 
 ### Linear Mixed Effects Model {.tabset}
 
 #### All
 ```{r}
-lmm_adni_all <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data)
+lmm_adni_all <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data)
 summary(lmm_adni_all)
-plot_model(lmm_adni_all, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_adni_all, type = 'pred', terms = c('time_mri'))
 ```
 #### Median
 
 ```{r}
-lmm_adni_median <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data_median)
+lmm_adni_median <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_median)
 summary(lmm_adni_median)
-plot_model(lmm_adni_median, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_adni_median, type = 'pred', terms = c('time_mri'))
 ```
 
 #### Optimum
 
 ```{r}
-lmm_adni_opt <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | ID)")), data = data_opt)
+lmm_adni_opt <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_opt)
 summary(lmm_adni_opt)
-plot_model(lmm_adni_opt, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_adni_opt, type = 'pred', terms = c('time_mri'))
 ```
 
 
@@ -191,6 +174,9 @@ pwr_median <- lmmpower(lmm_adni_median, pct.change = treatment_eff, t = t_visits
 # Print number of subjects
 n_adni_median <- pwr_median$N
 n_adni_median
+# Reduction percentage
+reduction_median <- (n_adni_all - n_adni_median) / n_adni_all * 100
+reduction_median
 ```
 
 #### Optimum
@@ -201,6 +187,9 @@ pwr_opt <- lmmpower(lmm_adni_opt, pct.change = treatment_eff, t = t_visits_adni,
 # Print number of subjects
 n_adni_opt <- pwr_opt$N
 n_adni_opt
+# Reduction percentage
+reduction_optimum <- (n_adni_all - n_adni_opt) / n_adni_all * 100
+reduction_optimum
 ```
 
 ### Calculate savings {.tabset}
@@ -258,70 +247,53 @@ cost_adni_opt
 
 ```{r}
 # Load A4 data
-data_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/longitudinal_PACC.csv')
-
-# Load covariates
-covars_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv')
-covars_A4 <- covars_A4 %>% 
-  select(BID, Amyloid)
-data_A4 <- merge(data_A4, covars_A4, by = 'BID', all.x = TRUE)
-
-# Filter subjects with less than 2 data points
-data_A4 <- data_A4 %>% 
-  arrange(BID, pacc_time) %>%  
-  group_by(BID) %>% 
-  add_tally(name = 'nTimePoints', wt = !is.na(PACC)) %>%
-  filter(nTimePoints >= 2)
-
-# Load deltas
-delta_A4 <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
-
-# Merge the two datasets
-data_A4 <- merge(data_A4, delta_A4, by = 'BID')
+data_a4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/longitudinal.csv')
 
 # Placebo data
-data_placebo <- data_A4 %>% 
-  filter(TX == 'Placebo' | SUBSTUDY != 'A4') %>% # Filter only with placebo
-  filter(Amyloid == 1) %>% # Only placebo
-  filter(NP_VISCODE <= 60) # Only before the first 5 years
+data_placebo <- data_a4 %>% 
+  filter(cohort == 'A4 Placebo') %>% # Filter only with placebo
+  filter(ab_status == 'ab+') %>% # Only placebo
+  filter(VISCODE <= 60) # Only before the first 5 years
 
 # Extract those with delta_all above median
 data_a4_median <- data_placebo %>% 
-  filter(delta_all > median(data_placebo$delta_all, na.rm = TRUE))
+  filter(delta > median(data_placebo$delta, na.rm = TRUE))
 
-# Extract those with Optimum Threshold
+# Extract those with Optimum Threshold from previous notebook
 data_a4_opt <- data_placebo %>% 
-  filter(delta_all > 1.73)
+  filter(delta > 1.82)
 
 # Total number of unique participants in each
-n_a4_participants <- length(unique(data_placebo$BID))
-n_a4_participants_median <- length(unique(data_a4_median$BID))
-n_a4_participants_opt <- length(unique(data_a4_opt$BID))
+n_a4_participants <- length(unique(data_placebo$ID))
+n_a4_participants_median <- length(unique(data_a4_median$ID))
+n_a4_participants_opt <- length(unique(data_a4_opt$ID))
+
+# Outcome of interest
+outcome = 'PACC'
 ```
 
 ### Linear Mixed Effects Model {.tabset}
 
 #### All
 ```{r}
-outcome = 'PACC'
-lmm_a4_all <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_placebo)
+lmm_a4_all <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri| ID)")), data = data_placebo)
 summary(lmm_a4_all)
-plot_model(lmm_a4_all, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_a4_all, type = 'pred', terms = c('time_mri'))
 ```
 #### Median
 
 ```{r}
-lmm_a4_median <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_a4_median)
+lmm_a4_median <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_a4_median)
 summary(lmm_a4_median)
-plot_model(lmm_a4_median, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_a4_median, type = 'pred', terms = c('time_mri'))
 ```
 
 #### Optimum
 
 ```{r}
-lmm_a4_opt <-lmer(as.formula(paste(outcome, "~ pacc_time + (1 + pacc_time | BID)")), data = data_a4_opt)
+lmm_a4_opt <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_a4_opt)
 summary(lmm_a4_opt)
-plot_model(lmm_a4_opt, type = 'pred', terms = c('pacc_time'))
+plot_model(lmm_a4_opt, type = 'pred', terms = c('time_mri'))
 ```
 
 
@@ -349,6 +321,9 @@ pwr_median_a4 <- lmmpower(lmm_a4_median, pct.change = treatment_eff, t = t_visit
 # Print number of subjects
 n_a4_median <- pwr_median_a4$N
 n_a4_median
+# Reduction percentage
+reduction_median <- (n_a4_all - n_a4_median) / n_a4_all * 100
+reduction_median
 ```
 
 #### Optimum
@@ -359,56 +334,7 @@ pwr_opt_a4 <- lmmpower(lmm_a4_opt, pct.change = treatment_eff, t = t_visits_adni
 # Print number of subjects
 n_a4_opt <- pwr_opt_a4$N
 n_a4_opt
-```
-
-### Calculate savings {.tabset}
-
-#### All
-```{r}
-cost_a4_all <- calculate_drug_trial_costs(
-  years = 5,
-  participants_required = n_a4_all,
-  screen_pass_rate = screen_pass_lecanemab,
-  screen_cost = scren_cost,
-  mri_cost = screen_cost_mri,
-  treatment_cost_per_year = treatment_cost_per_year,
-  has_mri_screening = FALSE,
-  mri_pass_rate = 0
-)
-
-cost_a4_all
-```
-
-#### Median
-```{r}
-mri_pass_rate_a4_median = n_a4_participants_median / n_a4_participants
-mri_pass_rate_a4_median
-cost_a4_median <- calculate_drug_trial_costs(
-  years = 5,
-  participants_required = n_a4_median,
-  screen_pass_rate = screen_pass_lecanemab,
-  screen_cost = scren_cost,
-  mri_cost = screen_cost_mri,
-  treatment_cost_per_year = treatment_cost_per_year,
-  has_mri_screening = TRUE,
-  mri_pass_rate = mri_pass_rate_a4_median
-)
-cost_a4_median
-```
-
-#### Optimum
-```{r}
-mri_pass_rate_a4_opt = n_a4_participants_opt / n_a4_participants
-mri_pass_rate_a4_opt
-cost_a4_opt <- calculate_drug_trial_costs(
-  years = 5,
-  participants_required = n_a4_opt,
-  screen_pass_rate = screen_pass_lecanemab,
-  screen_cost = scren_cost,
-  mri_cost = screen_cost_mri,
-  treatment_cost_per_year = treatment_cost_per_year,
-  has_mri_screening = TRUE,
-  mri_pass_rate = mri_pass_rate_a4_opt
-)
-cost_a4_opt
+# Reduction percentage
+reduction_optimum <- (n_a4_all - n_a4_opt) / n_a4_all * 100
+reduction_optimum
 ```
