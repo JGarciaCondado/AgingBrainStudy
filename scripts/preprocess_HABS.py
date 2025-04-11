@@ -82,8 +82,6 @@ df_baseline['NP_SessionDate'] = pd.to_datetime(df_baseline['NP_SessionDate'], er
 df_baseline['PIB_SessionDate'] = pd.to_datetime(df_baseline['PIB_SessionDate'], errors='coerce')
 df_baseline['TAU_SessionDate'] = pd.to_datetime(df_baseline['TAU_SessionDate'], errors='coerce')
 
-# TODO: FIX NP date is very far from MRI date
-
 # Time differences
 df_baseline['time_diff_pacc'] = (df_baseline['NP_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25
 df_baseline['time_diff_ab'] = (df_baseline['PIB_SessionDate'] - df_baseline['MRI_SessionDate']).dt.days/365.25

@@ -16,7 +16,7 @@ knit: (
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot)
 
-
+source('~/Documents/Projects/AgingBrainStudy/scripts/functions.R')
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 theme_set(theme_bw())
 ```
@@ -36,84 +36,26 @@ The model was trained using the following features:
 -   Parahippocampal cortical thickness
 -   Fusiform cortical thickness
 
-Command used: model_age -o analysis/A4/structural_brainage -f data/A4/processed/structural_features.csv --clinical data/A4/processed/clinical.csv
+Command used: model_age -o analysis/final/a4 -f data/final/a4/processed/structural_features.csv --clinical data/final/a4/processed/clinical.csv
 
 ```{r, include = FALSE}
-# Load data
-deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/A4/structural_brainage/ageml/model_age/predicted_age.csv')
+# Load deltas and baseline
+deltas <- read.csv('~/Documents/Projects/AgingBrainStudy/analysis/final/a4/ageml/model_age/predicted_age.csv') %>%
+  rename(delta = delta_all)
+baseline <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/baseline.csv',
+                     na.strings = c("", "NA"))
 
-# Load factors
-factors <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/factors.csv', na.strings = c("", " ", "NaN", "NA", NA))
-data <- merge(deltas, factors, by = 'BID', all.x = TRUE)
-
-# Amyloid status
-covars <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/processed/covariates.csv', na.strings = c("", " ", "NaN", "NA", NA))
-covars$Amyloid <- ifelse(covars$Amyloid == 1, 'positive', 'negative')
-covars$e4 <- ifelse(covars$e4 == 1, 'carrier', 'non-carrier')
-data <- merge(data, covars[, c('BID', 'Amyloid', 'e4')], by = 'BID', all.x = TRUE)
-
-# Demographics
-demographics <- read.csv('~/Documents/Projects/AgingBrainStudy/data/A4/raw/SUBJINFO.csv', na.strings = c("", " ", "NaN", "NA", NA))
-demographics <- demographics %>%
-  rename(YearsEd = EDCCNTU) %>%
-  rename(BL_Age = AGEYR)
-data <- merge(data, demographics, by = 'BID', all.x = TRUE)
-
+# Merge data
+cn_data <- merge(deltas[, c('ID', 'delta')], baseline, by = 'ID')
 ```
 
-```{r}
-regression_analysis <- function(data, x, y, covars) {
-  
-  # Filter nan values
-  data <- data[complete.cases(data[, c(x, y, covars)]), ]
-  
-  # Scatter plot with correlation
-  scatter_plot <- ggplot(data, aes(x = !!sym(y), y = !!sym(x))) +
-    geom_point() +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    stat_cor(method = 'pearson') +
-    labs(title = paste(x, "vs", y),
-         x = y,
-         y = x)
-    
-  # Create a formula for the regression model
-  covar_formula <- paste(covars, collapse = " + ")
-  full_formula <- as.formula(paste(x, "~", y, "+", covar_formula))
-  
-  # Linear regression model
-  ols_results <- lm(as.formula(paste(x, "~", y)), data = data)
-  ols_full_results <- lm(full_formula, data = data)
-  
-  # Model summary
-  model_summary <- summary(ols_results)
-  model_full_summary <- summary(ols_full_results)
-  
-  # Plot model
-  pred_plot <- plot_model(ols_results, type = c('pred'), terms = c(y), show.values = TRUE) +
-    geom_point(data = data, aes(x = !!sym(y), y = !!sym(x)), 
-             inherit.aes = F) + 
-    labs(title = paste(x, "vs", y),
-         x = y,
-         y = x)
-  
-  # Return a list with all results
-  return(list(
-    scatter_plot = scatter_plot,
-    simple_model = ols_results,
-    regression_model = ols_full_results,
-    model_summary = model_summary,
-    model_full_summary = model_full_summary,
-    predicted_values_plot = pred_plot
-  ))
-}
-```
+# Cognitively Unimpaired
 
 ```{r}
-# Distribution of deltas
-mean <- mean(data$delta_all)
-print(mean)
-std <- sqrt(var(data$delta_all))
-print(std)
+# Distribution of deltas for controls
+print("Cognitively Unimpaired")
+sprintf("Delta mean: %.3f", mean(cn_data$delta))
+sprintf("Delta std: %.3f", sqrt(var(cn_data$delta)))
 ```
 
 ## Delta differences {.tabset}
@@ -121,212 +63,124 @@ print(std)
 ### E4 status
 
 ```{r}
-ggplot(subset(data, !is.na(e4)), aes(x = e4, y = delta_all)) +
+# Compute group means and their difference
+delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(cn_data, !is.na(e4_carrier)), mean)$delta))
+
+# Plot
+ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = 't.test') +
-  labs(title = 'Delta differences by E4 status',
-       x = 'E4 status',
-       y = 'Delta')
+  stat_compare_means(method = "t.test") +
+  labs(
+    title = "Delta differences by E4 status",
+    x = "E4 status",
+    y = "Delta"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 10,  # Position the text at the top center
+    label = sprintf("Mean difference: %.3f", delta_diff_e4),
+    size = 4,
+    fontface = "italic"
+  )
 ```
 
 ### Amyloid status
 
 ```{r}
-ggplot(subset(data, !is.na(Amyloid)), aes(x = Amyloid, y = delta_all)) +
+# Compute group means and their difference
+delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(cn_data, !is.na(ab_status)), mean)$delta))
+
+# Plot
+ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = 't.test') +
-  labs(title = 'Delta differences by Amyloid status',
-       x = 'Amyloid status',
-       y = 'Delta')
+  stat_compare_means(method = "t.test") +
+  labs(
+    title = "Delta differences by AB status",
+    x = "AB status",
+    y = "Delta"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 10,  # Position the text at the top center
+    label = sprintf("Mean difference: %.3f", delta_diff_ab),
+    size = 4,
+    fontface = "italic"
+  )
 ```
 
 ### Sex differences
 
 ```{r}
-data$SEX <- as.factor(data$SEX)
-ggplot(subset(data, !is.na(SEX)), aes(x = SEX, y = delta_all)) +
+# Compute group means and their difference
+delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(cn_data, !is.na(sex)), mean)$delta))
+
+# Plot
+ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = 't.test') +
-  labs(title = 'Delta differences by Amyloid status',
-       x = 'SEX',
-       y = 'Delta')
+  stat_compare_means(method = "t.test") +
+  labs(
+    title = "Delta differences by Sex",
+    x = "Sex",
+    y = "Delta"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 10,  # Position the text at the top center
+    label = sprintf("Mean difference: %.3f", delta_diff_sex),
+    size = 4,
+    fontface = "italic"
+  )
 ```
 
-
-
-## Cognition {.tabset}
+## Biomarkers {.tabset}
 
 ### PACC
 
 ```{r}
-regression_analysis(data, 'PACC', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### FCTOTAL96
-
-```{r}
-regression_analysis(data, 'FCTOTAL96' , 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### MMSE
-
-```{r}
-regression_analysis(data, 'MMSCORE', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Digit
-
-```{r}
-regression_analysis(data, 'DIGITTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### LDL
-
-```{r}
-regression_analysis(data, 'LDELTOTAL', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### YearsEd
-
-```{r}
-regression_analysis(data, 'YearsEd', 'delta_all', c('SEX', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-## Blood Biomarkers {.tabset}
-
-### pTau217
-
-```{r}
-regression_analysis(data, 'pTau217', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
-
-regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
-
-regression_analysis(data, 'pTau217', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'TPP181'))
-```
-```{r}
-fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = pTau217)) +
-    geom_point() +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    stat_cor(method = 'pearson') +
-    labs(x = 'Delta (years)',
-         y = 'pTau217 (U/mL)')
-
-# Save 
-ggsave("~/Downloads/pTau217_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
-```
-
-### tpp181
-
-```{r}
-regression_analysis(data, 'TPP181', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
-
-regression_analysis(data, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP'))
-
-regression_analysis(data, 'TPP181', 'delta_all', c('NF.L', 'AB42.AB40', 'GFAP', 'pTau217'))
-```
-
-### NFL
-
-```{r}
-regression_analysis(data, 'NF.L', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
-
-regression_analysis(data, 'NF.L', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'GFAP'))
+regression_analysis(cn_data, 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 
 ```
 
-### GFAP
+### AB
 
 ```{r}
-regression_analysis(data, 'GFAP', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
-
-regression_analysis(data, 'GFAP', 'delta_all', c('pTau217', 'TPP181', 'AB42.AB40', 'NF.L'))
+regression_analysis(cn_data[cn_data$secondary == 1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
-### AB42/40
+### ptau217
 
 ```{r}
-regression_analysis(data, 'AB42.AB40', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
-
-regression_analysis(data, 'AB42.AB40', 'delta_all', c('pTau217', 'TPP181', 'NF.L', 'GFAP'))
+regression_analysis(cn_data[cn_data$exploratory == 1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
-## PET Amyloid
-
-### Composite
+### TAU
 
 ```{r}
-regression_analysis(data, 'amyloid_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'BL_Age'))
+regression_analysis(cn_data[cn_data$exploratory == 1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
-```{r}
-fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = amyloid_composite)) +
-    geom_point() +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    stat_cor(method = 'pearson') +
-    labs(x = 'Delta (years)',
-         y = 'AB-PET SUVR')
+## Time sensitivity analysis {.tabset}
 
-# Save 
-ggsave("~/Downloads/ab_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+### PACC
+
+```{r}
+regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,], 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 ```
 
-## PET Tau {.tabset}
+### AB
 
-### Composite
 ```{r}
-regression_analysis(data, 'tau_composite', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
-```{r}
-fig <- scatter_plot <- ggplot(data, aes(x = delta_all, y = tau_composite)) +
-    geom_point() +
-    geom_smooth(method = 'lm', formula = y ~ x) +
-    stat_cor(method = 'pearson') +
-    labs(x = 'Delta (years)',
-         y = 'Tau-PET SUVR')
+### ptau217
 
-# Save 
-ggsave("~/Downloads/tau_a4_cor.png", plot = fig, width = 4, height = 2.5, units = "in")
+```{r}
+regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```
 
-### Inferior temporal
+### TAU
 
 ```{r}
-regression_analysis(data, 'bi_inferiortemporal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Inferior parietal
-
-```{r}
-regression_analysis(data, 'bi_inferiorparietal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Middle temporal
-
-```{r}
-regression_analysis(data, 'bi_middletemporal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Entorhinal
-
-```{r}
-regression_analysis(data, 'bi_entorhinal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Parahippocampal
-
-```{r}
-regression_analysis(data, 'bi_parahippocampal', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Fusiform
-
-```{r}
-regression_analysis(data, 'bi_fusiform', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
-```
-
-### Amygdala
-
-```{r}
-regression_analysis(data, 'bi_Amygdala', 'delta_all', c('SEX', 'YearsEd', 'e4', 'Amyloid', 'BL_Age'))
+regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
 ```

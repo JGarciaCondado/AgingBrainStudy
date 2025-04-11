@@ -1,168 +1,131 @@
 import pandas as pd
+import numpy as np
 
-# Load subject info
-df_subinfo = pd.read_csv('data/A4/raw/SUBJINFO.csv', usecols=['BID', 'AGEYR', 'SEX', 'APOEGN'])
-df_subinfo = df_subinfo.rename(columns={'AGEYR': 'AGE'})
+# Load baseline and longitudinal data
+df_baseline = pd.read_csv('data/final/a4/a4_baseline_041125.csv', 
+                          index_col='ID',
+                          usecols=lambda x: x != 'Unnamed: 0')
+df_long = pd.read_csv('data/final/a4/a4_long_041125.csv',
+                      index_col='ID',
+                      usecols=lambda x: x != 'Unnamed: 0')
 
-# Load freeSurfer volume data
-df_freesurfer = pd.read_csv('data/A4/raw/freesurfer/aseg_stats.txt', sep='\t')
-df_freesurfer = df_freesurfer.rename(columns={'Measure:volume': 'BID'})
+# Remove participant with outlier MRI B66388909_a4
+df_baseline = df_baseline[df_baseline.index != 'B66388909_a4']
 
-# Keep only specific volume columns and divide by total intracranial volume
-vols = [ 'Left-Hippocampus', 'Left-Amygdala', 'Right-Hippocampus', 'Right-Amygdala', 'EstimatedTotalIntraCranialVol']
-df_freesurfer = df_freesurfer[['BID'] + vols]
-# Combine left and right volumes
-df_freesurfer['bi_hippocampus'] = df_freesurfer['Left-Hippocampus'] + df_freesurfer['Right-Hippocampus']
-df_freesurfer['bi_amygdala'] = df_freesurfer['Left-Amygdala'] + df_freesurfer['Right-Amygdala']
+# Keep only participants with more than two time points
+df_long = df_long.sort_values(by=['ID', 'MonthsFromBaseline_raw'])
+df_long['nTimePoints'] = df_long.groupby('ID')['zPACC'].transform(lambda x: x.notna().sum())
+df_long = df_long[df_long['nTimePoints'] >= 2]
+long_ids = df_long.index.unique()
+df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
+
+# Extract followup time of subjects from longitudinal data
+max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
+df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
+
+# Process MRI features for BrainAge modelling by keeping only columns that start with MRI_
+df_structural = df_baseline.filter(like='MRI_').copy()
+df_structural.columns = df_structural.columns.str.replace('MRI_FS7_rnr_', '')
+
+# Combine those with lh and rh cortical thickness
+lh = df_structural.filter(like='lh_').columns
+rh = df_structural.filter(like='rh_').columns
+for l, r in zip(lh, rh):
+    df_structural['bi_' + l.split('_')[1]] = df_structural[l] + df_structural[r]
+    df_structural.drop(columns=[l, r], inplace=True)
+
+# Combine those with Left and Right Hippocampus and Amygdala
+left = df_structural.filter(like='Left').columns
+right = df_structural.filter(like='Right').columns
+for l, r in zip(left, right):
+    df_structural['bi_' + l.split('_')[1]] = df_structural[l] + df_structural[r]
+    df_structural.drop(columns=[l, r], inplace=True)
+
+# Normalize volumes by total intracranial volume
 def normalize_mri(mri_col, icv_col):
     from sklearn.linear_model import LinearRegression
     b = LinearRegression().fit(icv_col.values.reshape(-1,1), mri_col).coef_[0]
     adj_mri = mri_col - b * (icv_col - icv_col.mean())
     return adj_mri
-# Normalize volumes by total intracranial volume
-df_freesurfer['bi_hippocampus'] = normalize_mri(df_freesurfer['bi_hippocampus'], df_freesurfer['EstimatedTotalIntraCranialVol'])
-df_freesurfer['bi_amygdala'] = normalize_mri(df_freesurfer['bi_amygdala'], df_freesurfer['EstimatedTotalIntraCranialVol'])
-df_freesurfer.drop(columns=vols, inplace=True)
+df_structural['bi_Hippocampus'] = normalize_mri(df_structural['bi_Hippocampus'], df_structural['ICV_vol'])
+df_structural['bi_Amygdala'] = normalize_mri(df_structural['bi_Amygdala'], df_structural['ICV_vol'])
 
-# Load thickness right and left
-df_thickness_lh = pd.read_csv('data/A4/raw/freesurfer/thickness_lh_stats.txt', sep='\t').rename(columns={'lh.aparc.thickness': 'BID'})
-df_thickness_rh = pd.read_csv('data/A4/raw/freesurfer/thickness_rh_stats.txt', sep='\t').rename(columns={'rh.aparc.thickness': 'BID'})
-df_thickness = pd.merge(df_thickness_lh, df_thickness_rh, on='BID', suffixes=('_lh', '_rh'))
-# Keep only specific thickness columns
-thickness = ['inferiortemporal', 'inferiorparietal', 'fusiform', 'middletemporal', 'entorhinal', 'parahippocampal']
-# Contains some of this words
-df_thickness = df_thickness[['BID'] + [col for col in df_thickness.columns if any([t in col for t in thickness])]]
-# Combine left and right thickness
-for t in thickness:
-    df_thickness['bi_' + t] = df_thickness['lh_'+t+'_thickness'] + df_thickness['rh_'+t+'_thickness']
-    df_thickness.drop(columns=['lh_'+t+'_thickness', 'rh_'+t+'_thickness'], inplace=True)
-df_freesurfer = pd.merge(df_freesurfer, df_thickness, on='BID')
+# Keep only MRI_Age and bi_ columns
+df_structural = df_structural[['MRI_Age'] + [col for col in df_structural.columns if 'bi_' in col]]
 
-# Remove outliers
-outliers = ['B83014615', 'B16568072', 'B11279364', 'B65897427', 'B19132670', 'B49144285', 'B12659422', 'B65278081', 'B87879018']
-df_freesurfer = df_freesurfer[~df_freesurfer['BID'].isin(outliers)]
+# Rename MRI_Age to age and lower case column names
+df_structural = df_structural.rename(columns={'MRI_Age': 'age'})
+df_structural.columns = df_structural.columns.str.lower()
 
-# Merge subject info and freeSurfer data to create features
-df_features = pd.merge(df_subinfo[['BID', 'AGE']], df_freesurfer, on='BID')
+# Save as csv
+df_structural.to_csv('data/final/a4/processed/structural_features.csv')
 
-# Save without index
-df_features.to_csv('data/A4/processed/structural_features.csv', index=False)
+# Create clinical file with CN being e4- and ab-
+df_clinical = df_baseline[['e4_carrier', 'Amyloid_group']].copy()
+df_clinical['cn'] = ((df_clinical['e4_carrier'] == 0) & (df_clinical['Amyloid_group'] == 'Ab-')).astype(int)
+df_clinical['not_cn'] = 1 - df_clinical['cn'].astype(int)
+df_clinical.drop(columns=['e4_carrier', 'Amyloid_group'], inplace=True)
+df_clinical.to_csv('data/final/a4/processed/clinical.csv')
 
-# Save covariates
-df_covars = df_subinfo[['BID', 'SEX', 'APOEGN']]
+# A4 has no dates so we have to use months from baseline for each
+df_baseline['time_diff_pacc'] = (df_baseline['MonthsFromBaseline_raw'] - df_baseline['MonthsFromBaseline_MRI'])/12
+df_baseline['time_diff_ab'] = (df_baseline['MonthsFromBaseline_amyloid'] - df_baseline['MonthsFromBaseline_MRI'])/12
+df_baseline['time_diff_ptau'] = (df_baseline['MonthsFromBaseline_ptau217'] - df_baseline['MonthsFromBaseline_MRI'])/12
+df_baseline['time_diff_tau'] = (df_baseline['MonthsFromBaseline_tau'] - df_baseline['MonthsFromBaseline_MRI'])/12
 
-# Obtain amyloid status and ApoGen
-df_status = pd.read_csv('data/A4/raw/pet_imaging/imaging_PET_VA.csv', usecols=['BID', 'overall_score'])
-df_status.rename(columns={'overall_score': 'Amyloid'}, inplace=True)
-df_covars = pd.merge(df_covars, df_status, on='BID').dropna()
-df_covars['Amyloid'] = (df_status['Amyloid'] == 'positive').astype(int)
-df_covars['e4'] = df_covars['APOEGN'].str.contains('E4').astype(int)
-df_covars.drop(columns=['APOEGN'], inplace=True)
-df_covars.to_csv('data/A4/processed/covariates.csv', index=False)
+# Calculate Tau composite by averaging over regions with _bh
+# Starts with PVC and finishes with _bh
+tau_features = [col for col in df_baseline.columns if 'PVC_' in col and '_bh' in col]
+df_baseline['tau_composite'] = df_baseline[tau_features].mean(axis=1)
 
-# Create clinical file with type of Apoe4
-df_clinical = df_covars[['BID', 'e4', 'Amyloid']].copy()
-df_clinical['CN'] = ((df_clinical['e4'] == 0) & (df_clinical['Amyloid'] == 0)).astype(int)
-df_clinical['e4+'] = ((df_clinical['e4'] == 1) & (df_clinical['Amyloid'] == 0)).astype(int)
-df_clinical['e4+ab+'] = ((df_clinical['e4'] == 1) & (df_clinical['Amyloid'] == 1)).astype(int)
-df_clinical['ab+'] = ((df_clinical['e4'] == 0) & (df_clinical['Amyloid'] == 1)).astype(int)
-df_clinical.drop(columns=['e4', 'Amyloid'], inplace=True)
-df_clinical.to_csv('data/A4/processed/clinical.csv', index=False)
+# Rename of columns of interest
+# Ptau use the p/np ratio and the C2N platform
+df_baseline.rename(columns={
+    'MRI_Age': 'mri_age',
+    'Sex': 'sex',
+    'Education': 'edu',
+    'zPACC': 'PACC_mri',
+    'Amyloid_group': 'ab_status',
+    'summary_suvr_amyloid': 'ab_composite',
+    'ptau217_read': 'ptau',
+    'MonthsFromBaseline_MRI': 'time_baseline_to_mri',
+}, inplace=True)
 
-# Obrain pTAU data make BID coulmn index and only extract ORRES column
-df_ptau = pd.read_csv('data/A4/raw/plasma/biomarker_pTau217.csv', usecols=['BID', 'VISCODE', 'ORRES'])
-df_ptau.rename(columns={'ORRES': 'pTau217'}, inplace=True)
-# Keep only those with VISCODE 6
-df_ptau = df_ptau[df_ptau['VISCODE'] == 6]
-df_ptau.drop(columns=['VISCODE'], inplace=True)
-# Convert ptau to float and remove nans
-df_ptau['pTau217'] = pd.to_numeric(df_ptau['pTau217'], errors='coerce')
-df_ptau.dropna(inplace=True)
+# Convert to human redable codes and standardized codes 
+df_baseline['sex'] = df_baseline['sex'].map({1: 'Female', 0: 'Male'})
+df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
+df_baseline['ab_status'] = df_baseline['ab_status'].map({'Ab+': 'ab+', 'Ab-': 'ab-'})
 
-# Obtain AB Test data 
-df_ab = pd.read_csv('data/A4/raw/plasma/biomarker_AB_Test.csv', usecols=['BID', 'LBTESTCD', 'LBORRES'])
-# Pivot to wide dataframe and remove duplicates
-df_ab = df_ab.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
-df_ab = df_ab.pivot(index='BID', columns='LBTESTCD', values='LBORRES')
-# Convert to floats
-df_ab = df_ab.apply(pd.to_numeric, errors='coerce')
-# Only keep TP42/TP40 and FP42/FP40
-df_ab = df_ab[['TP42/TP40', 'FP42/FP40']]
+# All are technically CU at start of the study. Create new column with all CN
+df_baseline['diagnosis'] = 'CN'
 
-# Obtain Plasma Roche measures
-df_roche = pd.read_csv('data/A4/raw/plasma/biomarker_Plasma_Roche_Results.csv', usecols=['BID', 'LBTESTCD', 'LABRESN'])
+# Create cohort variable
+conditions = [
+    ((df_baseline['SUBSTUDY'] == 'SF') | (df_baseline['SUBSTUDY'] == 'LEARN')),
+    ((df_baseline['SUBSTUDY'] == 'A4') & (df_baseline['TX'] == 'Placebo')),
+    ((df_baseline['SUBSTUDY'] == 'A4') & (df_baseline['TX'] == 'Solanezumab'))
+]
 
-# Pivot to wide dataframe and remove duplicates
-df_roche = df_roche.drop_duplicates(subset=['BID', 'LBTESTCD'], keep='first')
-df_roche = df_roche.pivot(index='BID', columns='LBTESTCD', values='LABRESN')
-df_roche = df_roche.apply(pd.to_numeric, errors='coerce')
-# Calculate the ratio of AB42/AB40
-df_roche['AB42/AB40'] = df_roche['AMYLB42'] / df_roche['AMYLB40']
-df_roche.drop(columns=['AMYLB42', 'AMYLB40'], inplace=True)
+choices = ['LEARN/SF', 'A4 Placebo', 'A4 Treated']
 
-# Load Cognitive data
-df_cog = pd.read_csv('data/A4/raw/cognition/PACC.csv', usecols=['BID', 'VISCODE', 'PACC.raw', "FCTOTAL96.z","LDELTOTAL.z","DIGITTOTAL.z","MMSCORE.z"])
-df_cog.rename(columns={'PACC.raw': 'PACC', 'FCTOTAL96.z': 'FCTOTAL96', 'LDELTOTAL.z': 'LDELTOTAL', 'DIGITTOTAL.z': 'DIGITTOTAL', 'MMSCORE.z': 'MMSCORE'}, inplace=True)
-df_cog = df_cog[df_cog['VISCODE'] == 1]
-df_cog.drop(columns=['VISCODE'], inplace=True)
+# Apply the conditions
+df_baseline['cohort'] = np.select(conditions, choices, default=None)
 
-# Load PET data Amyloid
-df_pet_amyl = pd.read_csv('data/A4/raw/pet_imaging/imaging_SUVR_amyloid.csv', usecols=['BID', 'VISCODE', 'brain_region', 'suvr_cer'])
-df_pet_amyl = df_pet_amyl[df_pet_amyl['VISCODE'] == 2]
-df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
-df_pet_amyl = df_pet_amyl.dropna(subset=['suvr_cer'])
-df_pet_amyl = df_pet_amyl.drop_duplicates(subset=['BID', 'brain_region'], keep='first')
-df_pet_amyl = df_pet_amyl.pivot(index='BID', columns='brain_region', values='suvr_cer')
-df_pet_amyl = df_pet_amyl.apply(pd.to_numeric, errors='coerce')
-df_pet_amyl.rename(columns={'Composite_Summary': 'amyloid_composite'}, inplace=True)
+# Change ptau217 reads of <LLOQ and >ULOQ to NaN
+df_baseline['ptau'] = df_baseline['ptau'].replace('<LLOQ', np.nan)
+df_baseline['ptau'] = df_baseline['ptau'].replace('>ULOQ', np.nan)
 
-# Load PET Tau PETSurfer
-df_pet_tau = pd.read_csv('data/A4/raw/pet_imaging/imaging_Tau_PET_PetSurfer.csv')
-df_pet_tau = df_pet_tau[['BID'] + [col for col in df_pet_tau.columns if 'bi_' in col]]
-# Only interested in specifci features
-tau_features = ['bi_inferiortemporal', 'bi_inferiorparietal', 'bi_fusiform', 'bi_middletemporal', 'bi_entorhinal', 'bi_Amygdala', 'bi_parahippocampal']
-df_pet_tau = df_pet_tau[['BID'] + tau_features]
-# Create Tau composite
-df_pet_tau['tau_composite'] = df_pet_tau[tau_features].mean(axis=1)
+# Create three new columns for type of analysis, secondary and exploratory
+# Primary includes those who have MRI measures and longitudinal PACC which we already filtered for
+# Secondary is those who have ab_composite AND ptau measures
+df_baseline['secondary'] = (df_baseline['ab_composite'].notna()).astype(int)
+# Exploratory is those who have ab_composite AND ptau AND tau_composite measures
+df_baseline['exploratory'] = ((df_baseline['ab_composite'].notna()) & (df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
 
-# Merge all into one csv
-df_factors = pd.merge(df_ptau, df_ab, on='BID', how='outer')
-df_factors = pd.merge(df_factors, df_roche, on='BID', how='outer')
-df_factors = pd.merge(df_factors, df_cog, on='BID', how='outer')
-df_factors = pd.merge(df_factors, df_pet_amyl, on='BID', how='outer')
-df_factors = pd.merge(df_factors, df_pet_tau, on='BID', how='outer')
-df_factors.to_csv('data/A4/processed/factors.csv', index=False)
+# Columns of interest with all the other data
+common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'cohort', 'TX', 'time_baseline_to_mri', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
+               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'secondary', 'exploratory']
+df_baseline = df_baseline[common_cols]
 
-# Add Age to create age model
-df_age = df_subinfo[['BID', 'AGE']]
-df_pet_tau = pd.merge(df_age, df_pet_tau, on='BID')
-df_pet_tau.drop(columns='tau_composite', inplace=True)
-df_pet_tau.to_csv('data/A4/processed/pet_features.csv', index=False)
-
-# Define PRS type
-prs_types = ['gm', 'wm', 'fc']
-prs_threshold = 0.5 # 0.001, 0.05 0.1, 0.2, 0.3, 0.4, 0.5
-
-# Create PRS data dataframe
-for prs_type in prs_types:
-    file_path = 'data/A4/raw/prs_scores/{}/prs2.pT{}.sscore'.format(prs_type, prs_threshold)
-    df_prs = pd.read_csv(file_path, sep='\s+')
-    df_prs = df_prs[['IID', 'SCORE1_AVG']]
-    df_prs.rename(columns={'SCORE1_AVG': 'SCORE'}, inplace=True)
-
-    # Convert SCORE to z-score
-    df_prs['ZSCORE'] = (df_prs['SCORE'] - df_prs['SCORE'].mean()) / df_prs['SCORE'].std()
-
-    # Rename columns
-    df_prs.rename(columns={'SCORE': '{}_SCORE'.format(prs_type.upper()), 'ZSCORE': '{}_ZSCORE'.format(prs_type.upper())}, inplace=True)
-
-    # Merge dataframes
-    if prs_type == 'gm':
-        df = df_prs
-    else:
-        df = pd.merge(df, df_prs, on='IID', how='outer')
-
-# Dorp score columns
-df.drop(columns=['GM_SCORE', 'WM_SCORE', 'FC_SCORE'], inplace=True)
-df.rename(columns={'IID': 'BID'}, inplace=True)
-df.to_csv(f'data/A4/processed/prs_{prs_threshold}.csv', index=False)
+# Save as csv
+df_baseline.to_csv('data/final/a4/processed/baseline.csv')

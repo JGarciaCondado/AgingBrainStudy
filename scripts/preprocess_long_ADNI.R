@@ -8,7 +8,7 @@ data_baseline <- read.csv("~/Documents/Projects/AgingBrainStudy/data/final/adni/
                           na.strings = c("", "NA")) 
 data_long <- read.csv("~/Documents/Projects/AgingBrainStudy/data/final/adni/adni_long_040725.csv")
 data_deltas <- read.csv("~/Documents/Projects/AgingBrainStudy/analysis/final/adni/ageml/model_age/predicted_age.csv") %>%
-  rename(delta = delta_all)
+  dplyr::rename(delta = delta_all)
 
 # Join with baseline data that has already removed those with less than 2 timepoints
 data_long <- merge(data_long, data_baseline, by = "ID")
@@ -26,11 +26,11 @@ data_long <- data_long %>%
 
 # Rename zPACC to PACC
 data_long <- data_long %>%
-  rename(PACC = zPACC) 
+  dplyr::rename(PACC = zPACC) 
 
 # Remove unnecessary columns
 data_long <- data_long %>%
-  select(-c(X, VISCODE, Cohort, PHASE, Date, Age, MonthsFromBaseline_raw,MonthsFromBaseline_rounded, lPACC, CDRGLOB, Diagnosis, Baseline_Dx, mri_date))
+  select(-c(X, Cohort, PHASE, Date, Age, MonthsFromBaseline_raw,MonthsFromBaseline_rounded, lPACC, CDRGLOB, Diagnosis, Baseline_Dx, mri_date))
 
 # Save the processed data
 write.csv(data_long, "~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/longitudinal.csv")

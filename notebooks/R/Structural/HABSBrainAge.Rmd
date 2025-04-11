@@ -36,7 +36,7 @@ The model was trained using the following features:
 -   Parahippocampal cortical thickness
 -   Fusiform cortical thickness
 
-Command used: model_age -o analysis/final/habs/structural_brainage -f data/final/habs/processed/structural_features.csv --clinical data/final/habs/processed/clinical.csv
+Command used: model_age -o analysis/final/habs -f data/final/habs/processed/structural_features.csv --clinical data/final/habs/processed/clinical.csv
 
 ```{r, include = FALSE}
 # Load deltas and baseline

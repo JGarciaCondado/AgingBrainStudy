@@ -25,6 +25,10 @@ theme_set(theme_bw())
 # Data load
 
 ```{r}
+# Load A4
+data_a4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/baseline.csv',
+                     na.strings = c("", "NA"))
+
 # Load HABS data
 data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/habs/processed/baseline.csv',
                       na.strings = c("", "NA"))
@@ -34,13 +38,15 @@ data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/proc
                       na.strings = c("", "NA"))
 
 # Create cohort variables
+data_a4 <- data_a4 %>%
+  mutate(cohort = 'A4/LEARN')
 data_habs <- data_habs %>%
   mutate(cohort = 'HABS')
 data_adni <- data_adni %>%
   mutate(cohort = ifelse(diagnosis == 'CN', 'ADNI CU', 'ADNI MCI'))
 
 # Paste together
-data_all <- rbind(data_habs, data_adni)
+data_all <- bind_rows(data_a4, data_habs, data_adni)
 
 # Change NaN in e4_carrier and ab_status to Unknown
 data_all <- data_all %>%
@@ -57,7 +63,7 @@ data_all <- data_all %>%
 
 ```{r}
 # Specify order of cohorts
-data_all$cohort <- factor(data_all$cohort, levels = c("HABS", "ADNI CU", "ADNI MCI"))
+data_all$cohort <- factor(data_all$cohort, levels = c("A4/LEARN", "HABS", "ADNI CU", "ADNI MCI"))
 
 demo_table <- tbl_summary(data_all,
             include = c(mri_age, sex, edu, e4_carrier, ab_status,  PACC_mri, time_diff_pacc, follow_up_time, ab_composite, time_diff_ab, ptau, time_diff_ptau, tau_composite, time_diff_tau),
@@ -174,6 +180,33 @@ analysis_table %>%
   line_spacing(space = 1.05, part = "all") %>%
   autofit() %>%
   save_as_docx(path = "~/Documents/Projects/AgingBrainStudy/tables/analysis.docx")
+```
+
+## A4
+```{r}
+# Count total observations in the dataset
+total_obs <- nrow(data_a4)
+
+# Count how many have values for each variable
+have_ab_composite <- sum(!is.na(data_a4$ab_composite))
+have_ptau217 <- sum(!is.na(data_a4$ptau))
+have_tau <- sum(!is.na(data_a4$tau_composite))
+
+# Count how many have both variables
+have_both <- sum(!is.na(data_a4$ab_composite) & !is.na(data_a4$ptau))
+have_all <- sum(!is.na(data_a4$ab_composite) & !is.na(data_a4$ptau) & !is.na(data_a4$tau_composite))
+
+# Create a summary
+cat("Total observations:", total_obs, "\n")
+cat("Have ab_composite:", have_ab_composite, "(", round(have_ab_composite/total_obs*100, 1), "%)\n")
+cat("Have ptau217:", have_ptau217, "(", round(have_ptau217/total_obs*100, 1), "%)\n")
+cat("Have both:", have_both, "(", round(have_both/total_obs*100, 1), "%)\n")
+cat("Have tau:", have_tau, "(", round(have_tau/total_obs*100, 1), "%)\n")
+cat("Have all:", have_all, "(", round(have_all/total_obs*100, 1), "%)\n")
+
+# Analysis type
+cat("Secondary analysis:", sum(data_a4$secondary), "(", round(sum(data_a4$secondary)/total_obs*100, 1), "%)\n")
+cat("Exploratory analysis:", sum(data_a4$exploratory), "(", round(sum(data_a4$exploratory)/total_obs*100, 1), "%)\n")
 ```
 
 ## HABS
