@@ -16,7 +16,13 @@ knit: (
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot)
 
-source('~/Documents/Projects/AgingBrainStudy/scripts/functions.R')
+# Save path
+path <- '~/Documents/Projects/AgingBrainStudy/figures/crossectional/'
+
+# Load functions
+source('~/Documents/Projects/AgingBrainStudy/scripts/regression_analysis.R')
+source('~/Documents/Projects/AgingBrainStudy/scripts/improve_figure.R')
+
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 theme_set(theme_bw())
 ```
@@ -49,27 +55,25 @@ baseline <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/process
 cn_data <- merge(deltas[, c('ID', 'delta')], baseline, by = 'ID')
 ```
 
-# Cognitively Unimpaired
-
 ```{r}
 # Distribution of deltas for controls
-print("Cognitively Unimpaired")
-sprintf("Delta mean: %.3f", mean(cn_data$delta))
-sprintf("Delta std: %.3f", sqrt(var(cn_data$delta)))
+cat("Cognitively Unimpaired \n")
+cat("Delta mean:", mean(cn_data$delta), "\n")
+cat("Delta std:", sqrt(var(cn_data$delta)), "\n")
 ```
 
-## Delta differences {.tabset}
+# Delta differences {.tabset}
 
-### E4 status
+## E4 status
 
 ```{r}
 # Compute group means and their difference
 delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(cn_data, !is.na(e4_carrier)), mean)$delta))
+p_val_e4 <- t.test(delta ~ e4_carrier, data = cn_data)$p.value
 
 # Plot
 ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = "t.test") +
   labs(
     title = "Delta differences by E4 status",
     x = "E4 status",
@@ -77,23 +81,32 @@ ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
   ) +
   annotate(
     "text",
-    x = 1.5, y = 10,  # Position the text at the top center
+    x = 1.5, 
+    y = 6,
     label = sprintf("Mean difference: %.3f", delta_diff_e4),
+    size = 4,
+    fontface = "italic"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, 
+    y = 5,
+    label = sprintf("p = %.2g", p_val_e4),
     size = 4,
     fontface = "italic"
   )
 ```
 
-### Amyloid status
+## Amyloid status
 
 ```{r}
 # Compute group means and their difference
 delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(cn_data, !is.na(ab_status)), mean)$delta))
+p_val_ab <- t.test(delta ~ ab_status, data = cn_data)$p.value
 
 # Plot
 ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = "t.test") +
   labs(
     title = "Delta differences by AB status",
     x = "AB status",
@@ -101,23 +114,30 @@ ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   ) +
   annotate(
     "text",
-    x = 1.5, y = 10,  # Position the text at the top center
+    x = 1.5, y = 6,  # Position the text at the top center
     label = sprintf("Mean difference: %.3f", delta_diff_ab),
+    size = 4,
+    fontface = "italic"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 5,
+    label = sprintf("p = %.2g", p_val_ab),
     size = 4,
     fontface = "italic"
   )
 ```
 
-### Sex differences
+## Sex differences
 
 ```{r}
 # Compute group means and their difference
 delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(cn_data, !is.na(sex)), mean)$delta))
+p_val_sex <- t.test(delta ~ sex, data = cn_data)$p.value
 
 # Plot
 ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
   geom_boxplot() +
-  stat_compare_means(method = "t.test") +
   labs(
     title = "Delta differences by Sex",
     x = "Sex",
@@ -125,62 +145,152 @@ ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
   ) +
   annotate(
     "text",
-    x = 1.5, y = 10,  # Position the text at the top center
+    x = 1.5, y = 6,  # Position the text at the top center
     label = sprintf("Mean difference: %.3f", delta_diff_sex),
+    size = 4,
+    fontface = "italic"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 5,
+    label = sprintf("p = %.2g", p_val_sex),
     size = 4,
     fontface = "italic"
   )
 ```
 
-## Biomarkers {.tabset}
+# Biomarkers {.tabset}
 
-### PACC
+Correlation between BrainAge delt and different biomarkers. Sensitivity analysis includes addin sex, educaiton, APOEe4, AB-status and MRI Age as covariates. Further sensitivity analysis limits datapoints to those within 1 year of the MRI.
+
+## PACC
 
 ```{r}
-regression_analysis(cn_data, 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+# Run analysis on PACC
+pacc_analysis = regression_analysis(cn_data, 
+                                    'PACC_mri', 
+                                    'delta', 
+                                    c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 
+# Plot results
+pacc_analysis$scatter_plot
+
+# Time sensitivity analysis
+pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
+                                'PACC_mri', 
+                                'delta', 
+                                c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
+# Sensitivity analysis
+cat("Sensitivity analysis: \n")
+cat("p-value of delta including covariates:", 
+    pacc_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("p-value of delta including covariates and time difference:", 
+    pacc_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+
+# Apply figure improvement and save
+pacc_analysis$scatter_plot <- improve_graph(pacc_analysis$scatter_plot, 'Delta (years)', 'PACC')
+ggsave(paste(path, 'pacc_a4.png'), pacc_analysis$scatter_plot, 
+       width = 50, height = 36, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### AB
+## AB
 
 ```{r}
-regression_analysis(cn_data[cn_data$secondary == 1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+# Run analysis on AB
+ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
+                                  'ab_composite', 
+                                  'delta', 
+                                  c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
+# Plot results
+ab_analysis$scatter_plot
+
+# Time sensitivity analysis
+ab_sens = regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
+                              'ab_composite', 
+                              'delta', 
+                              c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
+# Sensitivity analysis
+cat("Sensitivity analysis: \n")
+cat("p-value of delta including covariates:", 
+    ab_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("p-value of delta including covariates and time difference:", 
+    ab_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+
+# Apply figure improvement and save
+ab_analysis$scatter_plot <- improve_graph(ab_analysis$scatter_plot, 'Delta (years)', 'Aβ-PET')
+ggsave(paste(path, 'ab_a4.png'), ab_analysis$scatter_plot, 
+       width = 50, height = 36, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### ptau217
+## ptau217
 
 ```{r}
-regression_analysis(cn_data[cn_data$exploratory == 1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+# Run analysis on AB
+ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
+                                  'ptau', 
+                                  'delta', 
+                                  c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
+# Plot results
+ptau_analysis$scatter_plot
+
+# Time sensitivity analysis
+ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
+                              'ptau', 
+                              'delta', 
+                              c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
+
+# Sensitivity analysis
+cat("Sensitivity analysis: \n")
+cat("p-value of delta including covariates:", 
+    ptau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("p-value of delta including covariates and time difference:", 
+    ptau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+
+# Apply figure improvement and save
+ptau_analysis$scatter_plot <- improve_graph(ptau_analysis$scatter_plot, 'Delta (years)', 'pTau217')
+ggsave(paste(path, 'ptau_a4.png'), ptau_analysis$scatter_plot, 
+       width = 50, height = 36, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### TAU
+## TAU
 
 ```{r}
-regression_analysis(cn_data[cn_data$exploratory == 1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
-```
+# Run analysis on AB
+tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
+                                  'tau_composite', 
+                                  'delta', 
+                                  c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 
-## Time sensitivity analysis {.tabset}
+# Plot results
+tau_analysis$scatter_plot
 
-### PACC
+# Time sensitivity analysis
+tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
+                              'tau_composite', 
+                              'delta', 
+                              c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
 
-```{r}
-regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,], 'PACC_mri', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
-```
+# Sensitivity analysis
+cat("Sensitivity analysis: \n")
+cat("p-value of delta including covariates:", 
+    tau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("p-value of delta including covariates and time difference:", 
+    tau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
 
-### AB
-
-```{r}
-regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,], 'ab_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
-```
-
-### ptau217
-
-```{r}
-regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,], 'ptau', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
-```
-
-### TAU
-
-```{r}
-regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,], 'tau_composite', 'delta', c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age') )
+# Apply figure improvement and save
+tau_analysis$scatter_plot <- improve_graph(tau_analysis$scatter_plot, 'Delta (years)', 'Tau-PET')
+ggsave(paste(path, 'tau_a4.png'), tau_analysis$scatter_plot, 
+       width = 50, height = 36, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```

@@ -17,6 +17,7 @@ data/
 analysis/
 results/
 tables/
+figures/
 
 # Distribution / packaging
 .Python
