@@ -23,6 +23,9 @@ df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
 max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
 df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
 
+# Only keep subjects that have MRI and Amyloid measures
+df_baseline = df_baseline[(df_baseline['SUMMARY_SUVR_AMYLOID'].notna()) & (df_baseline['MRI_Age'].notna())]
+
 # Process MRI features for BrainAge modelling by keeping only columns that start with MRI_
 df_structural = df_baseline.filter(like='MRI_').copy()
 df_structural.columns = df_structural.columns.str.replace('MRI_FS7_rnr_', '')
@@ -67,15 +70,7 @@ df_structural.to_csv('data/final/adni/processed/structural_features.csv')
 # Create clinical file with type of Apoe4
 df_clinical = df_baseline[['e4_carrier', 'AMYLOID_STATUS', 'Diagnosis']].copy()
 df_clinical['CN'] = ((df_clinical['e4_carrier'] == 0.0) & (df_clinical['AMYLOID_STATUS'] == 0.0) & (df_clinical['Diagnosis'] == 'CN')).astype(int)
-df_clinical['e4+'] = ((df_clinical['e4_carrier'] == 1.0) & (df_clinical['AMYLOID_STATUS'] == 0.0) & (df_clinical['Diagnosis'] == 'CN')).astype(int)
-df_clinical['e4+ab+'] = ((df_clinical['e4_carrier'] == 1.0) & (df_clinical['AMYLOID_STATUS'] == 1.0) & (df_clinical['Diagnosis'] == 'CN')).astype(int)
-df_clinical['ab+'] = ((df_clinical['e4_carrier'] == 0.0) & (df_clinical['AMYLOID_STATUS'] == 1.0) & (df_clinical['Diagnosis'] == 'CN')).astype(int)
-df_clinical['MCI'] = ((df_clinical['e4_carrier'] == 0.0) & (df_clinical['AMYLOID_STATUS'] == 0.0) & (df_clinical['Diagnosis'] == 'MCI')).astype(int)
-df_clinical['MCIe4+'] = ((df_clinical['e4_carrier'] == 1.0) & (df_clinical['AMYLOID_STATUS'] == 0.0) & (df_clinical['Diagnosis'] == 'MCI')).astype(int)
-df_clinical['MCIe4+ab+'] = ((df_clinical['e4_carrier'] == 1.0) & (df_clinical['AMYLOID_STATUS'] == 1.0) & (df_clinical['Diagnosis'] == 'MCI')).astype(int)
-df_clinical['MCIab+'] = ((df_clinical['e4_carrier'] == 0.0) & (df_clinical['AMYLOID_STATUS'] == 1.0) & (df_clinical['Diagnosis'] == 'MCI')).astype(int)
-df_clinical['CNunknown'] = ((df_clinical['e4_carrier'].isna() | df_clinical['AMYLOID_STATUS'].isna()) & (df_clinical['Diagnosis'] == 'CN')).astype(int)
-df_clinical['MCIunknown'] = ((df_clinical['e4_carrier'].isna() | df_clinical['AMYLOID_STATUS'].isna()) & (df_clinical['Diagnosis'] == 'MCI')).astype(int)
+df_clinical['not_cn'] = 1 - df_clinical['CN'].astype(int)
 df_clinical.drop(columns=['e4_carrier', 'AMYLOID_STATUS', 'Diagnosis'], inplace=True)
 df_clinical.to_csv('data/final/adni/processed/clinical.csv')
 
@@ -125,16 +120,14 @@ df_baseline['sex'] = df_baseline['sex'].map({1: 'Female', 0: 'Male'})
 df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
 df_baseline['ab_status'] = df_baseline['ab_status'].map({1: 'ab+', 0: 'ab-'})
 
-# Create three new columns for type of analysis, secondary and exploratory
-# Primary includes those who have MRI measures and longitudinal PACC which we already filtered for
-# Secondary is those who have ab_composite AND ptau measures
-df_baseline['secondary'] = (df_baseline['ab_composite'].notna()).astype(int)
-# Exploratory is those who have ab_composite AND ptau AND tau_composite measures
-df_baseline['exploratory'] = ((df_baseline['ab_composite'].notna()) & (df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
+# Create one new column for type of analysis: exploratory
+# Primary includes those who have MRI measures, longitudinal PACC  and AB measures which we already filtered for
+# Exploratory is those who also ptau AND tau_composite measures
+df_baseline['exploratory'] = ((df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
 
 # Columns of interest with all the other data
 common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
-               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'secondary', 'exploratory']
+               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'exploratory']
 df_baseline = df_baseline[common_cols]
 
 # Save as csv

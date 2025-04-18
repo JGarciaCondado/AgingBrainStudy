@@ -23,6 +23,9 @@ df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
 max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
 df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
 
+# Only keep subjects that have MRI and Amyloid measures
+df_baseline = df_baseline[(df_baseline['PIB_FS_DVR_FLR'].notna()) & (df_baseline['MRI_Age'].notna())]
+
 # Remove any participants with diagnosis of MCI because only interested in cognitively unimpaired
 df_baseline = df_baseline[df_baseline['Diagnosis'] == 'CN']
 
@@ -113,16 +116,14 @@ df_baseline['sex'] = df_baseline['sex'].map({1: 'Female', 0: 'Male'})
 df_baseline['e4_carrier'] = df_baseline['e4_carrier'].map({1: 'e4+', 0: 'e4-'})
 df_baseline['ab_status'] = df_baseline['ab_status'].map({'PIB+': 'ab+', 'PIB-': 'ab-'})
 
-# Create three new columns for type of analysis, secondary and exploratory
-# Primary includes those who have MRI measures and longitudinal PACC which we already filtered for
-# Secondary is those who have ab_composite AND ptau measures
-df_baseline['secondary'] = (df_baseline['ab_composite'].notna()).astype(int)
-# Exploratory is those who have ab_composite AND ptau AND tau_composite measures
-df_baseline['exploratory'] = ((df_baseline['ab_composite'].notna()) & (df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
+# Create one new column for type of analysis: exploratory
+# Primary includes those who have MRI measures, longitudinal PACC  and AB measures which we already filtered for
+# Exploratory is those who also ptau AND tau_composite measures
+df_baseline['exploratory'] = ((df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
 
 # Columns of interest with all the other data
 common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
-               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'secondary', 'exploratory']
+               'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'exploratory']
 df_baseline = df_baseline[common_cols]
 
 # Save as csv

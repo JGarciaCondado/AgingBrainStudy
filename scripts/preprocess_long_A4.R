@@ -1,10 +1,5 @@
 # Preprocess longitudinal data for A4
-
-library(stringr)
-library(tidyr)
 library(dplyr)
-library(janitor)
-library(plyr)
 library(readxl)
 
 # Load baseline, longitudinal and deltas

@@ -202,7 +202,7 @@ ggsave(paste(path, 'pacc_a4.png'), pacc_analysis$scatter_plot,
 
 ```{r}
 # Run analysis on AB
-ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
+ab_analysis = regression_analysis(cn_data,
                                   'ab_composite', 
                                   'delta', 
                                   c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -211,7 +211,7 @@ ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
 ab_analysis$scatter_plot
 
 # Time sensitivity analysis
-ab_sens = regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
+ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
                               'ab_composite', 
                               'delta', 
                               c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -457,7 +457,7 @@ ggsave(paste(path, 'pacc_habs.png'), pacc_analysis$scatter_plot,
 
 ```{r}
 # Run analysis on AB
-ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
+ab_analysis = regression_analysis(cn_data,
                                   'ab_composite', 
                                   'delta', 
                                   c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -466,7 +466,7 @@ ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
 ab_analysis$scatter_plot
 
 # Time sensitivity analysis
-ab_sens = regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
+ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
                               'ab_composite', 
                               'delta', 
                               c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -716,7 +716,7 @@ ggsave(paste(path, 'pacc_adni_cu.png'), pacc_analysis$scatter_plot,
 
 ```{r}
 # Run analysis on AB
-ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
+ab_analysis = regression_analysis(cn_data,
                                   'ab_composite', 
                                   'delta', 
                                   c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -725,7 +725,7 @@ ab_analysis = regression_analysis(cn_data[cn_data$secondary == 1,],
 ab_analysis$scatter_plot
 
 # Time sensitivity analysis
-ab_sens = regression_analysis(cn_data[cn_data$secondary == 1 & cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
+ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
                               'ab_composite', 
                               'delta', 
                               c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -917,6 +917,37 @@ ggplot(subset(mci_data, !is.na(sex)), aes(x = sex, y = delta)) +
   )
 ```
 
+### MCI vs CU
+
+```{r}
+# Compute group means and their difference
+delta_diff_mci <- abs(diff(aggregate(delta ~ diagnosis, data = data, mean)$delta))
+p_val_mci <- t.test(delta ~ diagnosis, data = data)$p.value
+
+# Plot
+ggplot(data, aes(x = diagnosis, y = delta)) +
+  geom_boxplot() +
+  labs(
+    title = "Delta differences by Diagnosis",
+    x = "Diagnosis",
+    y = "Delta"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 12,  # Position the text at the top center
+    label = sprintf("Mean difference: %.3f", delta_diff_mci),
+    size = 4,
+    fontface = "italic"
+  ) +
+  annotate(
+    "text",
+    x = 1.5, y = 10,
+    label = sprintf("p = %.2g", p_val_mci),
+    size = 4,
+    fontface = "italic"
+  )
+```
+
 ## Biomarkers {.tabset}
 
 Correlation between BrainAge delt and different biomarkers. Sensitivity analysis includes addin sex, educaiton, APOEe4, AB-status and MRI Age as covariates. Further sensitivity analysis limits datapoints to those within 1 year of the MRI.
@@ -958,7 +989,7 @@ ggsave(paste(path, 'pacc_adni_mci.png'), pacc_analysis$scatter_plot,
 
 ```{r}
 # Run analysis on AB
-ab_analysis = regression_analysis(mci_data[mci_data$secondary == 1,],
+ab_analysis = regression_analysis(mci_data,
                                   'ab_composite', 
                                   'delta', 
                                   c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
@@ -967,7 +998,7 @@ ab_analysis = regression_analysis(mci_data[mci_data$secondary == 1,],
 ab_analysis$scatter_plot
 
 # Time sensitivity analysis
-ab_sens = regression_analysis(mci_data[mci_data$secondary == 1 & mci_data$time_diff_ab <=1 & mci_data$time_diff_ab >=-1,],
+ab_sens = regression_analysis(mci_data[mci_data$time_diff_ab <=1 & mci_data$time_diff_ab >=-1,],
                               'ab_composite', 
                               'delta', 
                               c('sex', 'edu', 'e4_carrier', 'ab_status', 'mri_age'))
