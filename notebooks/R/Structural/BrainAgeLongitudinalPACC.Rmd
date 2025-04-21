@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects)
+library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects)
 
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
@@ -130,19 +130,20 @@ lme_a4 <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 a4_results = summary(lme_a4)$tTable
-a4_effects <- data.frame(
+a4_delta_effects <- data.frame(
     model = "A4/LEARN",
-    term = "BrainAge delta",
-    estimate = a4_results["time_mri:delta", "Value"],
-    std.error = a4_results["time_mri:delta", "Std.Error"],
-    lower_ci = a4_results["time_mri:delta", "Value"] - 1.96 * a4_results["time_mri:delta", "Std.Error"],
-    upper_ci = a4_results["time_mri:delta", "Value"] + 1.96 * a4_results["time_mri:delta", "Std.Error"],
-    p_value = a4_results["time_mri:delta", "p-value"]
+    delta.term = "BrainAge delta",
+    delta.estimate = a4_results["time_mri:delta", "Value"],
+    delta.std.error = a4_results["time_mri:delta", "Std.Error"],
+    delta.lower_ci = a4_results["time_mri:delta", "Value"] 
+                      - 1.96 * a4_results["time_mri:delta", "Std.Error"],
+    delta.upper_ci = a4_results["time_mri:delta", "Value"]
+                      + 1.96 * a4_results["time_mri:delta", "Std.Error"],
+    delta.p_value = a4_results["time_mri:delta", "p-value"]
   )
-cat("Delta effect:", signif(a4_effects$estimate, 2), 
-    "±", signif(a4_effects$std.error, 2), 
-    " p-val:", signif(a4_effects$p_value, 2), "\n")
-
+cat("Delta effect:", signif(a4_delta_effects$delta.estimate, 2), 
+    "±", signif(a4_delta_effects$delta.std.error, 2), 
+    " p-val:", signif(a4_delta_effects$delta.p_value, 2), "\n")
 
 # Plot model
 a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
@@ -247,182 +248,332 @@ cat("Change from baseline p-value:" , summary(lme_a4_sens_change)$tTable["time_m
 
 ## Interactions {.tabset}
 
-#### PET Amyloid
+### AB-PET
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ I(time_mri^2) + time_mri*delta*ab_composite + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY, 
-                                data = data_a4, 
-                                random = ~time_mri|ID, 
-                                na.action = 'na.omit', 
-                                method = c('ML'));
-summary(lmm_results_ADNI_amyl_cn)
-p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Amyloid
+lme_a4_ab <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ab_composite 
+                  + Cumulative_Dose_Scaled 
+                  + time_mri*cohort 
+                  + LMSTORY, 
+                  data = data_a4, 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'));
 
-print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5])
+# Extract information of interest
+a4_ab_results = summary(lme_a4_ab)$tTable
+a4_ab_effects <- data.frame(
+    model = "A4/LEARN",
+    ab.term = "BrainAge delta X AB-PET",
+    ab.estimate = a4_ab_results["time_mri:delta:ab_composite", "Value"],
+    ab.std.error = a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.lower_ci = a4_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      - 1.96 * a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.upper_ci = a4_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      + 1.96 * a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.p_value = a4_ab_results["time_mri:delta:ab_composite", "p-value"]
+  )
+cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate, 2), 
+    "±", signif(a4_ab_effects$ab.std.error, 2), 
+    " p-val:", signif(a4_ab_effects$ab.p_value, 2), "\n")
+
+# Plot model
+a4_ab_p <- plot(ggpredict(lme_a4_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, a4_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+a4_ab_mean = mean(data_a4$ab_composite, na.rm = TRUE)
+a4_ab_sd = sd(data_a4$ab_composite, na.rm = TRUE)
+ab_levels <- c(
+  sprintf("Aβ-PET = %.2f ", a4_ab_mean - a4_ab_sd),
+  sprintf("Aβ-PET = %.2f ", a4_ab_mean),
+  sprintf("Aβ-PET = %.2f ", a4_ab_mean + a4_ab_sd)
+)
+a4_ab_p$data$facet <- ab_levels
+
+a4_ab_p
+
+# Save model
+a4_ab_p <- a4_ab_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_a4_ab.png'), a4_ab_p, 
+       width = 125, height = 55, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
 ```
 
-Add Age, Sex, Education, E4 Status
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ I(time_mri^2) + time_mri*delta*ab_composite + Cumulative_Dose_Scaled + LMSTORY + time_mri*cohort + time_mri*mri_age + time_mri*e4_carrier + time_mri*sex + time_mri*edu, 
-                                     data = data_a4, 
-                                     random = ~time_mri|ID, 
-                                     na.action = 'na.omit', 
-                                     method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_a4_ab_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4, 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_a4_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Aβ-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ I(time_mri^2) 
-                                     + time_mri*delta*ab_composite 
-                                     + Cumulative_Dose_Scaled 
-                                     + LMSTORY 
-                                     + time_mri*cohort 
-                                     + time_mri*mri_age 
-                                     + time_mri*e4_carrier 
-                                     + time_mri*sex 
-                                     + time_mri*edu, 
-                                     data = data_a4[data_a4$time_diff_ab <=1 & data_a4$time_diff_ab >=-1,], 
-                                     random = ~time_mri|ID, na.action = 'na.omit', 
-                                     method = c('ML'),
-                                     control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_a4_ab_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4[data_a4$time_diff_ab <=1 & data_a4$time_diff_ab >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_a4_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-#### pTau217
+### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_cn <- lme(PACC ~ I(time_mri^2) 
-                                + time_mri*delta*ptau 
-                                + Cumulative_Dose_Scaled 
-                                + LMSTORY
-                                + time_mri*cohort, 
-                                data = data_a4[data_a4$exploratory == 1,], 
-                                random = ~time_mri|ID, 
-                                na.action = 'na.omit', 
-                                method = c('ML'));
-summary(lmm_results_ADNI_ptau_cn)
-p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with pTau217
+lme_a4_ptau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ptau 
+                  + Cumulative_Dose_Scaled 
+                  + time_mri*cohort 
+                  + LMSTORY, 
+                  data = data_a4[data_a4$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
+# Extract information of interest
+a4_ptau_results = summary(lme_a4_ptau)$tTable
+a4_ptau_effects <- data.frame(
+    model = "A4/LEARN",
+    ptau.term = "BrainAge delta X pTau217",
+    ptau.estimate = a4_ptau_results["time_mri:delta:ptau", "Value"],
+    ptau.std.error = a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.lower_ci = a4_ptau_results["time_mri:delta:ptau", "Value"] 
+                      - 1.96 * a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.upper_ci = a4_ptau_results["time_mri:delta:ptau", "Value"] 
+                      + 1.96 * a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.p_value = a4_ptau_results["time_mri:delta:ptau", "p-value"]
+  )
+cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate, 2), 
+    "±", signif(a4_ptau_effects$ptau.std.error, 2), 
+    " p-val:", signif(a4_ptau_effects$ptau.p_value, 2), "\n")
+
+# Plot model
+a4_ptau_p <- plot(ggpredict(lme_a4_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, a4_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+a4_ptau_mean = mean(data_a4[data_a4$exploratory == 1,]$ptau, na.rm = TRUE)
+a4_ptau_sd = sd(data_a4[data_a4$exploratory == 1,]$ptau, na.rm = TRUE)
+ptau_levels <- c(
+  sprintf("pTau217 = %.2f ", a4_ptau_mean - a4_ptau_sd),
+  sprintf("pTau217 = %.2f ", a4_ptau_mean),
+  sprintf("pTau217 = %.2f ", a4_ptau_mean + a4_ptau_sd)
+)
+a4_ptau_p$data$facet <- ptau_levels
+
+a4_ptau_p
+
+# Save model
+a4_ptau_p <- a4_ptau_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_a4_ptau.png'), a4_ptau_p, 
+       width = 125, height = 55, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ I(time_mri^2) 
-                                     + time_mri*delta*ptau 
-                                     + Cumulative_Dose_Scaled 
-                                     + LMSTORY
-                                     + time_mri*cohort
-                                     + time_mri*mri_age 
-                                     + time_mri*e4_carrier 
-                                     + time_mri*sex 
-                                     + time_mri*edu, 
-                                     data = data_a4[data_a4$exploratory == 1,], 
-                                     random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_a4_ptau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4[data_a4$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_a4_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with ptau217 within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ I(time_mri^2) 
-                                     + time_mri*delta*ptau 
-                                     + Cumulative_Dose_Scaled
-                                     + LMSTORY
-                                     + time_mri*cohort 
-                                     + time_mri*mri_age 
-                                     + time_mri*e4_carrier 
-                                     + time_mri*sex 
-                                     + time_mri*edu, 
-                                     data = data_a4[data_a4$exploratory == 1 & data_a4$time_diff_ptau <=1 & data_a4$time_diff_ptau >=-1,], 
-                                     random = ~time_mri|ID, 
-                                     na.action = 'na.omit', 
-                                     method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_a4_ptau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau 
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4[data_a4$exploratory == 1 
+                                         & data_a4$time_diff_ptau <=1 & data_a4$time_diff_ptau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_a4_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-#### PET Tau
+### Tau-PET
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(PACC ~ I(time_mri^2) 
-                               + time_mri*delta*tau_composite 
-                               + Cumulative_Dose_Scaled 
-                               + LMSTORY
-                               + time_mri*cohort, 
-                               data = data_a4[data_a4$exploratory == 1,], 
-                               random = ~time_mri|ID, 
-                               na.action = 'na.omit', 
-                               method = c('ML'));
-summary(lmm_results_ADNI_tau_cn)
-p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Tau-PET
+lme_a4_tau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*tau_composite 
+                  + Cumulative_Dose_Scaled 
+                  + time_mri*cohort 
+                  + LMSTORY, 
+                  data = data_a4[data_a4$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5])
+# Extract information of interest
+a4_tau_results = summary(lme_a4_tau)$tTable
+a4_tau_effects <- data.frame(
+    model = "A4/LEARN",
+    tau.term = "BrainAge delta X Tau-PET",
+    tau.estimate = a4_tau_results["time_mri:delta:tau_composite", "Value"],
+    tau.std.error = a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.lower_ci = a4_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      - 1.96 * a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.upper_ci = a4_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      + 1.96 * a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.p_value = a4_tau_results["time_mri:delta:tau_composite", "p-value"]
+  )
+cat("BrainAge delta * Tau-PET effect:", signif(a4_tau_effects$tau.estimate, 2), 
+    "±", signif(a4_tau_effects$tau.std.error, 2), 
+    " p-val:", signif(a4_tau_effects$tau.p_value, 2), "\n")
+
+# Plot model
+a4_tau_p <- plot(ggpredict(lme_a4_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, a4_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+a4_tau_mean = mean(data_a4[data_a4$exploratory == 1,]$tau_composite , na.rm = TRUE)
+a4_tau_sd = sd(data_a4[data_a4$exploratory == 1,]$tau_composite , na.rm = TRUE)
+tau_levels <- c(
+  sprintf("Tau-PET = %.2f ", a4_tau_mean - a4_tau_sd),
+  sprintf("Tau-PET = %.2f ", a4_tau_mean),
+  sprintf("Tau-PET = %.2f ", a4_tau_mean + a4_tau_sd)
+)
+a4_tau_p$data$facet <- tau_levels
+
+a4_tau_p
+
+# Save model
+a4_tau_p <- a4_tau_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_a4_tau.png'), a4_tau_p, 
+       width = 125, height = 55, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ I(time_mri^2) 
-                                    + time_mri*delta*tau_composite 
-                                    + Cumulative_Dose_Scaled 
-                                    + LMSTORY
-                                    + time_mri*cohort 
-                                    + time_mri*mri_age 
-                                    + time_mri*e4_carrier 
-                                    + time_mri*sex 
-                                    + time_mri*edu, 
-                                    data = data_a4[data_a4$exploratory == 1,], 
-                                    random = ~time_mri|ID, 
-                                    na.action = 'na.omit', 
-                                    method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_a4_tau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite 
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4[data_a4$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_a4_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Tau-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ I(time_mri^2) 
-                                    + time_mri*delta*tau_composite 
-                                    + Cumulative_Dose_Scaled 
-                                    + LMSTORY
-                                    + time_mri*cohort 
-                                    + time_mri*mri_age 
-                                    + time_mri*e4_carrier 
-                                    + time_mri*sex 
-                                    + time_mri*edu, 
-                                    data = data_a4[data_a4$exploratory == 1 & data_a4$time_diff_tau <=1 & data_a4$time_diff_tau >=-1,], 
-                                    random = ~time_mri|ID, 
-                                    na.action = 'na.omit', 
-                                    method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_a4_tau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite  
+                           + Cumulative_Dose_Scaled 
+                           + LMSTORY 
+                           + time_mri*cohort 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_a4[data_a4$exploratory == 1 
+                                         & data_a4$time_diff_tau <=1 & data_a4$time_diff_tau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_a4_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
 ### Delta Threshold
@@ -495,18 +646,20 @@ lme_habs <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 habs_results = summary(lme_habs)$tTable
-habs_effects <- data.frame(
+habs_delta_effects <- data.frame(
     model = "HABS",
-    term = "BrainAge delta",
-    estimate = habs_results["time_mri:delta", "Value"],
-    std.error = habs_results["time_mri:delta", "Std.Error"],
-    lower_ci = habs_results["time_mri:delta", "Value"] - 1.96 * habs_results["time_mri:delta", "Std.Error"],
-    upper_ci = habs_results["time_mri:delta", "Value"] + 1.96 * habs_results["time_mri:delta", "Std.Error"],
-    p_value = habs_results["time_mri:delta", "p-value"]
+    delta.term = "BrainAge delta",
+    delta.estimate = habs_results["time_mri:delta", "Value"],
+    delta.std.error = habs_results["time_mri:delta", "Std.Error"],
+    delta.lower_ci = habs_results["time_mri:delta", "Value"] 
+                      - 1.96 * habs_results["time_mri:delta", "Std.Error"],
+    delta.upper_ci = habs_results["time_mri:delta", "Value"]
+                      + 1.96 * habs_results["time_mri:delta", "Std.Error"],
+    delta.p_value = habs_results["time_mri:delta", "p-value"]
   )
-cat("Delta effect:", signif(habs_effects$estimate, 2), 
-    "±", signif(habs_effects$std.error, 2), 
-    " p-val:", signif(habs_effects$p_value, 2), "\n")
+cat("Delta effect:", signif(habs_delta_effects$delta.estimate, 2), 
+    "±", signif(habs_delta_effects$delta.std.error, 2), 
+    " p-val:", signif(habs_delta_effects$delta.p_value, 2), "\n")
 
 
 # Plot model
@@ -590,100 +743,266 @@ cat("Change from baseline p-value:" , summary(lme_habs_sens_change)$tTable["time
 
 ## Interactions {.tabset}
 
-#### PET Amyloid
+### AB-PET
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_amyl_cn)
-p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Amyloid
+lme_habs_ab <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ab_composite, 
+                  data = data_habs, 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'));
 
-print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5])
+# Extract information of interest
+habs_ab_results = summary(lme_habs_ab)$tTable
+habs_ab_effects <- data.frame(
+    model = "HABS",
+    ab.term = "BrainAge delta X AB-PET",
+    ab.estimate = habs_ab_results["time_mri:delta:ab_composite", "Value"],
+    ab.std.error = habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.lower_ci = habs_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      - 1.96 * habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.upper_ci = habs_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      + 1.96 * habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.p_value = habs_ab_results["time_mri:delta:ab_composite", "p-value"]
+  )
+cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate, 2), 
+    "±", signif(habs_ab_effects$ab.std.error, 2), 
+    " p-val:", signif(habs_ab_effects$ab.p_value, 2), "\n")
+
+# Plot model
+habs_ab_p <- plot(ggpredict(lme_habs_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, habs_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+habs_ab_mean = mean(data_habs$ab_composite, na.rm = TRUE)
+habs_ab_sd = sd(data_habs$ab_composite, na.rm = TRUE)
+ab_levels <- c(
+  sprintf("Aβ-PET = %.2f ", habs_ab_mean - habs_ab_sd),
+  sprintf("Aβ-PET = %.2f ", habs_ab_mean),
+  sprintf("Aβ-PET = %.2f ", habs_ab_mean + habs_ab_sd)
+)
+habs_ab_p$data$facet <- ab_levels
+
+habs_ab_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_habs_ab_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs, 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_habs_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Aβ-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$time_diff_ab <=1 & data_habs$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_habs_ab_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs[data_habs$time_diff_ab <=1 & data_habs$time_diff_ab >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_habs_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-#### pTau217
+### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_ptau_cn)
-p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with pTau217
+lme_habs_ptau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ptau, 
+                  data = data_habs[data_habs$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
+# Extract information of interest
+habs_ptau_results = summary(lme_habs_ptau)$tTable
+habs_ptau_effects <- data.frame(
+    model = "HABS",
+    ptau.term = "BrainAge delta X pTau217",
+    ptau.estimate = habs_ptau_results["time_mri:delta:ptau", "Value"],
+    ptau.std.error = habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.lower_ci = habs_ptau_results["time_mri:delta:ptau", "Value"] 
+                      - 1.96 * habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.upper_ci = habs_ptau_results["time_mri:delta:ptau", "Value"] 
+                      + 1.96 * habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.p_value = habs_ptau_results["time_mri:delta:ptau", "p-value"]
+  )
+cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate, 2), 
+    "±", signif(habs_ptau_effects$ptau.std.error, 2), 
+    " p-val:", signif(habs_ptau_effects$ptau.p_value, 2), "\n")
+
+# Plot model
+habs_ptau_p <- plot(ggpredict(lme_habs_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, habs_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+habs_ptau_mean = mean(data_habs[data_habs$exploratory == 1,]$ptau, na.rm = TRUE)
+habs_ptau_sd = sd(data_habs[data_habs$exploratory == 1,]$ptau, na.rm = TRUE)
+ptau_levels <- c(
+  sprintf("pTau217 = %.2f ", habs_ptau_mean - habs_ptau_sd),
+  sprintf("pTau217 = %.2f ", habs_ptau_mean),
+  sprintf("pTau217 = %.2f ", habs_ptau_mean + habs_ptau_sd)
+)
+habs_ptau_p$data$facet <- ptau_levels
+
+habs_ptau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_habs_ptau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs[data_habs$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_habs_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with pTau217 within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1 & data_habs$time_diff_ptau <=1 & data_habs$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_habs_ptau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs[data_habs$exploratory == 1 
+                                         & data_habs$time_diff_ptau <=1 & data_habs$time_diff_ptau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_habs_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-#### PET Tau
+### Tau-PET
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_tau_cn)
-p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Tau-PET
+lme_habs_tau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*tau_composite, 
+                  data = data_habs[data_habs$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5])
+# Extract information of interest
+habs_tau_results = summary(lme_habs_tau)$tTable
+habs_tau_effects <- data.frame(
+    model = "HABS",
+    tau.term = "BrainAge delta X Tau-PET",
+    tau.estimate = habs_tau_results["time_mri:delta:tau_composite", "Value"],
+    tau.std.error = habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.lower_ci = habs_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      - 1.96 * habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.upper_ci = habs_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      + 1.96 * habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"]
+  )
+cat("BrainAge delta * Tau-PET effect:", signif(habs_tau_effects$tau.estimate, 2), 
+    "±", signif(habs_tau_effects$tau.std.error, 2), 
+    " p-val:", signif(habs_tau_effects$tau.p_value, 2), "\n")
+
+# Plot model
+habs_tau_p <- plot(ggpredict(lme_habs_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, habs_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+habs_tau_mean = mean(data_habs[data_habs$exploratory == 1,]$tau_composite , na.rm = TRUE)
+habs_tau_sd = sd(data_habs[data_habs$exploratory == 1,]$tau_composite , na.rm = TRUE)
+tau_levels <- c(
+  sprintf("Tau-PET = %.2f ", habs_tau_mean - habs_tau_sd),
+  sprintf("Tau-PET = %.2f ", habs_tau_mean),
+  sprintf("Tau-PET = %.2f ", habs_tau_mean + habs_tau_sd)
+)
+habs_tau_p$data$facet <- tau_levels
+
+habs_tau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_habs_tau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs[data_habs$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_habs_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Tau-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$exploratory == 1 & data_habs$time_diff_tau <=1 & data_habs$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_habs_tau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_habs[data_habs$exploratory == 1 
+                                         & data_habs$time_diff_tau <=1 & data_habs$time_diff_tau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_habs_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
 ### Delta Threshold
@@ -756,18 +1075,20 @@ lme_adni_cn <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_cn_results = summary(lme_adni_cn)$tTable
-adni_cn_effects <- data.frame(
+adni_cn_delta_effects <- data.frame(
     model = "ADNI CU",
-    term = "BrainAge delta",
-    estimate = adni_cn_results["time_mri:delta", "Value"],
-    std.error = adni_cn_results["time_mri:delta", "Std.Error"],
-    lower_ci = adni_cn_results["time_mri:delta", "Value"] - 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
-    upper_ci = adni_cn_results["time_mri:delta", "Value"] + 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
-    p_value = adni_cn_results["time_mri:delta", "p-value"]
+    delta.term = "BrainAge delta",
+    delta.estimate = adni_cn_results["time_mri:delta", "Value"],
+    delta.std.error = adni_cn_results["time_mri:delta", "Std.Error"],
+    delta.lower_ci = adni_cn_results["time_mri:delta", "Value"] 
+                      - 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
+    delta.upper_ci = adni_cn_results["time_mri:delta", "Value"]
+                      + 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
+    delta.p_value = adni_cn_results["time_mri:delta", "p-value"]
   )
-cat("Delta effect:", signif(adni_cn_effects$estimate, 2), 
-    "±", signif(adni_cn_effects$std.error, 2), 
-    " p-val:", signif(adni_cn_effects$p_value, 2), "\n")
+cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate, 2), 
+    "±", signif(adni_cn_delta_effects$delta.std.error, 2), 
+    " p-val:", signif(adni_cn_delta_effects$delta.p_value, 2), "\n")
 
 
 # Plot model
@@ -851,100 +1172,266 @@ cat("Change from baseline p-value:" , summary(lme_adni_cn_sens_change)$tTable["t
 
 ## Interactions {.tabset}
 
-#### PET Amyloid
+### AB-PET
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_amyl_cn)
-p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Amyloid
+lme_adni_cn_ab <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ab_composite, 
+                  data = data_adni_cn, 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'));
 
-print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5])
+# Extract information of interest
+adni_cn_ab_results = summary(lme_adni_cn_ab)$tTable
+adni_cn_ab_effects <- data.frame(
+    model = "ADNI CU",
+    ab.term = "BrainAge delta X AB-PET",
+    ab.estimate = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"],
+    ab.std.error = adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.lower_ci = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      - 1.96 * adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.upper_ci = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      + 1.96 * adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.p_value = adni_cn_ab_results["time_mri:delta:ab_composite", "p-value"]
+  )
+cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate, 2), 
+    "±", signif(adni_cn_ab_effects$ab.std.error, 2), 
+    " p-val:", signif(adni_cn_ab_effects$ab.p_value, 2), "\n")
+
+# Plot model
+adni_cn_ab_p <- plot(ggpredict(lme_adni_cn_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_cn_ab_mean = mean(data_adni_cn$ab_composite, na.rm = TRUE)
+adni_cn_ab_sd = sd(data_adni_cn$ab_composite, na.rm = TRUE)
+ab_levels <- c(
+  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean - adni_cn_ab_sd),
+  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean),
+  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean + adni_cn_ab_sd)
+)
+adni_cn_ab_p$data$facet <- ab_levels
+
+adni_cn_ab_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_adni_cn_ab_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn, 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_cn_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Aβ-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$time_diff_ab <=1 & data_adni_cn$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_adni_cn_ab_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn[data_adni_cn$time_diff_ab <=1 & data_adni_cn$time_diff_ab >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_cn_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-#### pTau217
+### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_cn <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_ptau_cn)
-p <- plot_model(lmm_results_ADNI_ptau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with pTau217
+lme_adni_cn_ptau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ptau, 
+                  data = data_adni_cn[data_adni_cn$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
+# Extract information of interest
+adni_cn_ptau_results = summary(lme_adni_cn_ptau)$tTable
+adni_cn_ptau_effects <- data.frame(
+    model = "ADNI CU",
+    ptau.term = "BrainAge delta X pTau217",
+    ptau.estimate = adni_cn_ptau_results["time_mri:delta:ptau", "Value"],
+    ptau.std.error = adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.lower_ci = adni_cn_ptau_results["time_mri:delta:ptau", "Value"] 
+                      - 1.96 * adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.upper_ci = adni_cn_ptau_results["time_mri:delta:ptau", "Value"] 
+                      + 1.96 * adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.p_value = adni_cn_ptau_results["time_mri:delta:ptau", "p-value"]
+  )
+cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimate, 2), 
+    "±", signif(adni_cn_ptau_effects$ptau.std.error, 2), 
+    " p-val:", signif(adni_cn_ptau_effects$ptau.p_value, 2), "\n")
+
+# Plot model
+adni_cn_ptau_p <- plot(ggpredict(lme_adni_cn_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_cn_ptau_mean = mean(data_adni_cn[data_adni_cn$exploratory == 1,]$ptau, na.rm = TRUE)
+adni_cn_ptau_sd = sd(data_adni_cn[data_adni_cn$exploratory == 1,]$ptau, na.rm = TRUE)
+ptau_levels <- c(
+  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean - adni_cn_ptau_sd),
+  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean),
+  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean + adni_cn_ptau_sd)
+)
+adni_cn_ptau_p$data$facet <- ptau_levels
+
+adni_cn_ptau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_ptau_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_adni_cn_ptau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn[data_adni_cn$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_cn_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with pTau217 within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory == 1 & data_adni_cn$time_diff_ptau <=1 & data_adni_cn$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_adni_cn_ptau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn[data_adni_cn$exploratory == 1 
+                                         & data_adni_cn$time_diff_ptau <=1 & data_adni_cn$time_diff_ptau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_cn_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-#### PET Tau
+### Tau-PET
 
 ```{r}
-lmm_results_ADNI_tau_cn <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_tau_cn)
-p <- plot_model(lmm_results_ADNI_tau_cn, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Tau-PET
+lme_adni_cn_tau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*tau_composite, 
+                  data = data_adni_cn[data_adni_cn$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_tau_cn)$tTable["time_mri:delta:tau_composite", 5])
+# Extract information of interest
+adni_cn_tau_results = summary(lme_adni_cn_tau)$tTable
+adni_cn_tau_effects <- data.frame(
+    model = "ADNI CU",
+    tau.term = "BrainAge delta X Tau-PET",
+    tau.estimate = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"],
+    tau.std.error = adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.lower_ci = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      - 1.96 * adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.upper_ci = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      + 1.96 * adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.p_value = adni_cn_tau_results["time_mri:delta:tau_composite", "p-value"]
+  )
+cat("BrainAge delta * Tau-PET effect:", signif(adni_cn_tau_effects$tau.estimate, 2), 
+    "±", signif(adni_cn_tau_effects$tau.std.error, 2), 
+    " p-val:", signif(adni_cn_tau_effects$tau.p_value, 2), "\n")
+
+# Plot model
+adni_cn_tau_p <- plot(ggpredict(lme_adni_cn_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(-3, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_cn_tau_mean = mean(data_adni_cn[data_adni_cn$exploratory == 1,]$tau_composite , na.rm = TRUE)
+adni_cn_tau_sd = sd(data_adni_cn[data_adni_cn$exploratory == 1,]$tau_composite , na.rm = TRUE)
+tau_levels <- c(
+  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean - adni_cn_tau_sd),
+  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean),
+  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean + adni_cn_tau_sd)
+)
+adni_cn_tau_p$data$facet <- tau_levels
+
+adni_cn_tau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_tau_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_adni_cn_tau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn[data_adni_cn$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_cn_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Tau-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$time_diff_tau <=1 & data_adni_cn$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_adni_cn_tau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_cn[data_adni_cn$exploratory == 1 
+                                         & data_adni_cn$time_diff_tau <=1 & data_adni_cn$time_diff_tau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_cn_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
 ### Delta Threshold
@@ -1017,18 +1504,20 @@ lme_adni_mci <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_mci_results = summary(lme_adni_mci)$tTable
-adni_mci_effects <- data.frame(
+adni_mci_delta_effects <- data.frame(
     model = "ADNI MCI",
-    term = "BrainAge delta",
-    estimate = adni_mci_results["time_mri:delta", "Value"],
-    std.error = adni_mci_results["time_mri:delta", "Std.Error"],
-    lower_ci = adni_mci_results["time_mri:delta", "Value"] - 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
-    upper_ci = adni_mci_results["time_mri:delta", "Value"] + 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
-    p_value = adni_mci_results["time_mri:delta", "p-value"]
+    delta.term = "BrainAge delta",
+    delta.estimate = adni_mci_results["time_mri:delta", "Value"],
+    delta.std.error = adni_mci_results["time_mri:delta", "Std.Error"],
+    delta.lower_ci = adni_mci_results["time_mri:delta", "Value"] 
+                      - 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
+    delta.upper_ci = adni_mci_results["time_mri:delta", "Value"]
+                      + 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
+    delta.p_value = adni_mci_results["time_mri:delta", "p-value"]
   )
-cat("Delta effect:", signif(adni_mci_effects$estimate, 2), 
-    "±", signif(adni_mci_effects$std.error, 2), 
-    " p-val:", signif(adni_mci_effects$p_value, 2), "\n")
+cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate, 2), 
+    "±", signif(adni_mci_delta_effects$delta.std.error, 2), 
+    " p-val:", signif(adni_mci_delta_effects$delta.p_value, 2), "\n")
 
 
 # Plot model
@@ -1112,100 +1601,266 @@ cat("Change from baseline p-value:" , summary(lme_adni_mci_sens_change)$tTable["
 
 ## Interactions {.tabset}
 
-#### PET Amyloid
+### AB-PET
 
 ```{r}
-lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_amyl_mci)
-p <- plot_model(lmm_results_ADNI_amyl_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Amyloid
+lme_adni_mci_ab <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ab_composite, 
+                  data = data_adni_mci, 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'));
 
-print(summary(lmm_results_ADNI_amyl_mci)$tTable["time_mri:delta:ab_composite", 5])
+# Extract information of interest
+adni_mci_ab_results = summary(lme_adni_mci_ab)$tTable
+adni_mci_ab_effects <- data.frame(
+    model = "ADNI MCI",
+    ab.term = "BrainAge delta X AB-PET",
+    ab.estimate = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"],
+    ab.std.error = adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.lower_ci = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      - 1.96 * adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.upper_ci = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"] 
+                      + 1.96 * adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.p_value = adni_mci_ab_results["time_mri:delta:ab_composite", "p-value"]
+  )
+cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate, 2), 
+    "±", signif(adni_mci_ab_effects$ab.std.error, 2), 
+    " p-val:", signif(adni_mci_ab_effects$ab.p_value, 2), "\n")
+
+# Plot model
+adni_mci_ab_p <- plot(ggpredict(lme_adni_mci_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_mci_ab_mean = mean(data_adni_mci$ab_composite, na.rm = TRUE)
+adni_mci_ab_sd = sd(data_adni_mci$ab_composite, na.rm = TRUE)
+ab_levels <- c(
+  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean - adni_mci_ab_sd),
+  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean),
+  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean + adni_mci_ab_sd)
+)
+adni_mci_ab_p$data$facet <- ab_levels
+
+adni_mci_ab_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_amyl_sens_mci <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_mci)$tTable["time_mri:delta:ab_composite", 5])
+lme_adni_mci_ab_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci, 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_mci_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Aβ-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$time_diff_ab <=1 & data_adni_mci$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
+lme_adni_mci_ab_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ab_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci[data_adni_mci$time_diff_ab <=1 & data_adni_mci$time_diff_ab >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_mci_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
-#### pTau217
+### pTau217
 
 ```{r}
-lmm_results_ADNI_ptau_mci <- lme(PACC ~ time_mri*delta*ptau, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_ptau_mci)
-p <- plot_model(lmm_results_ADNI_ptau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ptau'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with pTau217
+lme_adni_mci_ptau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*ptau, 
+                  data = data_adni_mci[data_adni_mci$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_ptau_mci)$tTable["time_mri:delta:ptau", 5])
+# Extract information of interest
+adni_mci_ptau_results = summary(lme_adni_mci_ptau)$tTable
+adni_mci_ptau_effects <- data.frame(
+    model = "ADNI MCI",
+    ptau.term = "BrainAge delta X pTau217",
+    ptau.estimate = adni_mci_ptau_results["time_mri:delta:ptau", "Value"],
+    ptau.std.error = adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.lower_ci = adni_mci_ptau_results["time_mri:delta:ptau", "Value"] 
+                      - 1.96 * adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.upper_ci = adni_mci_ptau_results["time_mri:delta:ptau", "Value"] 
+                      + 1.96 * adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.p_value = adni_mci_ptau_results["time_mri:delta:ptau", "p-value"]
+  )
+cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estimate, 2), 
+    "±", signif(adni_mci_ptau_effects$ptau.std.error, 2), 
+    " p-val:", signif(adni_mci_ptau_effects$ptau.p_value, 2), "\n")
+
+# Plot model
+adni_mci_ptau_p <- plot(ggpredict(lme_adni_mci_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_mci_ptau_mean = mean(data_adni_mci[data_adni_mci$exploratory == 1,]$ptau, na.rm = TRUE)
+adni_mci_ptau_sd = sd(data_adni_mci[data_adni_mci$exploratory == 1,]$ptau, na.rm = TRUE)
+ptau_levels <- c(
+  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean - adni_mci_ptau_sd),
+  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean),
+  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean + adni_mci_ptau_sd)
+)
+adni_mci_ptau_p$data$facet <- ptau_levels
+
+adni_mci_ptau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_ptau_sens_mci)$tTable["time_mri:delta:ptau", 5])
+lme_adni_mci_ptau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci[data_adni_mci$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_mci_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with pTau217 within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory == 1 & data_adni_mci$time_diff_ptau <=1 & data_adni_mci$time_diff_ptau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'), control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ptau", 5])
+lme_adni_mci_ptau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*ptau
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci[data_adni_mci$exploratory == 1 
+                                         & data_adni_mci$time_diff_ptau <=1 & data_adni_mci$time_diff_ptau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_mci_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
-#### PET Tau
+### Tau-PET
 
 ```{r}
-lmm_results_ADNI_tau_mci <- lme(PACC ~ time_mri*delta*tau_composite, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_ADNI_tau_mci)
-p <- plot_model(lmm_results_ADNI_tau_mci, type = c('pred'), terms = c('time_mri', 'delta', 'tau_composite'))
-p <- p +
-  ggtitle(NULL) +
-  theme(strip.background = element_rect(fill = "white")) +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+# Create linear mixed effects model for interaction of delta with Tau-PET
+lme_adni_mci_tau <- lme(PACC ~ I(time_mri^2) 
+                  + time_mri*delta*tau_composite, 
+                  data = data_adni_mci[data_adni_mci$exploratory == 1,], 
+                  random = ~time_mri|ID, 
+                  na.action = 'na.omit', 
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
-print(summary(lmm_results_ADNI_tau_mci)$tTable["time_mri:delta:tau_composite", 5])
+# Extract information of interest
+adni_mci_tau_results = summary(lme_adni_mci_tau)$tTable
+adni_mci_tau_effects <- data.frame(
+    model = "ADNI MCI",
+    tau.term = "BrainAge delta X Tau-PET",
+    tau.estimate = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"],
+    tau.std.error = adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.lower_ci = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      - 1.96 * adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.upper_ci = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"] 
+                      + 1.96 * adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.p_value = adni_mci_tau_results["time_mri:delta:tau_composite", "p-value"]
+  )
+cat("BrainAge delta * Tau-PET effect:", signif(adni_mci_tau_effects$tau.estimate, 2), 
+    "±", signif(adni_mci_tau_effects$tau.std.error, 2), 
+    " p-val:", signif(adni_mci_tau_effects$tau.p_value, 2), "\n")
+
+# Plot model
+adni_mci_tau_p <- plot(ggpredict(lme_adni_mci_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, adni_max_time)) + 
+  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+
+# Change levels to be more readable
+adni_mci_tau_mean = mean(data_adni_mci[data_adni_mci$exploratory == 1,]$tau_composite , na.rm = TRUE)
+adni_mci_tau_sd = sd(data_adni_mci[data_adni_mci$exploratory == 1,]$tau_composite , na.rm = TRUE)
+tau_levels <- c(
+  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean - adni_mci_tau_sd),
+  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean),
+  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean + adni_mci_tau_sd)
+)
+adni_mci_tau_p$data$facet <- tau_levels
+
+adni_mci_tau_p
 ```
 
-Add Age, Sex, Education, E4 Status and Amyloid status.
+Adding Age, Sex, Education, E4 Status as covariates
 
 ```{r}
-lmm_results_ADNI_tau_sens_mci <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-print(summary(lmm_results_ADNI_tau_sens_mci)$tTable["time_mri:delta:tau_composite", 5])
+lme_adni_mci_tau_sens_demo <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci[data_adni_mci$exploratory == 1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Adding gemographcis p-value:" , summary(lme_adni_mci_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-Only samples within 1 year of MRI.
+Keeping only participants with Tau-PET within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$exploratory == 1 & data_adni_mci$time_diff_tau <=1 & data_adni_mci$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'),  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
+lme_adni_mci_tau_sens_time <- lme(PACC~ I(time_mri^2) 
+                           + time_mri*delta*tau_composite 
+                           + time_mri*mri_age 
+                           + time_mri*e4_carrier 
+                           + time_mri*sex 
+                           + time_mri*edu, 
+                          data = data_adni_mci[data_adni_mci$exploratory == 1 
+                                         & data_adni_mci$time_diff_tau <=1 & data_adni_mci$time_diff_tau >=-1,], 
+                          random = ~time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Participants within 1 year p-value:" , summary(lme_adni_mci_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
 ### Delta Threshold
@@ -1234,19 +1889,19 @@ Forest plots to summarize all the information of linear mixed effects models
 ## Delta
 
 ```{r}
-# Create interaction_results from a4_effects and habs_effects by binding them
-interaction_results <- rbind(
-  a4_effects,
-  habs_effects,
-  adni_cn_effects,
-  adni_mci_effects
+# Dataframe storing all the information
+delta_interaction_results <- rbind(
+  a4_delta_effects,
+  habs_delta_effects,
+  adni_cn_delta_effects,
+  adni_mci_delta_effects
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
 # Create the forest plot
-forest_plot <- ggplot(interaction_results, aes(x = estimate, y = model)) +
+forest_plot <- ggplot(delta_interaction_results, aes(x = delta.estimate, y = model)) +
   geom_point(size = 3) +
-  geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci), height = 0.2) +   # 95% confidence intervals
+  geom_errorbarh(aes(xmin = delta.lower_ci, xmax = delta.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β",
@@ -1256,7 +1911,7 @@ forest_plot <- ggplot(interaction_results, aes(x = estimate, y = model)) +
   # Add effect size values to the plot 
   geom_text(aes(x = 0.01, 
                 label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
-                               estimate, lower_ci, upper_ci, p_value)),
+                               delta.estimate, delta.lower_ci, delta.upper_ci, delta.p_value)),
             hjust = 0, size = 8 / .pt) +
   # Adjust x-axis from -0.05 to 0.025
   scale_x_continuous(limits = c(-0.05, 0.05)) 
@@ -1280,6 +1935,137 @@ ggsave(paste(path, 'delta_forest.png'), forest_plot,
 
 ## AB-PET
 
+```{r}
+# Dataframe storing all the information
+ab_interaction_results <- rbind(
+  a4_ab_effects,
+  habs_ab_effects,
+  adni_cn_ab_effects,
+  adni_mci_ab_effects
+) %>% 
+  mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+# Create the forest plot
+forest_plot <- ggplot(ab_interaction_results, aes(x = ab.estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = ab.lower_ci, xmax = ab.upper_ci), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  # Add effect size values to the plot 
+  geom_text(aes(x = 0.01, 
+                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
+                               ab.estimate, ab.lower_ci, ab.upper_ci, ab.p_value)),
+            hjust = 0, size = 8 / .pt) +
+  scale_x_continuous(limits = c(-0.125, 0.05)) 
+
+# Print the plot
+print(forest_plot)
+
+# Save summary
+forest_plot <- forest_plot +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'ab_forest.png'), forest_plot, 
+       width = 90, height = 55, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
+```
+
+
 ## pTau217
 
+```{r}
+# Dataframe storing all the information
+ptau_interaction_results <- rbind(
+  a4_ptau_effects,
+  habs_ptau_effects,
+  adni_cn_ptau_effects,
+  adni_mci_ptau_effects
+) %>% 
+  mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+# Create the forest plot
+forest_plot <- ggplot(ptau_interaction_results, aes(x = ptau.estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = ptau.lower_ci, xmax = ptau.upper_ci), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  # Add effect size values to the plot 
+  geom_text(aes(x = 0.01, 
+                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
+                               ptau.estimate, ptau.lower_ci, ptau.upper_ci, ptau.p_value)),
+            hjust = 0, size = 8 / .pt)
+
+# Print the plot
+print(forest_plot)
+
+# Save summary
+forest_plot <- forest_plot +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'ptau_forest.png'), forest_plot, 
+       width = 90, height = 55, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
+```
+
 ## Tau-PET
+
+```{r}
+# Dataframe storing all the information
+tau_interaction_results <- rbind(
+  a4_tau_effects,
+  habs_tau_effects,
+  adni_cn_tau_effects,
+  adni_mci_tau_effects
+) %>% 
+  mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+# Create the forest plot
+forest_plot <- ggplot(tau_interaction_results, aes(x = tau.estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = tau.lower_ci, xmax = tau.upper_ci), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  # Add effect size values to the plot 
+  geom_text(aes(x = 0.01, 
+                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
+                               tau.estimate, tau.lower_ci, tau.upper_ci, tau.p_value)),
+            hjust = 0, size = 8 / .pt)
+
+# Print the plot
+print(forest_plot)
+
+# Save summary
+forest_plot <- forest_plot +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'tau_forest.png'), forest_plot, 
+       width = 90, height = 55, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
+```
