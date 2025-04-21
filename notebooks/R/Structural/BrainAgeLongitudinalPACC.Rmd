@@ -15,17 +15,23 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary); library(flextable); library(MuMIn); library(pwr); library(longpower); library(gt)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects)
 
-source('~/Documents/Projects/AgingBrainStudy/scripts/functions.R')
+# Save path
+path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
 
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+# Load optimal threshold function
+source('~/Documents/Projects/AgingBrainStudy/scripts/find_optimal_threshold.R')
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
 ```
 
-# Brain Age Longitudinal PACC
-
-We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on A4/Learn and HABS data.
+We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on four cohorts:
+- A4/LEARN
+- HABS
+- ADNI CU
+- ADNI MCI
 
 ```{r}
 # Load A4 data
@@ -55,128 +61,197 @@ data_adni_cn <- data_adni %>%
   filter(diagnosis == 'CN')
 ```
 
-## A4 Structural BrainAge
+```{r}
+# Summary statistics for plotting
 
-### Trajectories
+# Time
+a4_max_time   <- max(data_a4$time_mri, na.rm = TRUE)
+adni_max_time <- max(data_adni$time_mri, na.rm = TRUE)
+habs_max_time <- max(data_habs$time_mri, na.rm = TRUE)
+max_time <- max(c(a4_max_time, adni_max_time, habs_max_time), na.rm = TRUE)
 
-Plot PACC trajectories with spaghetti plot.
+# PACC
+min_pacc = -10
+max_pacc = 1
+```
+
+# A4 Structural BrainAge
+
+## Trajectories
+
+Plot individual PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_a4, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
+# Plot Trajectories
+trajectories_a4 <- ggplot(data_a4, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+  labs(x = 'Time from MRI (years)', 
+       y = 'PACC',
+       colour = 'BrainAge delta') +
+  scale_colour_discrete(labels = c("Older      (>0)", "Younger (<0)")) +
   theme_minimal()
+
+# Show with poitns and lines
+trajectories_a4 + geom_line() + geom_point()
+
+# Save plot
+trajectories_a4 <- trajectories_a4 + 
+  geom_line(linewidth = 0.2) +
+  geom_point(size = 0.2) +
+    theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'trajectories_a4.png'), trajectories_a4, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-Plot PACC change from baseline trajectories with spaghetti plot.
+## Mixed Effects Model
+
+Simplest Quadratic mixed effects models with delta interaction:
+
+PACC \~ time_mri\^2 + time_mriXdelta + Cumulative_Dose_Scaled + LMSTORY + time_mriXcohort
 
 ```{r}
-ggplot(data_habs, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
-  theme_minimal()
+# Create linear mixed effects model for A4 
+lme_a4 <- lme(PACC ~ I(time_mri^2) 
+              + time_mri*delta 
+              + Cumulative_Dose_Scaled 
+              + time_mri*cohort 
+              + LMSTORY, 
+              data = data_a4, 
+              random = ~time_mri|ID, 
+              na.action = 'na.omit', 
+              method = c('ML'),
+              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+
+# Extract information of interest
+a4_results = summary(lme_a4)$tTable
+a4_effects <- data.frame(
+    model = "A4/LEARN",
+    term = "BrainAge delta",
+    estimate = a4_results["time_mri:delta", "Value"],
+    std.error = a4_results["time_mri:delta", "Std.Error"],
+    lower_ci = a4_results["time_mri:delta", "Value"] - 1.96 * a4_results["time_mri:delta", "Std.Error"],
+    upper_ci = a4_results["time_mri:delta", "Value"] + 1.96 * a4_results["time_mri:delta", "Std.Error"],
+    p_value = a4_results["time_mri:delta", "p-value"]
+  )
+cat("Delta effect:", signif(a4_effects$estimate, 2), 
+    "±", signif(a4_effects$std.error, 2), 
+    " p-val:", signif(a4_effects$p_value, 2), "\n")
+
+
+# Plot model
+a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max_time)) + 
+  scale_y_continuous(limits = c(-3.5, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+a4_p
+
+# Save model
+a4_p <- a4_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_a4.png'), a4_p, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
 ```
 
-### Mixed Effects Model
+## Sensitivity Analysis {.tabset}
 
-
-Simplest Quadratic mixed effects models with delta at baseline:
-
-PACC \~ pacc_time\^2 + pacc_timeXdelta + Cumulative_Dose_Scaled + LMSTORY + CohortXpacc_time
+### Linear vs Quadratic
 
 ```{r}
-lmm_results_a4 <- lme(PACC ~ I(time_mri^2) + time_mri*delta + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY, data = data_a4, 
-                      random = ~time_mri|ID, 
-                      na.action = 'na.omit', 
-                      method = c('ML'),
-                      control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-summary(lmm_results_a4)
-p <- plot_model(lmm_results_a4, type = c('pred'), terms = c('time_mri', 'delta'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
-```
-
-### Sensitivity Analysis {.tabset}
-
-
-#### Linear vs Quadratic
-
-```{r}
-lmm_results_a4_linear <- lme(PACC ~ time_mri*delta + Cumulative_Dose_Scaled + LMSTORY+ time_mri*cohort,
+lme_a4_linear <- lme(PACC ~ time_mri*delta 
+                             + Cumulative_Dose_Scaled 
+                             + LMSTORY
+                             + time_mri*cohort,
                              data = data_a4, 
                              random = ~time_mri|ID, 
                              na.action = 'na.omit', method = c('ML'),
                              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-anova(lmm_results_a4_linear, lmm_results_a4)
+anova(lme_a4_linear, lme_a4)
 ```
 
-The quadratic model explains the model better.
+### Placebo
 
-#### Placebo
-
-```{r} 
-lmm_results_a4_placebo <- lme(PACC ~ I(time_mri^2) + time_mri*delta + Cumulative_Dose_Scaled + LMSTORY, 
-                              data = data_placebo, 
-                              random = ~time_mri|ID, 
-                              na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_a4_placebo)
-p <- plot_model(lmm_results_a4_placebo, type = c('pred'), terms = c('time_mri', 'delta'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+```{r}
+lme_a4_placebo <- lme(PACC ~ I(time_mri^2) 
+                      + time_mri*delta 
+                      + Cumulative_Dose_Scaled 
+                      + LMSTORY, 
+                      data = data_placebo, 
+                      random = ~time_mri|ID, 
+                      na.action = 'na.omit', method = c('ML'));
+cat("Using placebo data p-value:" , summary(lme_a4_placebo)$tTable["time_mri:delta", "p-value"])
 ```
 
-Similar results when excluding the treatment group.
-
-#### Age, e4 and amyloid
+### Age, e4 and amyloid
 
 Amyloid is not included because cohort already takes this into account as LEARN are those that are ab- compared to A4 which are ab+. This leads to singularity back solve if ab_status included.
 
 Add Age, APOE, Sex, Education:
 
 ```{r}
-lmm_results_adni_sens_cn_demo <- lme(PACC ~ I(time_mri^2) + time_mri*delta + Cumulative_Dose_Scaled + LMSTORY + time_mri*cohort + time_mri*mri_age + time_mri*e4_carrier + time_mri*sex + time_mri*edu, 
-                                     data = data_a4, 
-                                     random = ~time_mri|ID, 
-                                     na.action = 'na.omit', 
-                                     method = c('ML'),
-                                     control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-summary(lmm_results_adni_sens_cn_demo)
-p <- plot_model(lmm_results_adni_sens_cn_demo, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_a4_sens_demo <- lme(PACC ~ I(time_mri^2) 
+                        + time_mri*delta 
+                        + Cumulative_Dose_Scaled 
+                        + LMSTORY 
+                        + time_mri*cohort 
+                        + time_mri*mri_age 
+                        + time_mri*e4_carrier 
+                        + time_mri*sex 
+                        + time_mri*edu, 
+                        data = data_a4, 
+                        random = ~time_mri|ID, 
+                        na.action = 'na.omit', 
+                        method = c('ML'),
+                        control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Adding gemographcis p-value:" , summary(lme_a4_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
-We keep significant results although the trajectories also depend on the other factors.
+### Change from baseline
 
-#### Change from baseline
+Changing the model's outcome to be change from baseline PACC and adding baseline PACC as covariate as well as the other covariates.
 
 ```{r}
-lmm_results_adni_sens_cn_change <- lme(PACC_change ~ I(time_mri^2) + time_mri*delta + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*PACC_mri, 
-                                       data = data_a4, 
-                                       random = ~ 0 + time_mri|ID, 
-                                       na.action = 'na.omit', 
-                                       method = c('ML'));
-summary(lmm_results_adni_sens_cn_change)
-p <- plot_model(lmm_results_adni_sens_cn_change, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_a4_sens_change <- lme(PACC_change ~ I(time_mri^2) 
+                          + time_mri*delta 
+                          + Cumulative_Dose_Scaled 
+                          + time_mri*cohort 
+                          + LMSTORY 
+                          + time_mri*mri_age 
+                          + time_mri*sex 
+                          + time_mri*e4_carrier 
+                          + time_mri*PACC_mri, 
+                          data = data_a4, 
+                          random = ~ 0 + time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Change from baseline p-value:" , summary(lme_a4_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
-### Interactions {.tabset}
+## Interactions {.tabset}
 
 #### PET Amyloid
 
 ```{r}
 lmm_results_ADNI_amyl_cn <- lme(PACC ~ I(time_mri^2) + time_mri*delta*ab_composite + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY, 
-                                data = data_a4[data_a4$secondary == 1,], 
+                                data = data_a4, 
                                 random = ~time_mri|ID, 
                                 na.action = 'na.omit', 
                                 method = c('ML'));
@@ -198,7 +273,7 @@ Add Age, Sex, Education, E4 Status
 
 ```{r}
 lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ I(time_mri^2) + time_mri*delta*ab_composite + Cumulative_Dose_Scaled + LMSTORY + time_mri*cohort + time_mri*mri_age + time_mri*e4_carrier + time_mri*sex + time_mri*edu, 
-                                     data = data_a4[data_a4$secondary == 1,], 
+                                     data = data_a4, 
                                      random = ~time_mri|ID, 
                                      na.action = 'na.omit', 
                                      method = c('ML'));
@@ -217,7 +292,7 @@ lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ I(time_mri^2)
                                      + time_mri*e4_carrier 
                                      + time_mri*sex 
                                      + time_mri*edu, 
-                                     data = data_a4[data_a4$secondary == 1 & data_a4$time_diff_ab <=1 & data_a4$time_diff_ab >=-1,], 
+                                     data = data_a4[data_a4$time_diff_ab <=1 & data_a4$time_diff_ab >=-1,], 
                                      random = ~time_mri|ID, na.action = 'na.omit', 
                                      method = c('ML'),
                                      control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
@@ -249,6 +324,7 @@ p
 
 print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
 ```
+
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
@@ -367,78 +443,157 @@ print(results_a4$plot)
 print((results_a4$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```
 
-## HABS
+# HABS
 
-### Trajectories
+## Trajectories
 
-Plot PACC trajectories with spaghetti plot.
+Plot individual PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_habs, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
+# Plot Trajectories
+trajectories_habs <- ggplot(data_habs, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+  labs(x = 'Time from MRI (years)', 
+       y = 'PACC',
+       colour = 'BrainAge delta') +
+  scale_colour_discrete(labels = c("Older      (>0)", "Younger (<0)")) +
   theme_minimal()
+
+# Show with poitns and lines
+trajectories_habs + geom_line() + geom_point()
+
+# Save plot
+trajectories_habs <- trajectories_habs + 
+  geom_line(linewidth = 0.2) +
+  geom_point(size = 0.2) +
+    theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'trajectories_habs.png'), trajectories_habs, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-Plot PACC change from baseline trajectories with spaghetti plot.
+## Mixed Effects Model
+
+Simplest Quadratic mixed effects models with delta interaction:
+
+PACC \~ time_mri\^2 + time_mriXdelta
 
 ```{r}
-ggplot(data_habs, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
-  theme_minimal()
+# Create linear mixed effects model for HABS 
+lme_habs <- lme(PACC ~ I(time_mri^2) 
+              + time_mri*delta, 
+              data = data_habs, 
+              random = ~time_mri|ID, 
+              na.action = 'na.omit', 
+              method = c('ML'),
+              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+
+# Extract information of interest
+habs_results = summary(lme_habs)$tTable
+habs_effects <- data.frame(
+    model = "HABS",
+    term = "BrainAge delta",
+    estimate = habs_results["time_mri:delta", "Value"],
+    std.error = habs_results["time_mri:delta", "Std.Error"],
+    lower_ci = habs_results["time_mri:delta", "Value"] - 1.96 * habs_results["time_mri:delta", "Std.Error"],
+    upper_ci = habs_results["time_mri:delta", "Value"] + 1.96 * habs_results["time_mri:delta", "Std.Error"],
+    p_value = habs_results["time_mri:delta", "p-value"]
+  )
+cat("Delta effect:", signif(habs_effects$estimate, 2), 
+    "±", signif(habs_effects$std.error, 2), 
+    " p-val:", signif(habs_effects$p_value, 2), "\n")
+
+
+# Plot model
+habs_p <- plot(ggpredict(lme_habs, terms = c("time_mri [all]", "delta"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max_time)) + 
+  scale_y_continuous(limits = c(-3.5, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+habs_p
+
+# Save model
+habs_p <- habs_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_habs.png'), habs_p, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### Mixed Effects Model
+## Sensitivity Analysis {.tabset}
 
-Simplest linear mixed effects models with delta at baseline:
-
-PACC \~ pacc_timeXdelta
+### Linear vs Quadratic
 
 ```{r}
-lmm_results_habs <- lme(PACC ~ time_mri*delta, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_habs)
-p <- plot_model(lmm_results_habs, type = c('pred'), terms = c('time_mri', 'delta'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+lme_habs_linear <- lme(PACC ~ time_mri*delta,
+                             data = data_habs, 
+                             random = ~time_mri|ID, 
+                             na.action = 'na.omit', method = c('ML'),
+                             control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+anova(lme_habs_linear, lme_habs)
 ```
 
-### Sensitivity Analysis {.tabset}
+### Age, e4 and amyloid
 
-#### Age, e4 and amyloid
-
-Add Age, APOE, Sex, Education and Amyloid status:
+Add Age, AB_status, APOE, Sex, Education:
 
 ```{r}
-lmm_results_adni_sens_cn_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn_demo)
-p <- plot_model(lmm_results_adni_sens_cn_demo, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_habs_sens_demo <- lme(PACC ~ I(time_mri^2) 
+                        + time_mri*delta
+                        + time_mri*mri_age
+                        + time_mri*ab_status
+                        + time_mri*e4_carrier 
+                        + time_mri*sex 
+                        + time_mri*edu, 
+                        data = data_habs, 
+                        random = ~time_mri|ID, 
+                        na.action = 'na.omit', 
+                        method = c('ML'),
+                        control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Adding gemographcis p-value:" , summary(lme_habs_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
-We keep significant results although the trajectories also depend on the other factors.
+### Change from baseline
 
-#### Change from baseline
+Changing the model's outcome to be change from baseline PACC and adding baseline PACC as covariate as well as the other covariates.
 
 ```{r}
-lmm_results_adni_sens_cn_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_habs, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn_change)
-p <- plot_model(lmm_results_adni_sens_cn_change, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_habs_sens_change <- lme(PACC_change ~ I(time_mri^2) 
+                          + time_mri*delta
+                          + time_mri*mri_age
+                          + time_mri*ab_status
+                          + time_mri*sex 
+                          + time_mri*e4_carrier 
+                          + time_mri*PACC_mri, 
+                          data = data_habs, 
+                          random = ~ 0 + time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Change from baseline p-value:" , summary(lme_habs_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
-### Interactions {.tabset}
+## Interactions {.tabset}
 
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs[data_habs$secondary == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_cn)
 p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -456,14 +611,14 @@ print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$secondary == 1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 Only samples within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$secondary == 1 & data_habs$time_diff_ab <=1 & data_habs$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_habs[data_habs$time_diff_ab <=1 & data_habs$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
@@ -484,6 +639,7 @@ p
 
 print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
 ```
+
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
@@ -548,79 +704,157 @@ print(results_habs$plot)
 print((results_habs$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```
 
+# ADNI CU
 
-## ADNI CU
+## Trajectories
 
-### Trajectories
-
-Plot PACC trajectories with spaghetti plot.
+Plot individual PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_cn, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
+# Plot Trajectories
+trajectories_adni_cn <- ggplot(data_adni_cn, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+  labs(x = 'Time from MRI (years)', 
+       y = 'PACC',
+       colour = 'BrainAge delta') +
+  scale_colour_discrete(labels = c("Older      (>0)", "Younger (<0)")) +
   theme_minimal()
+
+# Show with poitns and lines
+trajectories_adni_cn + geom_line() + geom_point()
+
+# Save plot
+trajectories_adni_cn <- trajectories_adni_cn + 
+  geom_line(linewidth = 0.2) +
+  geom_point(size = 0.2) +
+    theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'trajectories_adni_cn.png'), trajectories_adni_cn, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-Plot PACC change from baseline trajectories with spaghetti plot.
+## Mixed Effects Model
+
+Simplest Quadratic mixed effects models with delta interaction:
+
+PACC \~ time_mri\^2 + time_mriXdelta
 
 ```{r}
-ggplot(data_adni_cn, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
-  theme_minimal()
+# Create linear mixed effects model for ADNI CU
+lme_adni_cn <- lme(PACC ~ I(time_mri^2) 
+              + time_mri*delta, 
+              data = data_adni_cn, 
+              random = ~time_mri|ID, 
+              na.action = 'na.omit', 
+              method = c('ML'),
+              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+
+# Extract information of interest
+adni_cn_results = summary(lme_adni_cn)$tTable
+adni_cn_effects <- data.frame(
+    model = "ADNI CU",
+    term = "BrainAge delta",
+    estimate = adni_cn_results["time_mri:delta", "Value"],
+    std.error = adni_cn_results["time_mri:delta", "Std.Error"],
+    lower_ci = adni_cn_results["time_mri:delta", "Value"] - 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
+    upper_ci = adni_cn_results["time_mri:delta", "Value"] + 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
+    p_value = adni_cn_results["time_mri:delta", "p-value"]
+  )
+cat("Delta effect:", signif(adni_cn_effects$estimate, 2), 
+    "±", signif(adni_cn_effects$std.error, 2), 
+    " p-val:", signif(adni_cn_effects$p_value, 2), "\n")
+
+
+# Plot model
+adni_cn_p <- plot(ggpredict(lme_adni_cn, terms = c("time_mri [all]", "delta"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max_time)) + 
+  scale_y_continuous(limits = c(-3.5, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+adni_cn_p
+
+# Save model
+adni_cn_p <- adni_cn_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_adni_cn.png'), adni_cn_p, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### Mixed Effects Model
+## Sensitivity Analysis {.tabset}
 
-Simplest linear mixed effects models with delta at baseline:
-
-PACC \~ pacc_timeXdelta
+### Linear vs Quadratic
 
 ```{r}
-lmm_results_adni_cn <- lme(PACC ~ time_mri*delta, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_cn)
-p <- plot_model(lmm_results_adni_cn, type = c('pred'), terms = c('time_mri', 'delta'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+lme_adni_cn_linear <- lme(PACC ~ time_mri*delta,
+                             data = data_adni_cn, 
+                             random = ~time_mri|ID, 
+                             na.action = 'na.omit', method = c('ML'),
+                             control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+anova(lme_adni_cn_linear, lme_adni_cn)
 ```
 
-### Sensitivity Analysis {.tabset}
+### Age, e4 and amyloid
 
-#### Age, e4 and amyloid
-
-Add Age, APOE, Sex, Education and Amyloid status:
+Add Age, AB_status, APOE, Sex, Education:
 
 ```{r}
-lmm_results_adni_sens_cn_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn_demo)
-p <- plot_model(lmm_results_adni_sens_cn_demo, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_adni_cn_sens_demo <- lme(PACC ~ I(time_mri^2) 
+                        + time_mri*delta
+                        + time_mri*mri_age
+                        + time_mri*ab_status
+                        + time_mri*e4_carrier 
+                        + time_mri*sex 
+                        + time_mri*edu, 
+                        data = data_adni_cn, 
+                        random = ~time_mri|ID, 
+                        na.action = 'na.omit', 
+                        method = c('ML'),
+                        control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Adding gemographcis p-value:" , summary(lme_adni_cn_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
-We keep significant results although the trajectories also depend on the other factors.
+### Change from baseline
 
-#### Change from baseline
+Changing the model's outcome to be change from baseline PACC and adding baseline PACC as covariate as well as the other covariates.
 
 ```{r}
-lmm_results_adni_sens_cn_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_adni_cn, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_cn_change)
-p <- plot_model(lmm_results_adni_sens_cn_change, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_adni_cn_sens_change <- lme(PACC_change ~ I(time_mri^2) 
+                          + time_mri*delta
+                          + time_mri*mri_age
+                          + time_mri*ab_status
+                          + time_mri*sex 
+                          + time_mri*e4_carrier 
+                          + time_mri*PACC_mri, 
+                          data = data_adni_cn, 
+                          random = ~ 0 + time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Change from baseline p-value:" , summary(lme_adni_cn_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
-### Interactions {.tabset}
+## Interactions {.tabset}
 
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn[data_adni_cn$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_cn <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_cn)
 p <- plot_model(lmm_results_ADNI_amyl_cn, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -638,14 +872,14 @@ print(summary(lmm_results_ADNI_amyl_cn)$tTable["time_mri:delta:ab_composite", 5]
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
 Only samples within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary == 1 & data_adni_cn$time_diff_ab <=1 & data_adni_cn$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$time_diff_ab <=1 & data_adni_cn$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
@@ -666,6 +900,7 @@ p
 
 print(summary(lmm_results_ADNI_ptau_cn)$tTable["time_mri:delta:ptau", 5])
 ```
+
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
@@ -708,7 +943,7 @@ print(summary(lmm_results_ADNI_tau_sens_cn)$tTable["time_mri:delta:tau_composite
 Only samples within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$secondary == 1 & data_adni_cn$time_diff_tau <=1 & data_adni_cn$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*tau_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_cn[data_adni_cn$time_diff_tau <=1 & data_adni_cn$time_diff_tau >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:tau_composite", 5])
 ```
 
@@ -730,78 +965,157 @@ print(results_adni_cn$plot)
 print((results_adni_cn$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```
 
-## ADNI MCI
+# ADNI MCI
 
-### Trajectories
+## Trajectories
 
-Plot PACC trajectories with spaghetti plot.
+Plot individual PACC trajectories with spaghetti plot.
 
 ```{r}
-ggplot(data_adni_mci, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC') +
+# Plot Trajectories
+trajectories_adni_mci <- ggplot(data_adni_mci, aes(x = time_mri, y = PACC, group = ID, colour = delta_group)) +
+  labs(x = 'Time from MRI (years)', 
+       y = 'PACC',
+       colour = 'BrainAge delta') +
+  scale_colour_discrete(labels = c("Older      (>0)", "Younger (<0)")) +
   theme_minimal()
+
+# Show with poitns and lines
+trajectories_adni_mci + geom_line() + geom_point()
+
+# Save plot
+trajectories_adni_mci <- trajectories_adni_mci + 
+  geom_line(linewidth = 0.2) +
+  geom_point(size = 0.2) +
+    theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'trajectories_adni_mci.png'), trajectories_adni_mci, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-Plot PACC change from baseline trajectories with spaghetti plot.
+## Mixed Effects Model
+
+Simplest Quadratic mixed effects models with delta interaction:
+
+PACC \~ time_mri\^2 + time_mriXdelta
 
 ```{r}
-ggplot(data_adni_mci, aes(x = time_mri, y = PACC_change, group = ID, colour = delta_group)) +
-  geom_line() +
-  geom_point() +
-  labs(title = 'PACC Trajectories', x = 'Time from MRI', y = 'PACC change from Basline') +
-  theme_minimal()
+# Create linear mixed effects model for ADNI MCI 
+lme_adni_mci <- lme(PACC ~ I(time_mri^2) 
+              + time_mri*delta, 
+              data = data_adni_mci, 
+              random = ~time_mri|ID, 
+              na.action = 'na.omit', 
+              method = c('ML'),
+              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+
+# Extract information of interest
+adni_mci_results = summary(lme_adni_mci)$tTable
+adni_mci_effects <- data.frame(
+    model = "ADNI MCI",
+    term = "BrainAge delta",
+    estimate = adni_mci_results["time_mri:delta", "Value"],
+    std.error = adni_mci_results["time_mri:delta", "Std.Error"],
+    lower_ci = adni_mci_results["time_mri:delta", "Value"] - 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
+    upper_ci = adni_mci_results["time_mri:delta", "Value"] + 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
+    p_value = adni_mci_results["time_mri:delta", "p-value"]
+  )
+cat("Delta effect:", signif(adni_mci_effects$estimate, 2), 
+    "±", signif(adni_mci_effects$std.error, 2), 
+    " p-val:", signif(adni_mci_effects$p_value, 2), "\n")
+
+
+# Plot model
+adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max_time)) + 
+  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "BrainAge \ndelta (years)"
+  )
+adni_mci_p
+
+# Save model
+adni_mci <- adni_mci_p +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
+    ) 
+ggsave(paste(path, 'lme_adni_mci.png'), adni_mci_p, 
+       width = 125, height = 50, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1) 
 ```
 
-### Mixed Effects Model
+## Sensitivity Analysis {.tabset}
 
-Simplest linear mixed effects models with delta at baseline:
-
-PACC \~ pacc_timeXdelta
+### Linear vs Quadratic
 
 ```{r}
-lmm_results_adni_mci <- lme(PACC ~ time_mri*delta, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_mci)
-p <- plot_model(lmm_results_adni_mci, type = c('pred'), terms = c('time_mri', 'delta'))
-p <- p +
-  ggtitle(NULL) +
-  labs(color = 'Delta (years)',
-      x = 'Time from MRI (years)',
-      y = 'PACC')
-p
+lme_adni_mci_linear <- lme(PACC ~ time_mri*delta,
+                             data = data_adni_mci, 
+                             random = ~time_mri|ID, 
+                             na.action = 'na.omit', method = c('ML'),
+                             control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+anova(lme_adni_mci_linear, lme_adni_mci)
 ```
 
-### Sensitivity Analysis {.tabset}
+### Age, e4 and amyloid
 
-#### Age, e4 and amyloid
-
-Add Age, APOE, Sex, Education and Amyloid status:
+Add Age, AB_status, APOE, Sex, Education:
 
 ```{r}
-lmm_results_adni_sens_mci_demo <- lme(PACC ~ time_mri*delta + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_mci_demo)
-p <- plot_model(lmm_results_adni_sens_mci_demo, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_adni_mci_sens_demo <- lme(PACC ~ I(time_mri^2) 
+                        + time_mri*delta
+                        + time_mri*mri_age
+                        + time_mri*ab_status
+                        + time_mri*e4_carrier 
+                        + time_mri*sex 
+                        + time_mri*edu, 
+                        data = data_adni_mci, 
+                        random = ~time_mri|ID, 
+                        na.action = 'na.omit', 
+                        method = c('ML'),
+                        control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+cat("Adding gemographcis p-value:" , summary(lme_adni_mci_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
-We keep significant results although the trajectories also depend on the other factors.
+### Change from baseline
 
-#### Change from baseline
+Changing the model's outcome to be change from baseline PACC and adding baseline PACC as covariate as well as the other covariates.
 
 ```{r}
-lmm_results_adni_sens_mci_change <- lme(PACC_change ~ time_mri*delta + time_mri*mri_age + time_mri*sex + time_mri*e4_carrier + time_mri*ab_status + time_mri*PACC_mri, data = data_adni_mci, random = ~ 0 + time_mri|ID, na.action = 'na.omit', method = c('ML'));
-summary(lmm_results_adni_sens_mci_change)
-p <- plot_model(lmm_results_adni_sens_mci_change, type = c('pred'), terms = c('time_mri', 'delta'))
-p
+lme_adni_mci_sens_change <- lme(PACC_change ~ I(time_mri^2) 
+                          + time_mri*delta
+                          + time_mri*mri_age
+                          + time_mri*ab_status
+                          + time_mri*sex 
+                          + time_mri*e4_carrier 
+                          + time_mri*PACC_mri, 
+                          data = data_adni_mci, 
+                          random = ~ 0 + time_mri|ID, 
+                          na.action = 'na.omit', 
+                          method = c('ML'));
+cat("Change from baseline p-value:" , summary(lme_adni_mci_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
-### Interactions {.tabset}
+## Interactions {.tabset}
 
 #### PET Amyloid
 
 ```{r}
-lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci[data_adni_mci$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_mci <- lme(PACC ~ time_mri*delta*ab_composite, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 summary(lmm_results_ADNI_amyl_mci)
 p <- plot_model(lmm_results_ADNI_amyl_mci, type = c('pred'), terms = c('time_mri', 'delta', 'ab_composite'))
 p <- p +
@@ -826,7 +1140,7 @@ print(summary(lmm_results_ADNI_amyl_sens_mci)$tTable["time_mri:delta:ab_composit
 Only samples within 1 year of MRI.
 
 ```{r}
-lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$secondary == 1 & data_adni_mci$time_diff_ab <=1 & data_adni_mci$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_amyl_sens_cn <- lme(PACC~ time_mri*delta*ab_composite + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$time_diff_ab <=1 & data_adni_mci$time_diff_ab >=-1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_amyl_sens_cn)$tTable["time_mri:delta:ab_composite", 5])
 ```
 
@@ -847,10 +1161,11 @@ p
 
 print(summary(lmm_results_ADNI_ptau_mci)$tTable["time_mri:delta:ptau", 5])
 ```
+
 Add Age, Sex, Education, E4 Status and Amyloid status.
 
 ```{r}
-lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci[data_adni_mci$secondary==1,], random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
+lmm_results_ADNI_ptau_sens_mci <- lme(PACC~ time_mri*delta*ptau + time_mri*mri_age + time_mri*e4_carrier + time_mri*ab_status + time_mri*sex + time_mri*edu, data = data_adni_mci, random = ~time_mri|ID, na.action = 'na.omit', method = c('ML'));
 print(summary(lmm_results_ADNI_ptau_sens_mci)$tTable["time_mri:delta:ptau", 5])
 ```
 
@@ -911,3 +1226,60 @@ print(results_adni_mci$plot)
 print((results_adni_mci$optimal_threshold - mean_adni_delta_mci) / sd_adni_delta_mci)
 print((results_adni_mci$optimal_threshold - mean_adni_delta_cn) / sd_adni_delta_cn)
 ```
+
+# Summary {.tabset}
+
+Forest plots to summarize all the information of linear mixed effects models
+
+## Delta
+
+```{r}
+# Create interaction_results from a4_effects and habs_effects by binding them
+interaction_results <- rbind(
+  a4_effects,
+  habs_effects,
+  adni_cn_effects,
+  adni_mci_effects
+) %>% 
+  mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+# Create the forest plot
+forest_plot <- ggplot(interaction_results, aes(x = estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  # Add effect size values to the plot 
+  geom_text(aes(x = 0.01, 
+                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
+                               estimate, lower_ci, upper_ci, p_value)),
+            hjust = 0, size = 8 / .pt) +
+  # Adjust x-axis from -0.05 to 0.025
+  scale_x_continuous(limits = c(-0.05, 0.05)) 
+
+# Print the plot
+print(forest_plot)
+
+# Save summary
+forest_plot <- forest_plot +
+  theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
+    ) 
+ggsave(paste(path, 'delta_forest.png'), forest_plot, 
+       width = 125, height = 45, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
+```
+
+## AB-PET
+
+## pTau217
+
+## Tau-PET
