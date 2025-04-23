@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects)
+library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects);library(effsize)
 
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
@@ -130,19 +130,18 @@ lme_a4 <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 a4_results = summary(lme_a4)$tTable
+a4_standardized <- effectsize::standardize_parameters(lme_a4)
 a4_delta_effects <- data.frame(
     model = "A4/LEARN",
     delta.term = "BrainAge delta",
-    delta.estimate = a4_results["time_mri:delta", "Value"],
-    delta.std.error = a4_results["time_mri:delta", "Std.Error"],
-    delta.lower_ci = a4_results["time_mri:delta", "Value"] 
-                      - 1.96 * a4_results["time_mri:delta", "Std.Error"],
-    delta.upper_ci = a4_results["time_mri:delta", "Value"]
-                      + 1.96 * a4_results["time_mri:delta", "Std.Error"],
+    delta.estimate = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    delta.lower_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_low"],
+    delta.upper_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_high"],
     delta.p_value = a4_results["time_mri:delta", "p-value"]
   )
 cat("Delta effect:", signif(a4_delta_effects$delta.estimate, 2), 
-    "±", signif(a4_delta_effects$delta.std.error, 2), 
+    "[", signif(a4_delta_effects$delta.lower_ci, 2), ",",
+    signif(a4_delta_effects$delta.upper_ci, 2), "]",
     " p-val:", signif(a4_delta_effects$delta.p_value, 2), "\n")
 
 # Plot model
@@ -260,23 +259,23 @@ lme_a4_ab <- lme(PACC ~ I(time_mri^2)
                   data = data_a4, 
                   random = ~time_mri|ID, 
                   na.action = 'na.omit', 
-                  method = c('ML'));
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
 # Extract information of interest
 a4_ab_results = summary(lme_a4_ab)$tTable
+a4_ab_standardized <- effectsize::standardize_parameters(lme_a4_ab)
 a4_ab_effects <- data.frame(
     model = "A4/LEARN",
     ab.term = "BrainAge delta X AB-PET",
-    ab.estimate = a4_ab_results["time_mri:delta:ab_composite", "Value"],
-    ab.std.error = a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.lower_ci = a4_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      - 1.96 * a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.upper_ci = a4_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      + 1.96 * a4_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.estimate = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
+    ab.lower_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
+    ab.upper_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
     ab.p_value = a4_ab_results["time_mri:delta:ab_composite", "p-value"]
   )
 cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate, 2), 
-    "±", signif(a4_ab_effects$ab.std.error, 2), 
+    "[", signif(a4_ab_effects$ab.lower_ci, 2), ",",
+    signif(a4_ab_effects$ab.upper_ci, 2), "]",
     " p-val:", signif(a4_ab_effects$ab.p_value, 2), "\n")
 
 # Plot model
@@ -373,19 +372,18 @@ lme_a4_ptau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 a4_ptau_results = summary(lme_a4_ptau)$tTable
+a4_ptau_standardized <- effectsize::standardize_parameters(lme_a4_ptau)
 a4_ptau_effects <- data.frame(
     model = "A4/LEARN",
     ptau.term = "BrainAge delta X pTau217",
-    ptau.estimate = a4_ptau_results["time_mri:delta:ptau", "Value"],
-    ptau.std.error = a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.lower_ci = a4_ptau_results["time_mri:delta:ptau", "Value"] 
-                      - 1.96 * a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.upper_ci = a4_ptau_results["time_mri:delta:ptau", "Value"] 
-                      + 1.96 * a4_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.estimate = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
+    ptau.lower_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
+    ptau.upper_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
     ptau.p_value = a4_ptau_results["time_mri:delta:ptau", "p-value"]
   )
 cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate, 2), 
-    "±", signif(a4_ptau_effects$ptau.std.error, 2), 
+    "[", signif(a4_ptau_effects$ptau.lower_ci, 2), ",",
+    signif(a4_ptau_effects$ptau.upper_ci, 2), "]",
     " p-val:", signif(a4_ptau_effects$ptau.p_value, 2), "\n")
 
 # Plot model
@@ -483,19 +481,18 @@ lme_a4_tau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 a4_tau_results = summary(lme_a4_tau)$tTable
+a4_tau_standardized <- effectsize::standardize_parameters(lme_a4_tau)
 a4_tau_effects <- data.frame(
     model = "A4/LEARN",
     tau.term = "BrainAge delta X Tau-PET",
-    tau.estimate = a4_tau_results["time_mri:delta:tau_composite", "Value"],
-    tau.std.error = a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.lower_ci = a4_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      - 1.96 * a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.upper_ci = a4_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      + 1.96 * a4_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.estimate = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
+    tau.lower_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
+    tau.upper_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
     tau.p_value = a4_tau_results["time_mri:delta:tau_composite", "p-value"]
   )
-cat("BrainAge delta * Tau-PET effect:", signif(a4_tau_effects$tau.estimate, 2), 
-    "±", signif(a4_tau_effects$tau.std.error, 2), 
+cat("BrainAge delta * tau217 effect:", signif(a4_tau_effects$tau.estimate, 2), 
+    "[", signif(a4_tau_effects$tau.lower_ci, 2), ",",
+    signif(a4_tau_effects$tau.upper_ci, 2), "]",
     " p-val:", signif(a4_tau_effects$tau.p_value, 2), "\n")
 
 # Plot model
@@ -648,19 +645,18 @@ lme_habs <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 habs_results = summary(lme_habs)$tTable
+habs_standardized <- effectsize::standardize_parameters(lme_habs)
 habs_delta_effects <- data.frame(
     model = "HABS",
     delta.term = "BrainAge delta",
-    delta.estimate = habs_results["time_mri:delta", "Value"],
-    delta.std.error = habs_results["time_mri:delta", "Std.Error"],
-    delta.lower_ci = habs_results["time_mri:delta", "Value"] 
-                      - 1.96 * habs_results["time_mri:delta", "Std.Error"],
-    delta.upper_ci = habs_results["time_mri:delta", "Value"]
-                      + 1.96 * habs_results["time_mri:delta", "Std.Error"],
+    delta.estimate = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    delta.lower_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_low"],
+    delta.upper_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_high"],
     delta.p_value = habs_results["time_mri:delta", "p-value"]
   )
 cat("Delta effect:", signif(habs_delta_effects$delta.estimate, 2), 
-    "±", signif(habs_delta_effects$delta.std.error, 2), 
+    "[", signif(habs_delta_effects$delta.lower_ci, 2), ",",
+    signif(habs_delta_effects$delta.upper_ci, 2), "]",
     " p-val:", signif(habs_delta_effects$delta.p_value, 2), "\n")
 
 
@@ -758,19 +754,18 @@ lme_habs_ab <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 habs_ab_results = summary(lme_habs_ab)$tTable
+habs_ab_standardized <- effectsize::standardize_parameters(lme_habs_ab)
 habs_ab_effects <- data.frame(
     model = "HABS",
     ab.term = "BrainAge delta X AB-PET",
-    ab.estimate = habs_ab_results["time_mri:delta:ab_composite", "Value"],
-    ab.std.error = habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.lower_ci = habs_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      - 1.96 * habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.upper_ci = habs_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      + 1.96 * habs_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.estimate = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
+    ab.lower_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
+    ab.upper_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
     ab.p_value = habs_ab_results["time_mri:delta:ab_composite", "p-value"]
   )
 cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate, 2), 
-    "±", signif(habs_ab_effects$ab.std.error, 2), 
+    "[", signif(habs_ab_effects$ab.lower_ci, 2), ",",
+    signif(habs_ab_effects$ab.upper_ci, 2), "]",
     " p-val:", signif(habs_ab_effects$ab.p_value, 2), "\n")
 
 # Plot model
@@ -858,19 +853,18 @@ lme_habs_ptau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 habs_ptau_results = summary(lme_habs_ptau)$tTable
+habs_ptau_standardized <- effectsize::standardize_parameters(lme_habs_ptau)
 habs_ptau_effects <- data.frame(
     model = "HABS",
     ptau.term = "BrainAge delta X pTau217",
-    ptau.estimate = habs_ptau_results["time_mri:delta:ptau", "Value"],
-    ptau.std.error = habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.lower_ci = habs_ptau_results["time_mri:delta:ptau", "Value"] 
-                      - 1.96 * habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.upper_ci = habs_ptau_results["time_mri:delta:ptau", "Value"] 
-                      + 1.96 * habs_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.estimate = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
+    ptau.lower_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
+    ptau.upper_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
     ptau.p_value = habs_ptau_results["time_mri:delta:ptau", "p-value"]
   )
 cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate, 2), 
-    "±", signif(habs_ptau_effects$ptau.std.error, 2), 
+    "[", signif(habs_ptau_effects$ptau.lower_ci, 2), ",",
+    signif(habs_ptau_effects$ptau.upper_ci, 2), "]",
     " p-val:", signif(habs_ptau_effects$ptau.p_value, 2), "\n")
 
 # Plot model
@@ -959,19 +953,18 @@ lme_habs_tau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 habs_tau_results = summary(lme_habs_tau)$tTable
+habs_tau_standardized <- effectsize::standardize_parameters(lme_habs_tau)
 habs_tau_effects <- data.frame(
     model = "HABS",
     tau.term = "BrainAge delta X Tau-PET",
-    tau.estimate = habs_tau_results["time_mri:delta:tau_composite", "Value"],
-    tau.std.error = habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.lower_ci = habs_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      - 1.96 * habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.upper_ci = habs_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      + 1.96 * habs_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.estimate = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
+    tau.lower_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
+    tau.upper_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
     tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"]
   )
-cat("BrainAge delta * Tau-PET effect:", signif(habs_tau_effects$tau.estimate, 2), 
-    "±", signif(habs_tau_effects$tau.std.error, 2), 
+cat("BrainAge delta * tau217 effect:", signif(habs_tau_effects$tau.estimate, 2), 
+    "[", signif(habs_tau_effects$tau.lower_ci, 2), ",",
+    signif(habs_tau_effects$tau.upper_ci, 2), "]",
     " p-val:", signif(habs_tau_effects$tau.p_value, 2), "\n")
 
 # Plot model
@@ -1116,19 +1109,18 @@ lme_adni_cn <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_cn_results = summary(lme_adni_cn)$tTable
+adni_cn_standardized <- effectsize::standardize_parameters(lme_adni_cn)
 adni_cn_delta_effects <- data.frame(
     model = "ADNI CU",
     delta.term = "BrainAge delta",
-    delta.estimate = adni_cn_results["time_mri:delta", "Value"],
-    delta.std.error = adni_cn_results["time_mri:delta", "Std.Error"],
-    delta.lower_ci = adni_cn_results["time_mri:delta", "Value"] 
-                      - 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
-    delta.upper_ci = adni_cn_results["time_mri:delta", "Value"]
-                      + 1.96 * adni_cn_results["time_mri:delta", "Std.Error"],
+    delta.estimate = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    delta.lower_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_low"],
+    delta.upper_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_high"],
     delta.p_value = adni_cn_results["time_mri:delta", "p-value"]
   )
 cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate, 2), 
-    "±", signif(adni_cn_delta_effects$delta.std.error, 2), 
+    "[", signif(adni_cn_delta_effects$delta.lower_ci, 2), ",",
+    signif(adni_cn_delta_effects$delta.upper_ci, 2), "]",
     " p-val:", signif(adni_cn_delta_effects$delta.p_value, 2), "\n")
 
 
@@ -1226,19 +1218,18 @@ lme_adni_cn_ab <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_cn_ab_results = summary(lme_adni_cn_ab)$tTable
+adni_cn_ab_standardized <- effectsize::standardize_parameters(lme_adni_cn_ab)
 adni_cn_ab_effects <- data.frame(
     model = "ADNI CU",
     ab.term = "BrainAge delta X AB-PET",
-    ab.estimate = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"],
-    ab.std.error = adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.lower_ci = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      - 1.96 * adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.upper_ci = adni_cn_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      + 1.96 * adni_cn_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.estimate = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
+    ab.lower_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
+    ab.upper_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
     ab.p_value = adni_cn_ab_results["time_mri:delta:ab_composite", "p-value"]
   )
 cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate, 2), 
-    "±", signif(adni_cn_ab_effects$ab.std.error, 2), 
+    "[", signif(adni_cn_ab_effects$ab.lower_ci, 2), ",",
+    signif(adni_cn_ab_effects$ab.upper_ci, 2), "]",
     " p-val:", signif(adni_cn_ab_effects$ab.p_value, 2), "\n")
 
 # Plot model
@@ -1326,19 +1317,18 @@ lme_adni_cn_ptau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_cn_ptau_results = summary(lme_adni_cn_ptau)$tTable
+adni_cn_ptau_standardized <- effectsize::standardize_parameters(lme_adni_cn_ptau)
 adni_cn_ptau_effects <- data.frame(
     model = "ADNI CU",
     ptau.term = "BrainAge delta X pTau217",
-    ptau.estimate = adni_cn_ptau_results["time_mri:delta:ptau", "Value"],
-    ptau.std.error = adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.lower_ci = adni_cn_ptau_results["time_mri:delta:ptau", "Value"] 
-                      - 1.96 * adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.upper_ci = adni_cn_ptau_results["time_mri:delta:ptau", "Value"] 
-                      + 1.96 * adni_cn_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.estimate = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
+    ptau.lower_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
+    ptau.upper_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
     ptau.p_value = adni_cn_ptau_results["time_mri:delta:ptau", "p-value"]
   )
 cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimate, 2), 
-    "±", signif(adni_cn_ptau_effects$ptau.std.error, 2), 
+    "[", signif(adni_cn_ptau_effects$ptau.lower_ci, 2), ",",
+    signif(adni_cn_ptau_effects$ptau.upper_ci, 2), "]",
     " p-val:", signif(adni_cn_ptau_effects$ptau.p_value, 2), "\n")
 
 # Plot model
@@ -1427,19 +1417,18 @@ lme_adni_cn_tau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_cn_tau_results = summary(lme_adni_cn_tau)$tTable
+adni_cn_tau_standardized <- effectsize::standardize_parameters(lme_adni_cn_tau)
 adni_cn_tau_effects <- data.frame(
     model = "ADNI CU",
     tau.term = "BrainAge delta X Tau-PET",
-    tau.estimate = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"],
-    tau.std.error = adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.lower_ci = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      - 1.96 * adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.upper_ci = adni_cn_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      + 1.96 * adni_cn_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.estimate = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
+    tau.lower_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
+    tau.upper_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
     tau.p_value = adni_cn_tau_results["time_mri:delta:tau_composite", "p-value"]
   )
-cat("BrainAge delta * Tau-PET effect:", signif(adni_cn_tau_effects$tau.estimate, 2), 
-    "±", signif(adni_cn_tau_effects$tau.std.error, 2), 
+cat("BrainAge delta * tau217 effect:", signif(adni_cn_tau_effects$tau.estimate, 2), 
+    "[", signif(adni_cn_tau_effects$tau.lower_ci, 2), ",",
+    signif(adni_cn_tau_effects$tau.upper_ci, 2), "]",
     " p-val:", signif(adni_cn_tau_effects$tau.p_value, 2), "\n")
 
 # Plot model
@@ -1584,21 +1573,19 @@ lme_adni_mci <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_mci_results = summary(lme_adni_mci)$tTable
+adni_mci_standardized <- effectsize::standardize_parameters(lme_adni_mci)
 adni_mci_delta_effects <- data.frame(
     model = "ADNI MCI",
     delta.term = "BrainAge delta",
-    delta.estimate = adni_mci_results["time_mri:delta", "Value"],
-    delta.std.error = adni_mci_results["time_mri:delta", "Std.Error"],
-    delta.lower_ci = adni_mci_results["time_mri:delta", "Value"] 
-                      - 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
-    delta.upper_ci = adni_mci_results["time_mri:delta", "Value"]
-                      + 1.96 * adni_mci_results["time_mri:delta", "Std.Error"],
+    delta.estimate = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    delta.lower_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_low"],
+    delta.upper_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_high"],
     delta.p_value = adni_mci_results["time_mri:delta", "p-value"]
   )
 cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate, 2), 
-    "±", signif(adni_mci_delta_effects$delta.std.error, 2), 
+    "[", signif(adni_mci_delta_effects$delta.lower_ci, 2), ",",
+    signif(adni_mci_delta_effects$delta.upper_ci, 2), "]",
     " p-val:", signif(adni_mci_delta_effects$delta.p_value, 2), "\n")
-
 
 # Plot model
 adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))) +
@@ -1694,19 +1681,18 @@ lme_adni_mci_ab <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_mci_ab_results = summary(lme_adni_mci_ab)$tTable
+adni_mci_ab_standardized <- effectsize::standardize_parameters(lme_adni_mci_ab)
 adni_mci_ab_effects <- data.frame(
     model = "ADNI MCI",
     ab.term = "BrainAge delta X AB-PET",
-    ab.estimate = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"],
-    ab.std.error = adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.lower_ci = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      - 1.96 * adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
-    ab.upper_ci = adni_mci_ab_results["time_mri:delta:ab_composite", "Value"] 
-                      + 1.96 * adni_mci_ab_results["time_mri:delta:ab_composite", "Std.Error"],
+    ab.estimate = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
+    ab.lower_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
+    ab.upper_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
     ab.p_value = adni_mci_ab_results["time_mri:delta:ab_composite", "p-value"]
   )
 cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate, 2), 
-    "±", signif(adni_mci_ab_effects$ab.std.error, 2), 
+    "[", signif(adni_mci_ab_effects$ab.lower_ci, 2), ",",
+    signif(adni_mci_ab_effects$ab.upper_ci, 2), "]",
     " p-val:", signif(adni_mci_ab_effects$ab.p_value, 2), "\n")
 
 # Plot model
@@ -1794,19 +1780,18 @@ lme_adni_mci_ptau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_mci_ptau_results = summary(lme_adni_mci_ptau)$tTable
+adni_mci_ptau_standardized <- effectsize::standardize_parameters(lme_adni_mci_ptau)
 adni_mci_ptau_effects <- data.frame(
     model = "ADNI MCI",
     ptau.term = "BrainAge delta X pTau217",
-    ptau.estimate = adni_mci_ptau_results["time_mri:delta:ptau", "Value"],
-    ptau.std.error = adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.lower_ci = adni_mci_ptau_results["time_mri:delta:ptau", "Value"] 
-                      - 1.96 * adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
-    ptau.upper_ci = adni_mci_ptau_results["time_mri:delta:ptau", "Value"] 
-                      + 1.96 * adni_mci_ptau_results["time_mri:delta:ptau", "Std.Error"],
+    ptau.estimate = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
+    ptau.lower_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
+    ptau.upper_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
     ptau.p_value = adni_mci_ptau_results["time_mri:delta:ptau", "p-value"]
   )
 cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estimate, 2), 
-    "±", signif(adni_mci_ptau_effects$ptau.std.error, 2), 
+    "[", signif(adni_mci_ptau_effects$ptau.lower_ci, 2), ",",
+    signif(adni_mci_ptau_effects$ptau.upper_ci, 2), "]",
     " p-val:", signif(adni_mci_ptau_effects$ptau.p_value, 2), "\n")
 
 # Plot model
@@ -1895,19 +1880,18 @@ lme_adni_mci_tau <- lme(PACC ~ I(time_mri^2)
 
 # Extract information of interest
 adni_mci_tau_results = summary(lme_adni_mci_tau)$tTable
+adni_mci_tau_standardized <- effectsize::standardize_parameters(lme_adni_mci_tau)
 adni_mci_tau_effects <- data.frame(
     model = "ADNI MCI",
     tau.term = "BrainAge delta X Tau-PET",
-    tau.estimate = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"],
-    tau.std.error = adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.lower_ci = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      - 1.96 * adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
-    tau.upper_ci = adni_mci_tau_results["time_mri:delta:tau_composite", "Value"] 
-                      + 1.96 * adni_mci_tau_results["time_mri:delta:tau_composite", "Std.Error"],
+    tau.estimate = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
+    tau.lower_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
+    tau.upper_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
     tau.p_value = adni_mci_tau_results["time_mri:delta:tau_composite", "p-value"]
   )
-cat("BrainAge delta * Tau-PET effect:", signif(adni_mci_tau_effects$tau.estimate, 2), 
-    "±", signif(adni_mci_tau_effects$tau.std.error, 2), 
+cat("BrainAge delta * tau217 effect:", signif(adni_mci_tau_effects$tau.estimate, 2), 
+    "[", signif(adni_mci_tau_effects$tau.lower_ci, 2), ",",
+    signif(adni_mci_tau_effects$tau.upper_ci, 2), "]",
     " p-val:", signif(adni_mci_tau_effects$tau.p_value, 2), "\n")
 
 # Plot model
@@ -2023,17 +2007,15 @@ forest_plot <- ggplot(delta_interaction_results, aes(x = delta.estimate, y = mod
   geom_errorbarh(aes(xmin = delta.lower_ci, xmax = delta.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
-    x = "β",
+    x = "β (Standardized Coefficients)",
     y = "Cohort"
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = 0.01, 
-                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
-                               delta.estimate, delta.lower_ci, delta.upper_ci, delta.p_value)),
-            hjust = 0, size = 8 / .pt) +
-  # Adjust x-axis from -0.05 to 0.025
-  scale_x_continuous(limits = c(-0.05, 0.05)) 
+  geom_text(aes(x = delta.estimate , 
+                label = sprintf("p = %.2g", delta.p_value)),
+                vjust = 2.5, size = 7 / .pt) +
+  scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
 print(forest_plot)
@@ -2042,7 +2024,7 @@ print(forest_plot)
 forest_plot <- forest_plot +
   theme(
       text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 8),
       axis.title = element_text(family = "Times New Roman", size = 12),
       plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
     ) 
@@ -2070,16 +2052,15 @@ forest_plot <- ggplot(ab_interaction_results, aes(x = ab.estimate, y = model)) +
   geom_errorbarh(aes(xmin = ab.lower_ci, xmax = ab.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
-    x = "β",
+    x = "β (Standardized Coefficients)",
     y = "Cohort"
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = 0.01, 
-                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
-                               ab.estimate, ab.lower_ci, ab.upper_ci, ab.p_value)),
-            hjust = 0, size = 8 / .pt) +
-  scale_x_continuous(limits = c(-0.125, 0.05)) 
+  geom_text(aes(x = ab.estimate , 
+                label = sprintf("p = %.2g", ab.p_value)),
+                vjust = 2.5, size = 7 / .pt) +
+  scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
 print(forest_plot)
@@ -2088,7 +2069,7 @@ print(forest_plot)
 forest_plot <- forest_plot +
   theme(
       text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 8),
       axis.title = element_text(family = "Times New Roman", size = 12),
       plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
     ) 
@@ -2111,21 +2092,22 @@ ptau_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+
 # Create the forest plot
 forest_plot <- ggplot(ptau_interaction_results, aes(x = ptau.estimate, y = model)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = ptau.lower_ci, xmax = ptau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
-    x = "β",
+    x = "β (Standardized Coefficients)",
     y = "Cohort"
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = 0.01, 
-                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
-                               ptau.estimate, ptau.lower_ci, ptau.upper_ci, ptau.p_value)),
-            hjust = 0, size = 8 / .pt)
+  geom_text(aes(x = ptau.estimate , 
+                label = sprintf("p = %.2g", ptau.p_value)),
+                vjust = 2.5, size = 7 / .pt) +
+  scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
 print(forest_plot)
@@ -2134,7 +2116,7 @@ print(forest_plot)
 forest_plot <- forest_plot +
   theme(
       text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 8),
       axis.title = element_text(family = "Times New Roman", size = 12),
       plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
     ) 
@@ -2162,15 +2144,15 @@ forest_plot <- ggplot(tau_interaction_results, aes(x = tau.estimate, y = model))
   geom_errorbarh(aes(xmin = tau.lower_ci, xmax = tau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
-    x = "β",
+    x = "β (Standardized Coefficients)",
     y = "Cohort"
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = 0.01, 
-                label = sprintf("%.2f [%.2f, %.2f], p = %.2g", 
-                               tau.estimate, tau.lower_ci, tau.upper_ci, tau.p_value)),
-            hjust = 0, size = 8 / .pt)
+  geom_text(aes(x = tau.estimate , 
+                label = sprintf("p = %.2g", tau.p_value)),
+                vjust = 2.5, size = 7 / .pt) +
+  scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
 print(forest_plot)
@@ -2179,7 +2161,7 @@ print(forest_plot)
 forest_plot <- forest_plot +
   theme(
       text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 8),
       axis.title = element_text(family = "Times New Roman", size = 12),
       plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
     ) 
