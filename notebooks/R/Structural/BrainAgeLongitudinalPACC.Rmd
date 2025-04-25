@@ -20,9 +20,6 @@ library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);l
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
 
-# Load optimal threshold function
-source('~/Documents/Projects/AgingBrainStudy/scripts/find_optimal_threshold.R')
-
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
 ```
@@ -75,7 +72,7 @@ min_pacc = -10
 max_pacc = 1
 ```
 
-# A4 Structural BrainAge
+# A4
 
 ## Trajectories
 
@@ -573,26 +570,6 @@ lme_a4_tau_sens_time <- lme(PACC~ I(time_mri^2)
 cat("Participants within 1 year p-value:" , summary(lme_a4_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-## Delta Threshold
-
-Find Optimal Delta Threshold that seperates younger and older groups.
-
-```{r}
-a4_formula = "I(time_mri^2) + time_mri*delta_status + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY"
-a4_random_formula = " ~ time_mri|ID"
-mean_a4_delta_cn = mean(data_a4$delta, na.rm = TRUE)
-sd_a4_delta_cn = sd(data_a4$delta, na.rm = TRUE)
-results_a4 <- find_optimal_threshold(data_a4, seq(mean_a4_delta_cn-2*sd_a4_delta_cn, 
-                                                  mean_a4_delta_cn + 2*sd_a4_delta_cn, by = 0.25*sd_a4_delta_cn), 
-                                   outcome = "PACC",
-                                   measure = "delta", 
-                                   fixed_formula = a4_formula, 
-                                   random_formula = a4_random_formula)
-print(results_a4$plot)
-cat("Optimal threshold:", results_a4$optimal_threshold, "\n")
-cat("Optimal threshold z-score:", results_a4$optimal_threshold_sd, "\n")
-```
-
 # HABS
 
 ## Trajectories
@@ -1037,24 +1014,6 @@ lme_habs_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 cat("Participants within 1 year p-value:" , summary(lme_habs_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
-```
-
-## Delta Threshold
-
-```{r}
-habs_formula = "I(time_mri^2) + time_mri*delta_status"
-habs_random_formula = " ~ time_mri|ID"
-mean_habs_delta_cn = mean(data_habs$delta, na.rm = TRUE)
-sd_habs_delta_cn = sd(data_habs$delta, na.rm = TRUE)
-results_habs <- find_optimal_threshold(data_habs, seq(mean_habs_delta_cn-2*sd_habs_delta_cn, 
-                                                    mean_habs_delta_cn + 2*sd_habs_delta_cn, by = 0.2*sd_habs_delta_cn), 
-                                   outcome = "PACC", 
-                                   measure = "delta", 
-                                   fixed_formula = habs_formula, 
-                                   random_formula = habs_random_formula)
-print(results_habs$plot)
-cat("Optimal threshold:", results_habs$optimal_threshold, "\n")
-cat("Optimal threshold z-score:", results_habs$optimal_threshold_sd, "\n")
 ```
 
 # ADNI CU
@@ -1503,24 +1462,6 @@ lme_adni_cn_tau_sens_time <- lme(PACC~ I(time_mri^2)
 cat("Participants within 1 year p-value:" , summary(lme_adni_cn_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
-## Delta Threshold
-
-```{r}
-adni_cn_formula = "I(time_mri^2) + time_mri*delta_status"
-adni_cn_random_formula = " ~ time_mri|ID"
-mean_adni_cn_delta = mean(data_adni_cn$delta, na.rm = TRUE)
-sd_adni_cn_delta = sd(data_adni_cn$delta, na.rm = TRUE)
-results_adni_cn <- find_optimal_threshold(data_adni_cn, seq(mean_adni_cn_delta-2*sd_adni_cn_delta, 
-                                                            mean_adni_cn_delta + 2*sd_adni_cn_delta, by = 0.25*sd_adni_cn_delta), 
-                                   outcome = "PACC", 
-                                   measure = "delta", 
-                                   fixed_formula = adni_cn_formula, 
-                                   random_formula = adni_cn_random_formula)
-print(results_adni_cn$plot)
-cat("Optimal threshold:", results_adni_cn$optimal_threshold, "\n")
-cat("Optimal threshold z-score:", results_adni_cn$optimal_threshold_sd, "\n")
-```
-
 # ADNI MCI
 
 ## Trajectories
@@ -1964,25 +1905,6 @@ lme_adni_mci_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 cat("Participants within 1 year p-value:" , summary(lme_adni_mci_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
-```
-
-## Delta Threshold
-
-```{r}
-adni_mci_formula = "I(time_mri^2) + time_mri*delta_status"
-adni_mci_random_formula = " ~ time_mri|ID"
-mean_adni_mci_delta = mean(data_adni_mci$delta, na.rm = TRUE)
-sd_adni_mci_delta = sd(data_adni_mci$delta, na.rm = TRUE)
-results_adni_mci <- find_optimal_threshold(data_adni_mci, seq(mean_adni_mci_delta-2*sd_adni_mci_delta, 
-                                                              mean_adni_mci_delta + 2*sd_adni_mci_delta, by = 0.25*sd_adni_mci_delta), 
-                                   outcome = "PACC", 
-                                   measure = "delta", 
-                                   fixed_formula = adni_mci_formula, 
-                                   random_formula = adni_mci_random_formula)
-print(results_adni_mci$plot)
-cat("Optimal threshold:", results_adni_mci$optimal_threshold, "\n")
-cat("Optimal threshold z-score:", results_adni_mci$optimal_threshold_sd, "\n")
-cat("Optimal threshold relative to CN:", (results_adni_mci$optimal_threshold - mean_adni_cn_delta)/sd_adni_cn_delta, "\n")
 ```
 
 # Summary {.tabset}

@@ -68,14 +68,9 @@ data <- data_adni %>%
 data_median <- data %>% 
   filter(delta > median(data$delta))
 
-# Extract those with Optimum Threshold from previous notebook
-data_opt <- data %>% 
-  filter(delta > 3.88)
-
 # Total number of unique participants in each
 n_adni_participants <- length(unique(data$ID))
 n_adni_participants_median <- length(unique(data_median$ID))
-n_adni_participants_opt <- length(unique(data_opt$ID))
 
 # Outcome of interest
 outcome = 'CDRSUM'
@@ -151,38 +146,6 @@ ggsave(paste(path, 'lme_adni_median.png'), adni_median_p,
        scale = 1)
 ```
 
-### Optimum
-
-```{r}
-lmm_adni_opt <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_opt)
-
-# Plot model
-adni_opt_p <- plot(ggpredict(lmm_adni_opt, terms = c("time_mri [all]"))) +
-  theme_minimal() +
-  scale_x_continuous(limits = c(0, max(data$time_mri))) + 
-  scale_y_continuous(limits = c(0, 4.5)) +
-  labs(
-    title = "",
-    y = "CDRSUM",
-    x = "Time from MRI (years)",
-  )
-  
-print(adni_opt_p)
-
-# Save model
-adni_opt_p <- adni_opt_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
-ggsave(paste(path, 'lme_adni_opt.png'), adni_opt_p, 
-       width = 70, height = 70, units = "mm", 
-       dpi = 500,   # Higher resolution
-       scale = 1)
-```
-
 ## Sample and power caclulations {.tabset}
 
 The trial will last 2 years with follow ups every 6 months.
@@ -216,21 +179,6 @@ cat("Number of participants required for clinical trial: ", n_adni_median, "\n")
 # Reduction percentage
 reduction_median <- (n_adni_all - n_adni_median) / n_adni_all * 100
 cat("Reduction in number of participants required: ", reduction_median, "%\n")
-```
-
-### Optimum
-
-```{r}
-# calculate power / sample size using longpower package
-pwr_opt <- lmmpower(lmm_adni_opt, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
-
-# Print number of subjects
-n_adni_opt <- pwr_opt$N
-cat("Number of participants required for clinical trial: ", n_adni_opt, "\n")
-
-# Reduction percentage
-reduction_optimum <- (n_adni_all - n_adni_opt) / n_adni_all * 100
-cat("Reduction in number of participants required: ", reduction_optimum, "%\n")
 ```
 
 ## Calculate savings {.tabset}
@@ -285,31 +233,6 @@ cat("Participants to screen: ", cost_adni_median$participants_to_screen, "\n")
 cat("Treatment cost: ", cost_adni_median$treatment_cost, "\n")
 ```
 
-### Optimum
-
-```{r}
-
-# Calculate pass rate for MRI
-mri_pass_rate_opt = n_adni_participants_opt / n_adni_participants
-cat("MRI pass rate: ", mri_pass_rate_opt, "\n")
-
-# Calculate cost
-cost_adni_opt <- calculate_drug_trial_costs(
-  years = 2,
-  participants_required = n_adni_opt,
-  screen_pass_rate = screen_pass_lecanemab,
-  screen_cost = scren_cost,
-  mri_cost = screen_cost_mri,
-  treatment_cost_per_year = treatment_cost_per_year,
-  has_mri_screening = TRUE,
-  mri_pass_rate = mri_pass_rate_opt
-)
-
-cat("Total cost of the trial: ", cost_adni_opt$total_cost, "\n")
-cat("Screening cost: ", cost_adni_opt$screening_cost, "\n")
-cat("Participants to screen: ", cost_adni_opt$participants_to_screen, "\n")
-cat("Treatment cost: ", cost_adni_opt$treatment_cost, "\n")
-```
 
 # A4
 
@@ -327,14 +250,9 @@ data_placebo <- data_a4 %>%
 data_a4_median <- data_placebo %>% 
   filter(delta > median(data_placebo$delta, na.rm = TRUE))
 
-# Extract those with Optimum Threshold from previous notebook
-data_a4_opt <- data_placebo %>% 
-  filter(delta > 1.82)
-
 # Total number of unique participants in each
 n_a4_participants <- length(unique(data_placebo$ID))
 n_a4_participants_median <- length(unique(data_a4_median$ID))
-n_a4_participants_opt <- length(unique(data_a4_opt$ID))
 
 # Outcome of interest
 outcome = 'PACC'
@@ -410,39 +328,6 @@ ggsave(paste(path, 'lme_a4_median.png'), a4_median_p,
        scale = 1)
 ```
 
-### Optimum
-
-```{r}
-# Create model
-lmm_a4_opt <-lmer(as.formula(paste(outcome, "~time_mri + LMSTORY + (1 + time_mri | ID)")), data = data_a4_opt)
-
-# Plot model
-a4_opt_p <- plot(ggpredict(lmm_a4_opt, terms = c("time_mri [all]"))) +
-  theme_minimal() +
-  scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
-  scale_y_continuous(limits = c(-1, 1)) +
-  labs(
-    title = "",
-    y = "PACC",
-    x = "Time from MRI (years)",
-  )
-  
-print(a4_opt_p)
-
-# Save model
-a4_opt_p <- a4_opt_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
-ggsave(paste(path, 'lme_a4_opt.png'), a4_opt_p, 
-       width = 70, height = 70, units = "mm", 
-       dpi = 500,   # Higher resolution
-       scale = 1)
-```
-
 ## Sample and power caclulations {.tabset}
 
 Trial duration is 5 years with follow ups every 6 months.
@@ -480,23 +365,4 @@ cat("Reduction in number of participants required: ", reduction_median, "%\n")
 # Screen fails for MRI
 mri_pass_rate_median = n_a4_participants_median / n_a4_participants
 cat("MRI pass rate: ", mri_pass_rate_median, "\n")
-```
-
-### Optimum
-
-```{r}
-# calculate power / sample size using longpower package
-pwr_opt_a4 <- lmmpower(lmm_a4_opt, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
-
-# Print number of subjects
-n_a4_opt <- pwr_opt_a4$N
-cat("Number of participants required for clinical trial: ", n_a4_opt, "\n")
-
-# Reduction percentage
-reduction_optimum <- (n_a4_all - n_a4_opt) / n_a4_all * 100
-cat("Reduction in number of participants required: ", reduction_optimum, "%\n")
-
-# Screen fails for MRI
-mri_pass_rate_opt = n_a4_participants_opt / n_a4_participants
-cat("MRI pass rate: ", mri_pass_rate_opt, "\n")
 ```
