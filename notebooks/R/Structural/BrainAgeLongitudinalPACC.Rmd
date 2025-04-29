@@ -134,12 +134,13 @@ a4_delta_effects <- data.frame(
     delta.estimate = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_high"],
-    delta.p_value = a4_results["time_mri:delta", "p-value"]
+    delta.p_value = a4_results["time_mri:delta", "p-value"],
+    delta.n = lme_a4$dims$ngrps
   )
-cat("Delta effect:", signif(a4_delta_effects$delta.estimate, 2), 
-    "[", signif(a4_delta_effects$delta.lower_ci, 2), ",",
-    signif(a4_delta_effects$delta.upper_ci, 2), "]",
-    " p-val:", signif(a4_delta_effects$delta.p_value, 2), "\n")
+cat("Delta effect:", signif(a4_delta_effects$delta.estimate[1], 2), 
+    "[", signif(a4_delta_effects$delta.lower_ci[1], 2), ",",
+    signif(a4_delta_effects$delta.upper_ci[1], 2), "]",
+    " p-val:", signif(a4_delta_effects$delta.p_value[1], 2), "\n")
 
 # Plot model
 a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
@@ -181,7 +182,8 @@ lme_a4_linear <- lme(PACC ~ time_mri*delta
                              random = ~time_mri|ID, 
                              na.action = 'na.omit', method = c('ML'),
                              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-anova(lme_a4_linear, lme_a4)
+anova_a4 <- anova(lme_a4_linear, lme_a4)
+cat("Linear vs Quadratic p-value:" , anova_a4[2, "p-value"])
 ```
 
 ### Placebo
@@ -194,6 +196,8 @@ lme_a4_placebo <- lme(PACC ~ I(time_mri^2)
                       data = data_placebo, 
                       random = ~time_mri|ID, 
                       na.action = 'na.omit', method = c('ML'));
+a4_placebo_standardized <- effectsize::standardize_parameters(lme_a4_placebo)
+cat("Placebo estimated coefficient:" , a4_placebo_standardized[a4_placebo_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Using placebo data p-value:" , summary(lme_a4_placebo)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -218,7 +222,9 @@ lme_a4_sens_demo <- lme(PACC ~ I(time_mri^2)
                         na.action = 'na.omit', 
                         method = c('ML'),
                         control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-cat("Adding gemographcis p-value:" , summary(lme_a4_sens_demo)$tTable["time_mri:delta", "p-value"])
+a4_sens_demo_standardized <- effectsize::standardize_parameters(lme_a4)
+cat("Adding demographics estimated coefficient:" , a4_sens_demo_standardized[a4_sens_demo_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
+cat("Adding demographcis p-value:" , summary(lme_a4_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
 ### Change from baseline
@@ -239,6 +245,8 @@ lme_a4_sens_change <- lme(PACC_change ~ I(time_mri^2)
                           random = ~ 0 + time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+a4_sens_change_standardized <- effectsize::standardize_parameters(lme_a4_sens_change)
+cat("Change from baseline estimated coefficient:" , a4_sens_change_standardized[a4_sens_change_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Change from baseline p-value:" , summary(lme_a4_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -268,12 +276,13 @@ a4_ab_effects <- data.frame(
     ab.estimate = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
-    ab.p_value = a4_ab_results["time_mri:delta:ab_composite", "p-value"]
+    ab.p_value = a4_ab_results["time_mri:delta:ab_composite", "p-value"],
+    ab.n = lme_a4_ab$dims$ngrps
   )
-cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate, 2), 
-    "[", signif(a4_ab_effects$ab.lower_ci, 2), ",",
-    signif(a4_ab_effects$ab.upper_ci, 2), "]",
-    " p-val:", signif(a4_ab_effects$ab.p_value, 2), "\n")
+cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate[1], 2), 
+    "[", signif(a4_ab_effects$ab.lower_ci[1], 2), ",",
+    signif(a4_ab_effects$ab.upper_ci[1], 2), "]",
+    " p-val:", signif(a4_ab_effects$ab.p_value[1], 2), "\n")
 
 # Plot model
 a4_ab_p <- plot(ggpredict(lme_a4_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
@@ -329,6 +338,8 @@ lme_a4_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+a4_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_a4_ab_sens_demo)
+cat("Adding demographics estimated coefficient:" , a4_ab_sens_demo_standardized[a4_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_a4_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -349,6 +360,8 @@ lme_a4_ab_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+a4_ab_sens_time_standardized <- effectsize::standardize_parameters(lme_a4_ab_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , a4_ab_sens_time_standardized[a4_ab_sens_time_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_a4_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -376,12 +389,13 @@ a4_ptau_effects <- data.frame(
     ptau.estimate = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
-    ptau.p_value = a4_ptau_results["time_mri:delta:ptau", "p-value"]
+    ptau.p_value = a4_ptau_results["time_mri:delta:ptau", "p-value"],
+    ptau.n = lme_a4_ptau$dims$ngrps
   )
-cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate, 2), 
-    "[", signif(a4_ptau_effects$ptau.lower_ci, 2), ",",
-    signif(a4_ptau_effects$ptau.upper_ci, 2), "]",
-    " p-val:", signif(a4_ptau_effects$ptau.p_value, 2), "\n")
+cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate[1], 2), 
+    "[", signif(a4_ptau_effects$ptau.lower_ci[1], 2), ",",
+    signif(a4_ptau_effects$ptau.upper_ci[1], 2), "]",
+    " p-val:", signif(a4_ptau_effects$ptau.p_value[1], 2), "\n")
 
 # Plot model
 a4_ptau_p <- plot(ggpredict(lme_a4_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
@@ -437,6 +451,8 @@ lme_a4_ptau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+a4_ptau_sens_demo_standardized <- effectsize::standardize_parameters(lme_a4_ptau_sens_demo)
+cat("Adding demographics estimated coefficient:" , a4_ptau_sens_demo_standardized[a4_ptau_sens_demo_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_a4_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -458,6 +474,8 @@ lme_a4_ptau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+a4_ptau_sens_time_standardized <- effectsize::standardize_parameters(lme_a4_ptau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , a4_ptau_sens_time_standardized[a4_ptau_sens_time_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_a4_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -485,12 +503,13 @@ a4_tau_effects <- data.frame(
     tau.estimate = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
-    tau.p_value = a4_tau_results["time_mri:delta:tau_composite", "p-value"]
+    tau.p_value = a4_tau_results["time_mri:delta:tau_composite", "p-value"],
+    tau.n = lme_a4_tau$dims$ngrps
   )
-cat("BrainAge delta * tau217 effect:", signif(a4_tau_effects$tau.estimate, 2), 
-    "[", signif(a4_tau_effects$tau.lower_ci, 2), ",",
-    signif(a4_tau_effects$tau.upper_ci, 2), "]",
-    " p-val:", signif(a4_tau_effects$tau.p_value, 2), "\n")
+cat("BrainAge delta * tau217 effect:", signif(a4_tau_effects$tau.estimate[1], 2), 
+    "[", signif(a4_tau_effects$tau.lower_ci[1], 2), ",",
+    signif(a4_tau_effects$tau.upper_ci[1], 2), "]",
+    " p-val:", signif(a4_tau_effects$tau.p_value[1], 2), "\n")
 
 # Plot model
 a4_tau_p <- plot(ggpredict(lme_a4_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
@@ -546,6 +565,8 @@ lme_a4_tau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+a4_tau_sens_demo_standardized <- effectsize::standardize_parameters(lme_a4_tau_sens_demo)
+cat("Adding demographics estimated coefficient:" , a4_tau_sens_demo_standardized[a4_tau_sens_demo_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_a4_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -567,6 +588,8 @@ lme_a4_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+a4_tau_sens_time_standardized <- effectsize::standardize_parameters(lme_a4_tau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , a4_tau_sens_time_standardized[a4_tau_sens_time_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_a4_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -629,12 +652,13 @@ habs_delta_effects <- data.frame(
     delta.estimate = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_high"],
-    delta.p_value = habs_results["time_mri:delta", "p-value"]
+    delta.p_value = habs_results["time_mri:delta", "p-value"],
+    delta.n = lme_habs$dims$ngrps
   )
-cat("Delta effect:", signif(habs_delta_effects$delta.estimate, 2), 
-    "[", signif(habs_delta_effects$delta.lower_ci, 2), ",",
-    signif(habs_delta_effects$delta.upper_ci, 2), "]",
-    " p-val:", signif(habs_delta_effects$delta.p_value, 2), "\n")
+cat("Delta effect:", signif(habs_delta_effects$delta.estimate[1], 2), 
+    "[", signif(habs_delta_effects$delta.lower_ci[1], 2), ",",
+    signif(habs_delta_effects$delta.upper_ci[1], 2), "]",
+    " p-val:", signif(habs_delta_effects$delta.p_value[1], 2), "\n")
 
 
 # Plot model
@@ -674,7 +698,8 @@ lme_habs_linear <- lme(PACC ~ time_mri*delta,
                              random = ~time_mri|ID, 
                              na.action = 'na.omit', method = c('ML'),
                              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-anova(lme_habs_linear, lme_habs)
+habs_anova <- anova(lme_habs_linear, lme_habs)
+cat("Linear vs Quadratic p-value:" , habs_anova[2, "p-value"])
 ```
 
 ### Age, e4 and amyloid
@@ -694,6 +719,8 @@ lme_habs_sens_demo <- lme(PACC ~ I(time_mri^2)
                         na.action = 'na.omit', 
                         method = c('ML'),
                         control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+habs_sens_demo_standardized <- effectsize::standardize_parameters(lme_habs_sens_demo)
+cat("Adding demographics estimated coefficient:" , habs_sens_demo_standardized[habs_sens_demo_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_habs_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -713,6 +740,8 @@ lme_habs_sens_change <- lme(PACC_change ~ I(time_mri^2)
                           random = ~ 0 + time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+habs_sens_change_standardized <- effectsize::standardize_parameters(lme_habs_sens_change)
+cat("Change from baseline estimated coefficient:" , habs_sens_change_standardized[habs_sens_change_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Change from baseline p-value:" , summary(lme_habs_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -738,12 +767,13 @@ habs_ab_effects <- data.frame(
     ab.estimate = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
-    ab.p_value = habs_ab_results["time_mri:delta:ab_composite", "p-value"]
+    ab.p_value = habs_ab_results["time_mri:delta:ab_composite", "p-value"],
+    ab.n = lme_habs_ab$dims$ngrps
   )
-cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate, 2), 
-    "[", signif(habs_ab_effects$ab.lower_ci, 2), ",",
-    signif(habs_ab_effects$ab.upper_ci, 2), "]",
-    " p-val:", signif(habs_ab_effects$ab.p_value, 2), "\n")
+cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate[1], 2), 
+    "[", signif(habs_ab_effects$ab.lower_ci[1], 2), ",",
+    signif(habs_ab_effects$ab.upper_ci[1], 2), "]",
+    " p-val:", signif(habs_ab_effects$ab.p_value[1], 2), "\n")
 
 # Plot model
 habs_ab_p <- plot(ggpredict(lme_habs_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
@@ -796,6 +826,8 @@ lme_habs_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+habs_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_habs_ab_sens_demo)
+cat("Adding demographics estimated coefficient:" , habs_ab_sens_demo_standardized[habs_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_habs_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -813,6 +845,8 @@ lme_habs_ab_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+habs_ab_sens_time_standardized <- effectsize::standardize_parameters(lme_habs_ab_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , habs_ab_sens_time_standardized[habs_ab_sens_time_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_habs_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -837,12 +871,13 @@ habs_ptau_effects <- data.frame(
     ptau.estimate = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
-    ptau.p_value = habs_ptau_results["time_mri:delta:ptau", "p-value"]
+    ptau.p_value = habs_ptau_results["time_mri:delta:ptau", "p-value"],
+    ptau.n = lme_habs_ptau$dims$ngrps
   )
-cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate, 2), 
-    "[", signif(habs_ptau_effects$ptau.lower_ci, 2), ",",
-    signif(habs_ptau_effects$ptau.upper_ci, 2), "]",
-    " p-val:", signif(habs_ptau_effects$ptau.p_value, 2), "\n")
+cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate[1], 2), 
+    "[", signif(habs_ptau_effects$ptau.lower_ci[1], 2), ",",
+    signif(habs_ptau_effects$ptau.upper_ci[1], 2), "]",
+    " p-val:", signif(habs_ptau_effects$ptau.p_value[1], 2), "\n")
 
 # Plot model
 habs_ptau_p <- plot(ggpredict(lme_habs_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
@@ -895,6 +930,8 @@ lme_habs_ptau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+habs_ptau_sens_demo_standardized <- effectsize::standardize_parameters(lme_habs_ptau_sens_demo)
+cat("Adding demographics estimated coefficient:" , habs_ptau_sens_demo_standardized[habs_ptau_sens_demo_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_habs_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -913,6 +950,8 @@ lme_habs_ptau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+habs_ptau_sens_time_standardized <- effectsize::standardize_parameters(lme_habs_ptau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , habs_ptau_sens_time_standardized[habs_ptau_sens_time_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_habs_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -937,12 +976,13 @@ habs_tau_effects <- data.frame(
     tau.estimate = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
-    tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"]
+    tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"],
+    tau.n = lme_habs_tau$dims$ngrps
   )
-cat("BrainAge delta * tau217 effect:", signif(habs_tau_effects$tau.estimate, 2), 
-    "[", signif(habs_tau_effects$tau.lower_ci, 2), ",",
-    signif(habs_tau_effects$tau.upper_ci, 2), "]",
-    " p-val:", signif(habs_tau_effects$tau.p_value, 2), "\n")
+cat("BrainAge delta * tau217 effect:", signif(habs_tau_effects$tau.estimate[1], 2), 
+    "[", signif(habs_tau_effects$tau.lower_ci[1], 2), ",",
+    signif(habs_tau_effects$tau.upper_ci[1], 2), "]",
+    " p-val:", signif(habs_tau_effects$tau.p_value[1], 2), "\n")
 
 # Plot model
 habs_tau_p <- plot(ggpredict(lme_habs_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
@@ -995,6 +1035,8 @@ lme_habs_tau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+habs_tau_sens_demo_standardized <- effectsize::standardize_parameters(lme_habs_tau_sens_demo)
+cat("Adding demographics estimated coefficient:" , habs_tau_sens_demo_standardized[habs_tau_sens_demo_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_habs_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1013,6 +1055,8 @@ lme_habs_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+habs_tau_sens_time_standardized <- effectsize::standardize_parameters(lme_habs_tau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , habs_tau_sens_time_standardized[habs_tau_sens_time_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_habs_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1075,12 +1119,13 @@ adni_cn_delta_effects <- data.frame(
     delta.estimate = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_high"],
-    delta.p_value = adni_cn_results["time_mri:delta", "p-value"]
+    delta.p_value = adni_cn_results["time_mri:delta", "p-value"],
+    delta.n = lme_adni_cn$dims$ngrps
   )
-cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate, 2), 
-    "[", signif(adni_cn_delta_effects$delta.lower_ci, 2), ",",
-    signif(adni_cn_delta_effects$delta.upper_ci, 2), "]",
-    " p-val:", signif(adni_cn_delta_effects$delta.p_value, 2), "\n")
+cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate[1], 2), 
+    "[", signif(adni_cn_delta_effects$delta.lower_ci[1], 2), ",",
+    signif(adni_cn_delta_effects$delta.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_cn_delta_effects$delta.p_value[1], 2), "\n")
 
 
 # Plot model
@@ -1120,7 +1165,8 @@ lme_adni_cn_linear <- lme(PACC ~ time_mri*delta,
                              random = ~time_mri|ID, 
                              na.action = 'na.omit', method = c('ML'),
                              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-anova(lme_adni_cn_linear, lme_adni_cn)
+anova_adni_cn <- anova(lme_adni_cn_linear, lme_adni_cn)
+cat("Linear vs Quadratic p-value:" , anova_adni_cn[2, "p-value"])
 ```
 
 ### Age, e4 and amyloid
@@ -1140,6 +1186,8 @@ lme_adni_cn_sens_demo <- lme(PACC ~ I(time_mri^2)
                         na.action = 'na.omit', 
                         method = c('ML'),
                         control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_cn_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_cn_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_cn_sens_demo_standardized[adni_cn_sens_demo_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_cn_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -1159,6 +1207,8 @@ lme_adni_cn_sens_change <- lme(PACC_change ~ I(time_mri^2)
                           random = ~ 0 + time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_cn_sens_change_standardized <- effectsize::standardize_parameters(lme_adni_cn_sens_change)
+cat("Change from baseline estimated coefficient:" , adni_cn_sens_change_standardized[adni_cn_sens_change_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Change from baseline p-value:" , summary(lme_adni_cn_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -1184,12 +1234,13 @@ adni_cn_ab_effects <- data.frame(
     ab.estimate = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
-    ab.p_value = adni_cn_ab_results["time_mri:delta:ab_composite", "p-value"]
+    ab.p_value = adni_cn_ab_results["time_mri:delta:ab_composite", "p-value"],
+    ab.n = lme_adni_cn_ab$dims$ngrps
   )
-cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate, 2), 
-    "[", signif(adni_cn_ab_effects$ab.lower_ci, 2), ",",
-    signif(adni_cn_ab_effects$ab.upper_ci, 2), "]",
-    " p-val:", signif(adni_cn_ab_effects$ab.p_value, 2), "\n")
+cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate[1], 2), 
+    "[", signif(adni_cn_ab_effects$ab.lower_ci[1], 2), ",",
+    signif(adni_cn_ab_effects$ab.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_cn_ab_effects$ab.p_value[1], 2), "\n")
 
 # Plot model
 adni_cn_ab_p <- plot(ggpredict(lme_adni_cn_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
@@ -1242,6 +1293,8 @@ lme_adni_cn_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_cn_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_cn_ab_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_cn_ab_sens_demo_standardized[adni_cn_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_cn_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -1259,6 +1312,8 @@ lme_adni_cn_ab_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_cn_ab_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_cn_ab_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_cn_ab_sens_time_standardized[adni_cn_ab_sens_time_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_cn_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -1283,12 +1338,13 @@ adni_cn_ptau_effects <- data.frame(
     ptau.estimate = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
-    ptau.p_value = adni_cn_ptau_results["time_mri:delta:ptau", "p-value"]
+    ptau.p_value = adni_cn_ptau_results["time_mri:delta:ptau", "p-value"],
+    ptau.n = lme_adni_cn_ptau$dims$ngrps
   )
-cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimate, 2), 
-    "[", signif(adni_cn_ptau_effects$ptau.lower_ci, 2), ",",
-    signif(adni_cn_ptau_effects$ptau.upper_ci, 2), "]",
-    " p-val:", signif(adni_cn_ptau_effects$ptau.p_value, 2), "\n")
+cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimate[1], 2), 
+    "[", signif(adni_cn_ptau_effects$ptau.lower_ci[1], 2), ",",
+    signif(adni_cn_ptau_effects$ptau.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_cn_ptau_effects$ptau.p_value[1], 2), "\n")
 
 # Plot model
 adni_cn_ptau_p <- plot(ggpredict(lme_adni_cn_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
@@ -1341,6 +1397,8 @@ lme_adni_cn_ptau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_cn_ptau_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_cn_ptau_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_cn_ptau_sens_demo_standardized[adni_cn_ptau_sens_demo_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_cn_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -1359,6 +1417,8 @@ lme_adni_cn_ptau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_cn_ptau_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_cn_ptau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_cn_ptau_sens_time_standardized[adni_cn_ptau_sens_time_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_cn_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -1383,12 +1443,13 @@ adni_cn_tau_effects <- data.frame(
     tau.estimate = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
-    tau.p_value = adni_cn_tau_results["time_mri:delta:tau_composite", "p-value"]
+    tau.p_value = adni_cn_tau_results["time_mri:delta:tau_composite", "p-value"],
+    tau.n = lme_adni_cn_tau$dims$ngrps
   )
-cat("BrainAge delta * tau217 effect:", signif(adni_cn_tau_effects$tau.estimate, 2), 
-    "[", signif(adni_cn_tau_effects$tau.lower_ci, 2), ",",
-    signif(adni_cn_tau_effects$tau.upper_ci, 2), "]",
-    " p-val:", signif(adni_cn_tau_effects$tau.p_value, 2), "\n")
+cat("BrainAge delta * tau217 effect:", signif(adni_cn_tau_effects$tau.estimate[1], 2), 
+    "[", signif(adni_cn_tau_effects$tau.lower_ci[1], 2), ",",
+    signif(adni_cn_tau_effects$tau.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_cn_tau_effects$tau.p_value[1], 2), "\n")
 
 # Plot model
 adni_cn_tau_p <- plot(ggpredict(lme_adni_cn_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
@@ -1441,6 +1502,8 @@ lme_adni_cn_tau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_cn_tau_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_cn_tau_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_cn_tau_sens_demo_standardized[adni_cn_tau_sens_demo_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_cn_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1459,6 +1522,8 @@ lme_adni_cn_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_cn_tau_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_cn_tau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_cn_tau_sens_time_standardized[adni_cn_tau_sens_time_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_cn_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1521,12 +1586,13 @@ adni_mci_delta_effects <- data.frame(
     delta.estimate = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_high"],
-    delta.p_value = adni_mci_results["time_mri:delta", "p-value"]
+    delta.p_value = adni_mci_results["time_mri:delta", "p-value"],
+    delta.n = lme_adni_mci$dims$ngrps
   )
-cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate, 2), 
-    "[", signif(adni_mci_delta_effects$delta.lower_ci, 2), ",",
-    signif(adni_mci_delta_effects$delta.upper_ci, 2), "]",
-    " p-val:", signif(adni_mci_delta_effects$delta.p_value, 2), "\n")
+cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate[1], 2), 
+    "[", signif(adni_mci_delta_effects$delta.lower_ci[1], 2), ",",
+    signif(adni_mci_delta_effects$delta.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_mci_delta_effects$delta.p_value[1], 2), "\n")
 
 # Plot model
 adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))) +
@@ -1565,7 +1631,8 @@ lme_adni_mci_linear <- lme(PACC ~ time_mri*delta,
                              random = ~time_mri|ID, 
                              na.action = 'na.omit', method = c('ML'),
                              control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
-anova(lme_adni_mci_linear, lme_adni_mci)
+anova_adni_cn <- anova(lme_adni_mci_linear, lme_adni_mci)
+cat("Linear vs Quadratic p-value:", anova_adni_cn[2, "p-value"], "\n")
 ```
 
 ### Age, e4 and amyloid
@@ -1585,6 +1652,8 @@ lme_adni_mci_sens_demo <- lme(PACC ~ I(time_mri^2)
                         na.action = 'na.omit', 
                         method = c('ML'),
                         control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_mci_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_mci_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_mci_sens_demo_standardized[adni_mci_sens_demo_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_mci_sens_demo)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -1604,6 +1673,8 @@ lme_adni_mci_sens_change <- lme(PACC_change ~ I(time_mri^2)
                           random = ~ 0 + time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_mci_sens_change_standardized <- effectsize::standardize_parameters(lme_adni_mci_sens_change)
+cat("Change from baseline estimated coefficient:" , adni_mci_sens_change_standardized[adni_mci_sens_change_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Change from baseline p-value:" , summary(lme_adni_mci_sens_change)$tTable["time_mri:delta", "p-value"])
 ```
 
@@ -1629,12 +1700,13 @@ adni_mci_ab_effects <- data.frame(
     ab.estimate = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
-    ab.p_value = adni_mci_ab_results["time_mri:delta:ab_composite", "p-value"]
+    ab.p_value = adni_mci_ab_results["time_mri:delta:ab_composite", "p-value"],
+    ab.n = lme_adni_mci_ab$dims$ngrps
   )
-cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate, 2), 
-    "[", signif(adni_mci_ab_effects$ab.lower_ci, 2), ",",
-    signif(adni_mci_ab_effects$ab.upper_ci, 2), "]",
-    " p-val:", signif(adni_mci_ab_effects$ab.p_value, 2), "\n")
+cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate[1], 2), 
+    "[", signif(adni_mci_ab_effects$ab.lower_ci[1], 2), ",",
+    signif(adni_mci_ab_effects$ab.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_mci_ab_effects$ab.p_value[1], 2), "\n")
 
 # Plot model
 adni_mci_ab_p <- plot(ggpredict(lme_adni_mci_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
@@ -1687,6 +1759,8 @@ lme_adni_mci_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_mci_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_mci_ab_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_mci_ab_sens_demo_standardized[adni_mci_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_mci_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -1704,6 +1778,8 @@ lme_adni_mci_ab_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_mci_ab_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_mci_ab_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_mci_ab_sens_time_standardized[adni_mci_ab_sens_time_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_mci_ab_sens_time)$tTable["time_mri:delta:ab_composite", "p-value"])
 ```
 
@@ -1728,12 +1804,13 @@ adni_mci_ptau_effects <- data.frame(
     ptau.estimate = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
-    ptau.p_value = adni_mci_ptau_results["time_mri:delta:ptau", "p-value"]
+    ptau.p_value = adni_mci_ptau_results["time_mri:delta:ptau", "p-value"],
+    ptau.n = lme_adni_mci_ptau$dims$ngrps
   )
-cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estimate, 2), 
-    "[", signif(adni_mci_ptau_effects$ptau.lower_ci, 2), ",",
-    signif(adni_mci_ptau_effects$ptau.upper_ci, 2), "]",
-    " p-val:", signif(adni_mci_ptau_effects$ptau.p_value, 2), "\n")
+cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estimate[1], 2), 
+    "[", signif(adni_mci_ptau_effects$ptau.lower_ci[1], 2), ",",
+    signif(adni_mci_ptau_effects$ptau.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_mci_ptau_effects$ptau.p_value[1], 2), "\n")
 
 # Plot model
 adni_mci_ptau_p <- plot(ggpredict(lme_adni_mci_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
@@ -1786,6 +1863,8 @@ lme_adni_mci_ptau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_mci_ptau_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_mci_ptau_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_mci_ptau_sens_demo_standardized[adni_mci_ptau_sens_demo_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_mci_ptau_sens_demo)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -1804,6 +1883,8 @@ lme_adni_mci_ptau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_mci_ptau_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_mci_ptau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_mci_ptau_sens_time_standardized[adni_mci_ptau_sens_time_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_mci_ptau_sens_time)$tTable["time_mri:delta:ptau", "p-value"])
 ```
 
@@ -1828,12 +1909,13 @@ adni_mci_tau_effects <- data.frame(
     tau.estimate = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
-    tau.p_value = adni_mci_tau_results["time_mri:delta:tau_composite", "p-value"]
+    tau.p_value = adni_mci_tau_results["time_mri:delta:tau_composite", "p-value"],
+    tau.n = lme_adni_mci_tau$dims$ngrps
   )
-cat("BrainAge delta * tau217 effect:", signif(adni_mci_tau_effects$tau.estimate, 2), 
-    "[", signif(adni_mci_tau_effects$tau.lower_ci, 2), ",",
-    signif(adni_mci_tau_effects$tau.upper_ci, 2), "]",
-    " p-val:", signif(adni_mci_tau_effects$tau.p_value, 2), "\n")
+cat("BrainAge delta * tau217 effect:", signif(adni_mci_tau_effects$tau.estimate[1], 2), 
+    "[", signif(adni_mci_tau_effects$tau.lower_ci[1], 2), ",",
+    signif(adni_mci_tau_effects$tau.upper_ci[1], 2), "]",
+    " p-val:", signif(adni_mci_tau_effects$tau.p_value[1], 2), "\n")
 
 # Plot model
 adni_mci_tau_p <- plot(ggpredict(lme_adni_mci_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
@@ -1886,6 +1968,8 @@ lme_adni_mci_tau_sens_demo <- lme(PACC~ I(time_mri^2)
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
                           method = c('ML'));
+adni_mci_tau_sens_demo_standardized <- effectsize::standardize_parameters(lme_adni_mci_tau_sens_demo)
+cat("Adding demographics estimated coefficient:" , adni_mci_tau_sens_demo_standardized[adni_mci_tau_sens_demo_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_adni_mci_tau_sens_demo)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1904,6 +1988,8 @@ lme_adni_mci_tau_sens_time <- lme(PACC~ I(time_mri^2)
                           na.action = 'na.omit', 
                           method = c('ML'),
                           control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
+adni_mci_tau_sens_time_standardized <- effectsize::standardize_parameters(lme_adni_mci_tau_sens_time)
+cat("Adding demographics and only particiapnts within 1 year of MRI estimated coefficient:" , adni_mci_tau_sens_time_standardized[adni_mci_tau_sens_time_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"], "\n")
 cat("Participants within 1 year p-value:" , summary(lme_adni_mci_tau_sens_time)$tTable["time_mri:delta:tau_composite", "p-value"])
 ```
 
@@ -1934,9 +2020,11 @@ forest_plot <- ggplot(delta_interaction_results, aes(x = delta.estimate, y = mod
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = delta.estimate , 
-                label = sprintf("p = %.2g", delta.p_value)),
-                vjust = 2.5, size = 7 / .pt) +
+  geom_text(aes(x = delta.estimate, 
+              label = sprintf("p = %.2g, N = %d", delta.p_value, delta.n)),
+          vjust = 2.5, size = 7 / .pt,
+          inherit.aes = TRUE,
+          check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
@@ -1979,9 +2067,12 @@ forest_plot <- ggplot(ab_interaction_results, aes(x = ab.estimate, y = model)) +
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = ab.estimate , 
-                label = sprintf("p = %.2g", ab.p_value)),
-                vjust = 2.5, size = 7 / .pt) +
+  geom_text(aes(x = ab.estimate, 
+              label = sprintf("p = %.2g, N = %d", ab.p_value, ab.n)),
+          vjust = 2.5, size = 7 / .pt,
+          inherit.aes = TRUE,
+          check_overlap = TRUE) +
+  
   scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
@@ -2026,9 +2117,11 @@ forest_plot <- ggplot(ptau_interaction_results, aes(x = ptau.estimate, y = model
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = ptau.estimate , 
-                label = sprintf("p = %.2g", ptau.p_value)),
-                vjust = 2.5, size = 7 / .pt) +
+  geom_text(aes(x = ptau.estimate, 
+              label = sprintf("p = %.2g, N = %d", ptau.p_value, ptau.n)),
+          vjust = 2.5, size = 7 / .pt,
+          inherit.aes = TRUE,
+          check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot
@@ -2071,9 +2164,11 @@ forest_plot <- ggplot(tau_interaction_results, aes(x = tau.estimate, y = model))
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = tau.estimate , 
-                label = sprintf("p = %.2g", tau.p_value)),
-                vjust = 2.5, size = 7 / .pt) +
+  geom_text(aes(x = tau.estimate, 
+              label = sprintf("p = %.2g, N = %d", tau.p_value, tau.n)),
+          vjust = 2.5, size = 7 / .pt,
+          inherit.aes = TRUE,
+          check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2))
 
 # Print the plot

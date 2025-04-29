@@ -23,7 +23,7 @@ path <- '~/Documents/Projects/AgingBrainStudy/figures/crossectional/'
 source('~/Documents/Projects/AgingBrainStudy/scripts/regression_analysis.R')
 source('~/Documents/Projects/AgingBrainStudy/scripts/improve_figure.R')
 
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
 ```
 
@@ -185,10 +185,12 @@ pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$tim
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    pacc_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    pacc_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    pacc_analysis$partial_correlation$estimate,
+    pacc_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    pacc_sens$partial_correlation$estimate,
+    pacc_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 pacc_analysis$scatter_plot <- improve_graph(pacc_analysis$scatter_plot, 'Delta (years)', 'PACC')
@@ -218,10 +220,12 @@ ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_di
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ab_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ab_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ab_analysis$partial_correlation$estimate,
+    ab_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ab_sens$partial_correlation$estimate,
+    ab_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ab_analysis$scatter_plot <- improve_graph(ab_analysis$scatter_plot, 'Delta (years)', 'Aβ-PET')
@@ -251,11 +255,12 @@ ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ptau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ptau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-
+cat("Correlation with delta including covariates:", 
+    ptau_analysis$partial_correlation$estimate,
+    ptau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ptau_sens$partial_correlation$estimate,
+    ptau_sens$partial_correlation$p.value, "\n")
 # Apply figure improvement and save
 ptau_analysis$scatter_plot <- improve_graph(ptau_analysis$scatter_plot, 'Delta (years)', 'pTau217')
 ggsave(paste(path, 'ptau_a4.png'), ptau_analysis$scatter_plot, 
@@ -284,10 +289,12 @@ tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_d
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    tau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    tau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    tau_analysis$partial_correlation$estimate,
+    tau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    tau_sens$partial_correlation$estimate,
+    tau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 tau_analysis$scatter_plot <- improve_graph(tau_analysis$scatter_plot, 'Delta (years)', 'Tau-PET')
@@ -440,10 +447,12 @@ pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$tim
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    pacc_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    pacc_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    pacc_analysis$partial_correlation$estimate,
+    pacc_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    pacc_sens$partial_correlation$estimate,
+    pacc_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 pacc_analysis$scatter_plot <- improve_graph(pacc_analysis$scatter_plot, 'Delta (years)', 'PACC')
@@ -473,10 +482,12 @@ ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_di
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ab_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ab_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ab_analysis$partial_correlation$estimate,
+    ab_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ab_sens$partial_correlation$estimate,
+    ab_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ab_analysis$scatter_plot <- improve_graph(ab_analysis$scatter_plot, 'Delta (years)', 'Aβ-PET')
@@ -506,10 +517,12 @@ ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ptau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ptau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ptau_analysis$partial_correlation$estimate,
+    ptau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ptau_sens$partial_correlation$estimate,
+    ptau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ptau_analysis$scatter_plot <- improve_graph(ptau_analysis$scatter_plot, 'Delta (years)', 'pTau217')
@@ -539,10 +552,12 @@ tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_d
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    tau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    tau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    tau_analysis$partial_correlation$estimate,
+    tau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    tau_sens$partial_correlation$estimate,
+    tau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 tau_analysis$scatter_plot <- improve_graph(tau_analysis$scatter_plot, 'Delta (years)', 'Tau-PET')
@@ -699,10 +714,12 @@ pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$tim
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    pacc_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    pacc_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    pacc_analysis$partial_correlation$estimate,
+    pacc_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    pacc_sens$partial_correlation$estimate,
+    pacc_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 pacc_analysis$scatter_plot <- improve_graph(pacc_analysis$scatter_plot, 'Delta (years)', 'PACC')
@@ -732,10 +749,12 @@ ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_di
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ab_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ab_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ab_analysis$partial_correlation$estimate,
+    ab_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ab_sens$partial_correlation$estimate,
+    ab_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ab_analysis$scatter_plot <- improve_graph(ab_analysis$scatter_plot, 'Delta (years)', 'Aβ-PET')
@@ -765,10 +784,12 @@ ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ptau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ptau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ptau_analysis$partial_correlation$estimate,
+    ptau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ptau_sens$partial_correlation$estimate,
+    ptau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ptau_analysis$scatter_plot <- improve_graph(ptau_analysis$scatter_plot, 'Delta (years)', 'pTau217')
@@ -798,10 +819,12 @@ tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_d
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    tau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    tau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    tau_analysis$partial_correlation$estimate,
+    tau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    tau_sens$partial_correlation$estimate,
+    tau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 tau_analysis$scatter_plot <- improve_graph(tau_analysis$scatter_plot, 'Delta (years)', 'Tau-PET')
@@ -972,10 +995,12 @@ pacc_sens = regression_analysis(mci_data[mci_data$time_diff_pacc <=1 & mci_data$
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    pacc_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    pacc_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    pacc_analysis$partial_correlation$estimate,
+    pacc_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    pacc_sens$partial_correlation$estimate,
+    pacc_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 pacc_analysis$scatter_plot <- improve_graph(pacc_analysis$scatter_plot, 'Delta (years)', 'PACC')
@@ -1005,11 +1030,12 @@ ab_sens = regression_analysis(mci_data[mci_data$time_diff_ab <=1 & mci_data$time
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ab_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ab_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-
+cat("Correlation with delta including covariates:", 
+    ab_analysis$partial_correlation$estimate,
+    ab_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ab_sens$partial_correlation$estimate,
+    ab_sens$partial_correlation$p.value, "\n")
 # Apply figure improvement and save
 ab_analysis$scatter_plot <- improve_graph(ab_analysis$scatter_plot, 'Delta (years)', 'Aβ-PET')
 ggsave(paste(path, 'ab_adni_mci.png'), ab_analysis$scatter_plot, 
@@ -1038,10 +1064,12 @@ ptau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$ti
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    ptau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    ptau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    ptau_analysis$partial_correlation$estimate,
+    ptau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    ptau_sens$partial_correlation$estimate,
+    ptau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 ptau_analysis$scatter_plot <- improve_graph(ptau_analysis$scatter_plot, 'Delta (years)', 'pTau217')
@@ -1071,10 +1099,12 @@ tau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$tim
 
 # Sensitivity analysis
 cat("Sensitivity analysis: \n")
-cat("p-value of delta including covariates:", 
-    tau_analysis$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
-cat("p-value of delta including covariates and time difference:", 
-    tau_sens$model_full_summary$coefficients["delta", "Pr(>|t|)"], "\n")
+cat("Correlation with delta including covariates:", 
+    tau_analysis$partial_correlation$estimate,
+    tau_analysis$partial_correlation$p.value, "\n")
+cat("Correlation with delta including covariates and time difference:", 
+    tau_sens$partial_correlation$estimate,
+    tau_sens$partial_correlation$p.value, "\n")
 
 # Apply figure improvement and save
 tau_analysis$scatter_plot <- improve_graph(tau_analysis$scatter_plot, 'Delta (years)', 'Tau-PET')

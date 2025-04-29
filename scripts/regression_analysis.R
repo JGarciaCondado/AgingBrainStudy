@@ -1,4 +1,5 @@
 # File with all required scripts
+library(ppcor)
 
 regression_analysis <- function(data, x, y, covars) {
   
@@ -34,6 +35,11 @@ regression_analysis <- function(data, x, y, covars) {
          x = y,
          y = x)
   
+  # Partial correlation
+  covariates <- data[, covars, drop = FALSE]
+  covariate_matrix <- model.matrix(~ . - 1, data = covariates)
+  partial_corr <- pcor.test(data[x], data[y], covariate_matrix, method = "pearson")
+  
   # Return a list with all results
   return(list(
     scatter_plot = scatter_plot,
@@ -41,6 +47,7 @@ regression_analysis <- function(data, x, y, covars) {
     regression_model = ols_full_results,
     model_summary = model_summary,
     model_full_summary = model_full_summary,
-    predicted_values_plot = pred_plot
+    predicted_values_plot = pred_plot,
+    partial_correlation = partial_corr
   ))
 }
