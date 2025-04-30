@@ -142,6 +142,12 @@ cat("Delta effect:", signif(a4_delta_effects$delta.estimate[1], 2),
     signif(a4_delta_effects$delta.upper_ci[1], 2), "]",
     " p-val:", signif(a4_delta_effects$delta.p_value[1], 2), "\n")
 
+custom_labels_a4 <- c(
+  sprintf("%.2f (-1 SD)", mean(data_a4$delta, na.rm = TRUE) - sd(data_a4$delta, na.rm = TRUE)),
+  sprintf("%.2f (Mean)", mean(data_a4$delta, na.rm = TRUE)),
+  sprintf("%.2f (+1 SD)", mean(data_a4$delta, na.rm = TRUE) + sd(data_a4$delta, na.rm = TRUE))
+)
+
 # Plot model
 a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
   theme_minimal() +
@@ -152,7 +158,10 @@ a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4)
+
 a4_p
 
 # Save model
@@ -163,7 +172,7 @@ a4_p <- a4_p +
       axis.title = element_text(family = "Times New Roman", size = 12),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
-ggsave(paste(path, 'lme_a4.png'), a4_p, 
+ggsave(paste(path, 'lme_a4.png'), a4_p,
        width = 125, height = 50, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
@@ -283,6 +292,10 @@ cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate[1], 2),
     "[", signif(a4_ab_effects$ab.lower_ci[1], 2), ",",
     signif(a4_ab_effects$ab.upper_ci[1], 2), "]",
     " p-val:", signif(a4_ab_effects$ab.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", a4_ab_results["time_mri:delta", "p-value"], "\n")
+cat("AB-PET effect:", a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:ab_composite", "Std_Coefficient"],
+    "p-val", a4_ab_results["time_mri:ab_composite", "p-value"], "\n")
 
 # Plot model
 a4_ab_p <- plot(ggpredict(lme_a4_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
@@ -294,15 +307,17 @@ a4_ab_p <- plot(ggpredict(lme_a4_ab, terms = c("time_mri [all]", "delta", "ab_co
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4)
 
 # Change levels to be more readable
 a4_ab_mean = mean(data_a4$ab_composite, na.rm = TRUE)
 a4_ab_sd = sd(data_a4$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = %.2f ", a4_ab_mean - a4_ab_sd),
-  sprintf("Aβ-PET = %.2f ", a4_ab_mean),
-  sprintf("Aβ-PET = %.2f ", a4_ab_mean + a4_ab_sd)
+  sprintf("Aβ-PET = %.2f \n (-1 SD)", a4_ab_mean - a4_ab_sd),
+  sprintf("Aβ-PET = %.2f \n (Mean)", a4_ab_mean),
+  sprintf("Aβ-PET = %.2f \n (+1 SD)", a4_ab_mean + a4_ab_sd)
 )
 a4_ab_p$data$facet <- ab_levels
 
@@ -314,6 +329,7 @@ a4_ab_p <- a4_ab_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_a4_ab.png'), a4_ab_p, 
@@ -396,6 +412,10 @@ cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate[1],
     "[", signif(a4_ptau_effects$ptau.lower_ci[1], 2), ",",
     signif(a4_ptau_effects$ptau.upper_ci[1], 2), "]",
     " p-val:", signif(a4_ptau_effects$ptau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", a4_ptau_results["time_mri:delta", "p-value"], "\n")
+cat("pTau217 effect:", a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:ptau", "Std_Coefficient"],
+    "p-val", a4_ptau_results["time_mri:ptau", "p-value"], "\n")
 
 # Plot model
 a4_ptau_p <- plot(ggpredict(lme_a4_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
@@ -407,15 +427,17 @@ a4_ptau_p <- plot(ggpredict(lme_a4_ptau, terms = c("time_mri [all]", "delta", "p
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4)
 
 # Change levels to be more readable
 a4_ptau_mean = mean(data_a4[data_a4$exploratory == 1,]$ptau, na.rm = TRUE)
 a4_ptau_sd = sd(data_a4[data_a4$exploratory == 1,]$ptau, na.rm = TRUE)
 ptau_levels <- c(
-  sprintf("pTau217 = %.2f ", a4_ptau_mean - a4_ptau_sd),
-  sprintf("pTau217 = %.2f ", a4_ptau_mean),
-  sprintf("pTau217 = %.2f ", a4_ptau_mean + a4_ptau_sd)
+  sprintf("pTau217 = %.2f \n (-1 SD)", a4_ptau_mean - a4_ptau_sd),
+  sprintf("pTau217 = %.2f \n (Mean)", a4_ptau_mean),
+  sprintf("pTau217 = %.2f \n (+1 SD)", a4_ptau_mean + a4_ptau_sd)
 )
 a4_ptau_p$data$facet <- ptau_levels
 
@@ -427,6 +449,7 @@ a4_ptau_p <- a4_ptau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_a4_ptau.png'), a4_ptau_p, 
@@ -510,6 +533,10 @@ cat("BrainAge delta * tau217 effect:", signif(a4_tau_effects$tau.estimate[1], 2)
     "[", signif(a4_tau_effects$tau.lower_ci[1], 2), ",",
     signif(a4_tau_effects$tau.upper_ci[1], 2), "]",
     " p-val:", signif(a4_tau_effects$tau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", a4_tau_results["time_mri:delta", "p-value"], "\n")
+cat("Tau-PET effect:", a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:tau_composite", "Std_Coefficient"],
+    "p-val", a4_tau_results["time_mri:tau_composite", "p-value"], "\n")
 
 # Plot model
 a4_tau_p <- plot(ggpredict(lme_a4_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
@@ -521,15 +548,17 @@ a4_tau_p <- plot(ggpredict(lme_a4_tau, terms = c("time_mri [all]", "delta", "tau
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4)
 
 # Change levels to be more readable
 a4_tau_mean = mean(data_a4[data_a4$exploratory == 1,]$tau_composite , na.rm = TRUE)
 a4_tau_sd = sd(data_a4[data_a4$exploratory == 1,]$tau_composite , na.rm = TRUE)
 tau_levels <- c(
-  sprintf("Tau-PET = %.2f ", a4_tau_mean - a4_tau_sd),
-  sprintf("Tau-PET = %.2f ", a4_tau_mean),
-  sprintf("Tau-PET = %.2f ", a4_tau_mean + a4_tau_sd)
+  sprintf("Tau-PET = %.2f \n (-1 SD)", a4_tau_mean - a4_tau_sd),
+  sprintf("Tau-PET = %.2f \n (Mean)", a4_tau_mean),
+  sprintf("Tau-PET = %.2f \n (+1 SD)", a4_tau_mean + a4_tau_sd)
 )
 a4_tau_p$data$facet <- tau_levels
 
@@ -541,6 +570,7 @@ a4_tau_p <- a4_tau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_a4_tau.png'), a4_tau_p, 
@@ -662,6 +692,12 @@ cat("Delta effect:", signif(habs_delta_effects$delta.estimate[1], 2),
 
 
 # Plot model
+custom_labels_habs <- c(
+  sprintf("%.2f (-1 SD)", mean(data_habs$delta, na.rm = TRUE) - sd(data_habs$delta, na.rm = TRUE)),
+  sprintf("%.2f (Mean)", mean(data_habs$delta, na.rm = TRUE)),
+  sprintf("%.2f (+1 SD)", mean(data_habs$delta, na.rm = TRUE) + sd(data_habs$delta, na.rm = TRUE))
+)
+
 habs_p <- plot(ggpredict(lme_habs, terms = c("time_mri [all]", "delta"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, max_time)) + 
@@ -671,7 +707,10 @@ habs_p <- plot(ggpredict(lme_habs, terms = c("time_mri [all]", "delta"))) +
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) + 
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs)
+
 habs_p
 
 # Save model
@@ -774,26 +813,32 @@ cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate[1], 2),
     "[", signif(habs_ab_effects$ab.lower_ci[1], 2), ",",
     signif(habs_ab_effects$ab.upper_ci[1], 2), "]",
     " p-val:", signif(habs_ab_effects$ab.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", habs_ab_results["time_mri:delta", "p-value"], "\n")
+cat("AB-PET effect:", habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:ab_composite", "Std_Coefficient"],
+    "p-val", habs_ab_results["time_mri:ab_composite", "p-value"], "\n")
 
 # Plot model
 habs_ab_p <- plot(ggpredict(lme_habs_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, habs_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs)
 
 # Change levels to be more readable
 habs_ab_mean = mean(data_habs$ab_composite, na.rm = TRUE)
 habs_ab_sd = sd(data_habs$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = %.2f ", habs_ab_mean - habs_ab_sd),
-  sprintf("Aβ-PET = %.2f ", habs_ab_mean),
-  sprintf("Aβ-PET = %.2f ", habs_ab_mean + habs_ab_sd)
+  sprintf("Aβ-PET = \n %.2f (-1 SD)", habs_ab_mean - habs_ab_sd),
+  sprintf("Aβ-PET = \n %.2f (Mean)", habs_ab_mean),
+  sprintf("Aβ-PET = \n %.2f (+1 SD) ", habs_ab_mean + habs_ab_sd)
 )
 habs_ab_p$data$facet <- ab_levels
 
@@ -805,10 +850,11 @@ habs_ab_p <- habs_ab_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_habs_ab.png'), habs_ab_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -878,26 +924,32 @@ cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate[1
     "[", signif(habs_ptau_effects$ptau.lower_ci[1], 2), ",",
     signif(habs_ptau_effects$ptau.upper_ci[1], 2), "]",
     " p-val:", signif(habs_ptau_effects$ptau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", habs_ptau_results["time_mri:delta", "p-value"], "\n")
+cat("pTau217 effect:", habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:ptau", "Std_Coefficient"],
+    "p-val", habs_ptau_results["time_mri:ptau", "p-value"], "\n")
 
 # Plot model
 habs_ptau_p <- plot(ggpredict(lme_habs_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, habs_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs)
 
 # Change levels to be more readable
 habs_ptau_mean = mean(data_habs[data_habs$exploratory == 1,]$ptau, na.rm = TRUE)
 habs_ptau_sd = sd(data_habs[data_habs$exploratory == 1,]$ptau, na.rm = TRUE)
 ptau_levels <- c(
-  sprintf("pTau217 = %.2f ", habs_ptau_mean - habs_ptau_sd),
-  sprintf("pTau217 = %.2f ", habs_ptau_mean),
-  sprintf("pTau217 = %.2f ", habs_ptau_mean + habs_ptau_sd)
+  sprintf("pTau217 = \n %.2f (-1 SD)", habs_ptau_mean - habs_ptau_sd),
+  sprintf("pTau217 = \n %.2f (Mean)", habs_ptau_mean),
+  sprintf("pTau217 = \n %.2f (+1 SD)", habs_ptau_mean + habs_ptau_sd)
 )
 habs_ptau_p$data$facet <- ptau_levels
 
@@ -909,10 +961,11 @@ habs_ptau_p <- habs_ptau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_habs_ptau.png'), habs_ptau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -979,30 +1032,36 @@ habs_tau_effects <- data.frame(
     tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"],
     tau.n = lme_habs_tau$dims$ngrps
   )
-cat("BrainAge delta * tau217 effect:", signif(habs_tau_effects$tau.estimate[1], 2), 
+cat("BrainAge delta * Tau-PET effect:", signif(habs_tau_effects$tau.estimate[1], 2), 
     "[", signif(habs_tau_effects$tau.lower_ci[1], 2), ",",
     signif(habs_tau_effects$tau.upper_ci[1], 2), "]",
     " p-val:", signif(habs_tau_effects$tau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", habs_tau_results["time_mri:delta", "p-value"], "\n")
+cat("Tau-PET effect:", habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:tau_composite", "Std_Coefficient"],
+    "p-val", habs_tau_results["time_mri:tau_composite", "p-value"], "\n")
 
 # Plot model
 habs_tau_p <- plot(ggpredict(lme_habs_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, habs_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_habs)
 
 # Change levels to be more readable
 habs_tau_mean = mean(data_habs[data_habs$exploratory == 1,]$tau_composite , na.rm = TRUE)
 habs_tau_sd = sd(data_habs[data_habs$exploratory == 1,]$tau_composite , na.rm = TRUE)
 tau_levels <- c(
-  sprintf("Tau-PET = %.2f ", habs_tau_mean - habs_tau_sd),
-  sprintf("Tau-PET = %.2f ", habs_tau_mean),
-  sprintf("Tau-PET = %.2f ", habs_tau_mean + habs_tau_sd)
+  sprintf("Tau-PET = \n %.2f (-1 SD)", habs_tau_mean - habs_tau_sd),
+  sprintf("Tau-PET = \n %.2f (Mean)", habs_tau_mean),
+  sprintf("Tau-PET = \n %.2f (+1 SD)", habs_tau_mean + habs_tau_sd)
 )
 habs_tau_p$data$facet <- tau_levels
 
@@ -1014,10 +1073,11 @@ habs_tau_p <- habs_tau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_habs_tau.png'), habs_tau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1129,6 +1189,12 @@ cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate[1], 2),
 
 
 # Plot model
+custom_labels_adni_cn <- c(
+  sprintf("%.2f (-1 SD)", mean(data_habs$delta, na.rm = TRUE) - sd(data_habs$delta, na.rm = TRUE)),
+  sprintf("%.2f (Mean)", mean(data_habs$delta, na.rm = TRUE)),
+  sprintf("%.2f (+1 SD) ", mean(data_habs$delta, na.rm = TRUE) + sd(data_habs$delta, na.rm = TRUE))
+)
+
 adni_cn_p <- plot(ggpredict(lme_adni_cn, terms = c("time_mri [all]", "delta"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, max_time)) + 
@@ -1138,7 +1204,10 @@ adni_cn_p <- plot(ggpredict(lme_adni_cn, terms = c("time_mri [all]", "delta"))) 
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn)
+
 adni_cn_p
 
 # Save model
@@ -1241,26 +1310,32 @@ cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate[1], 2),
     "[", signif(adni_cn_ab_effects$ab.lower_ci[1], 2), ",",
     signif(adni_cn_ab_effects$ab.upper_ci[1], 2), "]",
     " p-val:", signif(adni_cn_ab_effects$ab.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_cn_ab_results["time_mri:delta", "p-value"], "\n")
+cat("AB-PET effect:", adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:ab_composite", "Std_Coefficient"],
+    "p-val", adni_cn_ab_results["time_mri:ab_composite", "p-value"], "\n")
 
 # Plot model
 adni_cn_ab_p <- plot(ggpredict(lme_adni_cn_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn)
 
 # Change levels to be more readable
 adni_cn_ab_mean = mean(data_adni_cn$ab_composite, na.rm = TRUE)
 adni_cn_ab_sd = sd(data_adni_cn$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean - adni_cn_ab_sd),
-  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean),
-  sprintf("Aβ-PET = %.2f ", adni_cn_ab_mean + adni_cn_ab_sd)
+  sprintf("Aβ-PET = \n %.2f (-1 SD)", adni_cn_ab_mean - adni_cn_ab_sd),
+  sprintf("Aβ-PET = \n %.2f (Mean)", adni_cn_ab_mean),
+  sprintf("Aβ-PET = \n %.2f (+1 SD)", adni_cn_ab_mean + adni_cn_ab_sd)
 )
 adni_cn_ab_p$data$facet <- ab_levels
 
@@ -1272,10 +1347,11 @@ adni_cn_ab_p <- adni_cn_ab_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_cn_ab.png'), adni_cn_ab_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1345,26 +1421,32 @@ cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimat
     "[", signif(adni_cn_ptau_effects$ptau.lower_ci[1], 2), ",",
     signif(adni_cn_ptau_effects$ptau.upper_ci[1], 2), "]",
     " p-val:", signif(adni_cn_ptau_effects$ptau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_cn_ptau_results["time_mri:delta", "p-value"], "\n")
+cat("pTau217 effect:", adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:ptau", "Std_Coefficient"],
+    "p-val", adni_cn_ptau_results["time_mri:ptau", "p-value"], "\n")
 
 # Plot model
 adni_cn_ptau_p <- plot(ggpredict(lme_adni_cn_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn)
 
 # Change levels to be more readable
 adni_cn_ptau_mean = mean(data_adni_cn[data_adni_cn$exploratory == 1,]$ptau, na.rm = TRUE)
 adni_cn_ptau_sd = sd(data_adni_cn[data_adni_cn$exploratory == 1,]$ptau, na.rm = TRUE)
 ptau_levels <- c(
-  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean - adni_cn_ptau_sd),
-  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean),
-  sprintf("pTau217 = %.3f ", adni_cn_ptau_mean + adni_cn_ptau_sd)
+  sprintf("pTau217 = \n %.3f (-1 SD)", adni_cn_ptau_mean - adni_cn_ptau_sd),
+  sprintf("pTau217 = \n %.3f (Mean)", adni_cn_ptau_mean),
+  sprintf("pTau217 = \n %.3f (+1 SD)", adni_cn_ptau_mean + adni_cn_ptau_sd)
 )
 adni_cn_ptau_p$data$facet <- ptau_levels
 
@@ -1376,10 +1458,11 @@ adni_cn_ptau_p <- adni_cn_ptau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_cn_ptau.png'), adni_cn_ptau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1450,26 +1533,32 @@ cat("BrainAge delta * tau217 effect:", signif(adni_cn_tau_effects$tau.estimate[1
     "[", signif(adni_cn_tau_effects$tau.lower_ci[1], 2), ",",
     signif(adni_cn_tau_effects$tau.upper_ci[1], 2), "]",
     " p-val:", signif(adni_cn_tau_effects$tau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_cn_tau_results["time_mri:delta", "p-value"], "\n")
+cat("Tau-PET effect:", adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:tau_composite", "Std_Coefficient"],
+    "p-val", adni_cn_tau_results["time_mri:tau_composite", "p-value"], "\n")
 
 # Plot model
 adni_cn_tau_p <- plot(ggpredict(lme_adni_cn_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(-3, max_pacc)) +
+  scale_y_continuous(limits = c(-5, max_pacc)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) + 
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_cn)
 
 # Change levels to be more readable
 adni_cn_tau_mean = mean(data_adni_cn[data_adni_cn$exploratory == 1,]$tau_composite , na.rm = TRUE)
 adni_cn_tau_sd = sd(data_adni_cn[data_adni_cn$exploratory == 1,]$tau_composite , na.rm = TRUE)
 tau_levels <- c(
-  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean - adni_cn_tau_sd),
-  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean),
-  sprintf("Tau-PET = %.2f ", adni_cn_tau_mean + adni_cn_tau_sd)
+  sprintf("Tau-PET = \n %.2f (-1 SD)", adni_cn_tau_mean - adni_cn_tau_sd),
+  sprintf("Tau-PET = \n %.2f (Mean)", adni_cn_tau_mean),
+  sprintf("Tau-PET = \n %.2f (+1 SD)", adni_cn_tau_mean + adni_cn_tau_sd)
 )
 adni_cn_tau_p$data$facet <- tau_levels
 
@@ -1481,10 +1570,11 @@ adni_cn_tau_p <- adni_cn_tau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_cn_tau.png'), adni_cn_tau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1595,6 +1685,12 @@ cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate[1], 2),
     " p-val:", signif(adni_mci_delta_effects$delta.p_value[1], 2), "\n")
 
 # Plot model
+custom_labels_adni_mci <- c(
+  sprintf("%.2f (-1 SD)", mean(data_adni_mci$delta, na.rm = TRUE) - sd(data_adni_mci$delta, na.rm = TRUE)),
+  sprintf("%.2f (Mean)", mean(data_adni_mci$delta, na.rm = TRUE)),
+  sprintf("%.2f (+1 SD)", mean(data_adni_mci$delta, na.rm = TRUE) + sd(data_adni_mci$delta, na.rm = TRUE))
+)
+
 adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, max_time)) + 
@@ -1604,7 +1700,10 @@ adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci)
+
 adni_mci_p
 
 # Save model
@@ -1707,26 +1806,32 @@ cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate[1], 2)
     "[", signif(adni_mci_ab_effects$ab.lower_ci[1], 2), ",",
     signif(adni_mci_ab_effects$ab.upper_ci[1], 2), "]",
     " p-val:", signif(adni_mci_ab_effects$ab.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_mci_ab_results["time_mri:delta", "p-value"], "\n")
+cat("AB-PET effect:", adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:ab_composite", "Std_Coefficient"],
+    "p-val", adni_mci_ab_results["time_mri:ab_composite", "p-value"], "\n")
 
 # Plot model
 adni_mci_ab_p <- plot(ggpredict(lme_adni_mci_ab, terms = c("time_mri [all]", "delta", "ab_composite"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  scale_y_continuous(limits = c(-12, 2)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci)
 
 # Change levels to be more readable
 adni_mci_ab_mean = mean(data_adni_mci$ab_composite, na.rm = TRUE)
 adni_mci_ab_sd = sd(data_adni_mci$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean - adni_mci_ab_sd),
-  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean),
-  sprintf("Aβ-PET = %.2f ", adni_mci_ab_mean + adni_mci_ab_sd)
+  sprintf("Aβ-PET = \n %.2f (-1 SD)", adni_mci_ab_mean - adni_mci_ab_sd),
+  sprintf("Aβ-PET = \n %.2f (Mean)", adni_mci_ab_mean),
+  sprintf("Aβ-PET = \n %.2f (+1 SD)", adni_mci_ab_mean + adni_mci_ab_sd)
 )
 adni_mci_ab_p$data$facet <- ab_levels
 
@@ -1738,10 +1843,11 @@ adni_mci_ab_p <- adni_mci_ab_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_mci_ab.png'), adni_mci_ab_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1811,26 +1917,32 @@ cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estima
     "[", signif(adni_mci_ptau_effects$ptau.lower_ci[1], 2), ",",
     signif(adni_mci_ptau_effects$ptau.upper_ci[1], 2), "]",
     " p-val:", signif(adni_mci_ptau_effects$ptau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_mci_ptau_results["time_mri:delta", "p-value"], "\n")
+cat("pTau217 effect:", adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:ptau", "Std_Coefficient"],
+    "p-val", adni_mci_ptau_results["time_mri:ptau", "p-value"], "\n")
 
 # Plot model
 adni_mci_ptau_p <- plot(ggpredict(lme_adni_mci_ptau, terms = c("time_mri [all]", "delta", "ptau"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  scale_y_continuous(limits = c(-12, 2)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci)
 
 # Change levels to be more readable
 adni_mci_ptau_mean = mean(data_adni_mci[data_adni_mci$exploratory == 1,]$ptau, na.rm = TRUE)
 adni_mci_ptau_sd = sd(data_adni_mci[data_adni_mci$exploratory == 1,]$ptau, na.rm = TRUE)
 ptau_levels <- c(
-  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean - adni_mci_ptau_sd),
-  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean),
-  sprintf("pTau217 = %.3f ", adni_mci_ptau_mean + adni_mci_ptau_sd)
+  sprintf("pTau217 = \n %.3f (-1 SD)", adni_mci_ptau_mean - adni_mci_ptau_sd),
+  sprintf("pTau217 = \n %.3f (Mean)", adni_mci_ptau_mean),
+  sprintf("pTau217 = \n %.3f (+1 SD)", adni_mci_ptau_mean + adni_mci_ptau_sd)
 )
 adni_mci_ptau_p$data$facet <- ptau_levels
 
@@ -1842,10 +1954,11 @@ adni_mci_ptau_p <- adni_mci_ptau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_mci_ptau.png'), adni_mci_ptau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
@@ -1916,26 +2029,32 @@ cat("BrainAge delta * tau217 effect:", signif(adni_mci_tau_effects$tau.estimate[
     "[", signif(adni_mci_tau_effects$tau.lower_ci[1], 2), ",",
     signif(adni_mci_tau_effects$tau.upper_ci[1], 2), "]",
     " p-val:", signif(adni_mci_tau_effects$tau.p_value[1], 2), "\n")
+cat("BrainAge delta effect:", adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
+    "p-val", adni_mci_tau_results["time_mri:delta", "p-value"], "\n")
+cat("Tau-PET effect:", adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:tau_composite", "Std_Coefficient"],
+    "p-val", adni_mci_tau_results["time_mri:tau_composite", "p-value"], "\n")
 
 # Plot model
 adni_mci_tau_p <- plot(ggpredict(lme_adni_mci_tau, terms = c("time_mri [all]", "delta", "tau_composite "))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, adni_max_time)) + 
-  scale_y_continuous(limits = c(min_pacc, max_pacc)) +
+  scale_y_continuous(limits = c(-12, 2)) +
   labs(
     title = "",
     y = "PACC",
     x = "Time from MRI (years)",
     color = "BrainAge \ndelta (years)"
-  )
+  ) +
+  scale_color_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci) +
+  scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_adni_mci)
 
 # Change levels to be more readable
 adni_mci_tau_mean = mean(data_adni_mci[data_adni_mci$exploratory == 1,]$tau_composite , na.rm = TRUE)
 adni_mci_tau_sd = sd(data_adni_mci[data_adni_mci$exploratory == 1,]$tau_composite , na.rm = TRUE)
 tau_levels <- c(
-  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean - adni_mci_tau_sd),
-  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean),
-  sprintf("Tau-PET = %.2f ", adni_mci_tau_mean + adni_mci_tau_sd)
+  sprintf("Tau-PET = \n %.2f (-1 SD)", adni_mci_tau_mean - adni_mci_tau_sd),
+  sprintf("Tau-PET = \n %.2f (Mean)", adni_mci_tau_mean),
+  sprintf("Tau-PET = \n %.2f (+1 SD)", adni_mci_tau_mean + adni_mci_tau_sd)
 )
 adni_mci_tau_p$data$facet <- tau_levels
 
@@ -1947,10 +2066,11 @@ adni_mci_tau_p <- adni_mci_tau_p +
       text = element_text(family = "Times New Roman", size = 12),
       axis.text = element_text(family = "Times New Roman", size = 12),
       axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
       plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
     ) 
 ggsave(paste(path, 'lme_adni_mci_tau.png'), adni_mci_tau_p, 
-       width = 85, height = 55, units = "mm", 
+       width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
