@@ -107,7 +107,7 @@ df_baseline.rename(columns={
     'Diagnosis': 'diagnosis',
     'zPACC': 'PACC_mri',
     'AMYLOID_STATUS': 'ab_status',
-    'SUMMARY_SUVR_AMYLOID': 'ab_composite',
+    'CENTILOIDS_AMYLOID': 'ab_composite',
     'pT217_AB42_F': 'ptau',
     'MRI_SessionDate': 'mri_date',
 }, inplace=True)

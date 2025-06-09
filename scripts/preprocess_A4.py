@@ -89,7 +89,7 @@ df_baseline.rename(columns={
     'Education': 'edu',
     'zPACC': 'PACC_mri',
     'Amyloid_group': 'ab_status',
-    'summary_suvr_amyloid': 'ab_composite',
+    'Amyloid_Centiloid': 'ab_composite',
     'ptau217_read': 'ptau',
     'MonthsFromBaseline_MRI': 'time_baseline_to_mri',
 }, inplace=True)

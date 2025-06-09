@@ -312,12 +312,20 @@ a4_ab_p <- plot(ggpredict(lme_a4_ab, terms = c("time_mri [all]", "delta", "ab_co
   scale_fill_manual(values = c("#009a37", "#0081ff", "#e53f2a"), labels = custom_labels_a4)
 
 # Change levels to be more readable
+facet_values <- as.numeric(gsub("ab_composite = ", "", unique(a4_ab_p$data$facet)))
 a4_ab_mean = mean(data_a4$ab_composite, na.rm = TRUE)
 a4_ab_sd = sd(data_a4$ab_composite, na.rm = TRUE)
-ab_levels <- c(
-  sprintf("Aβ-PET = %.2f \n (-1 SD)", a4_ab_mean - a4_ab_sd),
-  sprintf("Aβ-PET = %.2f \n (Mean)", a4_ab_mean),
-  sprintf("Aβ-PET = %.2f \n (+1 SD)", a4_ab_mean + a4_ab_sd)
+ab_levels <- factor(
+  case_when(
+    a4_ab_p$data$facet == paste0("ab_composite = ", facet_values[1]) ~ sprintf("Aβ-PET = %.2f \n (-1 SD)", a4_ab_mean - a4_ab_sd),
+    a4_ab_p$data$facet == paste0("ab_composite = ", facet_values[2]) ~ sprintf("Aβ-PET = %.2f \n (Mean)", a4_ab_mean),
+    a4_ab_p$data$facet == paste0("ab_composite = ", facet_values[3]) ~ sprintf("Aβ-PET = %.2f \n (+1 SD)", a4_ab_mean + a4_ab_sd)), 
+  levels = c(
+      sprintf("Aβ-PET = %.2f \n (-1 SD)", a4_ab_mean - a4_ab_sd),
+      sprintf("Aβ-PET = %.2f \n (Mean)", a4_ab_mean),
+      sprintf("Aβ-PET = %.2f \n (+1 SD)", a4_ab_mean + a4_ab_sd
+    )
+  )
 )
 a4_ab_p$data$facet <- ab_levels
 
@@ -336,6 +344,7 @@ ggsave(paste(path, 'lme_a4_ab.png'), a4_ab_p,
        width = 125, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
+a4_ab_p$data$facet
 ```
 
 Adding Age, Sex, Education, E4 Status as covariates
@@ -353,7 +362,8 @@ lme_a4_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           data = data_a4, 
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
-                          method = c('ML'));
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 a4_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_a4_ab_sens_demo)
 cat("Adding demographics estimated coefficient:" , a4_ab_sens_demo_standardized[a4_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_a4_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])

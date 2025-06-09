@@ -119,6 +119,17 @@ demo_table %>%
   save_as_docx(path = "~/Documents/Projects/AgingBrainStudy/tables/demographics.docx")
 ```
 
+```{r}
+# Follow up time minimum and maximum by cohort
+follow_up_summary <- data_all %>%
+  group_by(cohort) %>%
+  summarise(
+    min_follow_up = min(follow_up_time, na.rm = TRUE),
+    max_follow_up = max(follow_up_time, na.rm = TRUE)
+  )
+follow_up_summary
+```
+
 # Analysis breakdown {.tabset}
 
 Further breakdown between primary and exploratory analysis. Primary analysis are all subjects with an MRI, longitudinal PACC and also AB-PET. Exploratory analysis are all subjects with previous measures and als pTau217 and Tau-PET.

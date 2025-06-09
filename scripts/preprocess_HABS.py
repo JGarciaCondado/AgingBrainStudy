@@ -105,7 +105,7 @@ df_baseline.rename(columns={
     'Diagnosis': 'diagnosis',
     'zPACC': 'PACC_mri',
     'PIB_FS_DVR_Group': 'ab_status',
-    'PIB_FS_DVR_FLR': 'ab_composite',
+    'Centiloid': 'ab_composite',
     'p_tau217_ratio': 'ptau',
     'MRI_SessionDate': 'mri_date',
 }, inplace=True)
