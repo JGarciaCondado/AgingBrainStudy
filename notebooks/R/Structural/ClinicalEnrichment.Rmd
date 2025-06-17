@@ -366,3 +366,211 @@ cat("Reduction in number of participants required: ", reduction_median, "%\n")
 mri_pass_rate_median = n_a4_participants_median / n_a4_participants
 cat("MRI pass rate: ", mri_pass_rate_median, "\n")
 ```
+
+# Ptau217 screening
+
+```{r}
+# Obtain subjects with ptau217 data
+data_a4_ptau217 <- data_a4 %>% 
+  filter(!is.na(ptau)) %>% # Have ptau217
+  # filter(ab_status == 'ab+') %>% # Have ab+
+  filter(VISCODE <= 60) # Only before the first 5 years
+
+n_a4_ptau217_participants <- length(unique(data_a4_ptau217$ID))
+
+# Obtain baseline data by grouping by ID, ordering by viscode and selecting firtst row
+data_a4_ptau217_baseline <- data_a4_ptau217 %>% 
+  group_by(ID) %>% 
+  arrange(VISCODE) %>% 
+  slice(1) %>% 
+  ungroup()
+
+# Find quantiles for pTau217
+ptau217_quantiles <- quantile(data_a4_ptau217_baseline$ptau, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+delta_quantiles <- quantile(data_a4_ptau217_baseline$delta, probs = c(0.0, 0.25, 0.5, 0.75), na.rm = TRUE)
+
+```
+
+```{r}
+# Trial variables
+treatment_eff = 0.30
+power = 0.8
+sig_level = 0.05
+n = NULL
+method = 'edland'
+outcome = 'PACC'
+t_visits_a4 = seq(0, 4, 0.5)
+
+# Standard trail
+lme_ptau_all <-lmer(as.formula(paste(outcome, "~ time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort +  (1 + time_mri | ID)")), data = data_a4_ptau217)
+pwr_ptau_all <- lmmpower(lme_ptau_all, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+n_a4_ptau_all <- pwr_ptau_all$N
+```
+
+```{r}
+# Initialize results storage
+results_ptau_df <- data.frame(
+  ptau_threshold = numeric(),
+  delta_threshold = numeric(),
+  n_participants = integer(),
+  n_trial_required = numeric(),
+  reduction_percentage = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Print header
+cat("\n", paste(rep("=", 80), collapse=""), "\n")
+cat("POWER ANALYSIS RESULTS\n")
+cat(paste(rep("=", 80), collapse=""), "\n")
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s\n", 
+            "pTau217", "Delta", "Available", "Trial Required", "Reduction"))
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s\n", 
+            "Threshold", "Threshold", "Participants", "Sample Size", "(%)"))
+cat(paste(rep("-", 80), collapse=""), "\n")
+
+# Do for loop over ptau217 quantiles and delta quantiles
+for (ptau_quantile in ptau217_quantiles) {
+  for (delta_quantile in delta_quantiles) {
+    # Filter data
+    data_filtered <- data_a4_ptau217 %>%
+      filter(ptau >= ptau_quantile, delta >= delta_quantile)
+    
+    # Model
+    lme_ptau <- lmer(as.formula(paste(outcome, "~time_mri + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
+    
+    # Calculate power / sample size
+    pwr_ptau <- lmmpower(lme_ptau, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+    n_a4_ptau <- pwr_ptau$N
+    n_percentage <- n_a4_ptau / n_a4_ptau_all * 100
+    
+    # Calculate number of participants
+    n_participants <- length(unique(data_filtered$ID))
+    
+    # Store results
+    results_ptau_df <- rbind(results_ptau_df, data.frame(
+      ptau_threshold = ptau_quantile,
+      delta_threshold = delta_quantile,
+      n_participants = n_participants,
+      n_trial_required = n_a4_ptau,
+      reduction_percentage = n_percentage
+    ))
+    
+    # Print results in formatted table
+    cat(sprintf("%-12.2f %-12.2f %-12d %-15.0f %-12.1f\n", 
+                ptau_quantile, delta_quantile, n_participants, n_a4_ptau, n_percentage))
+  }
+}
+
+# Optional: Show summary statistics
+cat("SUMMARY STATISTICS:\n")
+cat(sprintf("Trial sample size range: %.0f - %.0f participants\n", 
+            min(results_ptau_df$n_trial_required), max(results_ptau_df$n_trial_required)))
+cat(sprintf("Available participants range: %d - %d\n", 
+            min(results_ptau_df$n_participants), max(results_ptau_df$n_participants)))
+cat(sprintf("Sample size reduction range: %.1f%% - %.1f%%\n", 
+            min(results_ptau_df$reduction_percentage), max(results_ptau_df$reduction_percentage)))
+```
+
+
+```{r}
+ct_plot <- function(panel_data, title) {
+  
+  # Create plot data using existing reduction_percentage values
+  # We need 5 points: All (100%), then the 4 combinations from panel_data
+  plot_data <- data.frame(
+    step_numeric = c(1, 2, 3, 3, 3),  # All, Plasma, 3x BrainAge
+    participants_pct = c(100, panel_data$reduction_percentage)  # Start with 100% for "All"
+  )
+  
+  # Create separate data for lines
+  red_line_data <- data.frame(x = c(1, 2), y = c(100, plot_data$participants_pct[2]))
+  green_line1_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[3]))
+  green_line2_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[4]))  
+  green_line3_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[5]))
+  point_data <- data.frame(
+    x = c(1, 2, 3, 3, 3),
+    y = c(100, plot_data$participants_pct[2:5]),
+    color = c("grey50", "red", "darkgreen", "darkgreen", "darkgreen")
+  )
+  
+  # Create the plot
+  p <- ggplot() +
+    # Red line for plasma step
+    geom_line(aes(x = x, y = y), data = red_line_data, color = "red", size = 1.2) +
+    
+    # Green lines for BrainAge steps (different line types)
+    geom_line(aes(x = x, y = y), data = green_line1_data, color = "darkgreen", size = 1.2, linetype = "solid") +
+    geom_line(aes(x = x, y = y), data = green_line2_data, color = "darkgreen", size = 1.2, linetype = "dashed") +
+    geom_line(aes(x = x, y = y), data = green_line3_data, color = "darkgreen", size = 1.2, linetype = "dotted") +
+    
+    # Points
+    geom_point(aes(x = x, y = y, color = color), data = point_data, size = 3) +
+    scale_color_identity() +
+    
+    # Percentage labels
+    geom_text(aes(x = 2.3, y = plot_data$participants_pct[2], 
+                  label = paste0(round(abs(plot_data$participants_pct[2]), 0), "%")), 
+              vjust = -1.5, size = 3.5, color = "red") +
+    geom_text(aes(x = rep(3.35, 3), y = plot_data$participants_pct[3:5], 
+                  label = paste0(round(abs(plot_data$participants_pct[3:5]), 0), "%")), 
+                 size = 3.5, color = "darkgreen") +
+    geom_text(aes(x = 1, y = 100, label = "100%"), 
+              vjust = -1.5, size = 3.5, color = "gray50") +
+    
+    # Horizontal reference line at 100
+    geom_hline(yintercept = 100, linetype = "dashed", color = "gray50", alpha = 0.7) +
+    
+    # Styling
+    scale_x_continuous(breaks = c(1, 2, 3), labels = c("All", "Plasma", "BrainAge"), limits = c(0.8, 3.5)) +
+    scale_y_continuous(limits = c(0, 105), breaks = seq(0, 100, 25)) +
+    labs(title = title, 
+         x = "Step", 
+         y = "Participants (%)") +
+    theme_minimal() +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 10),
+      axis.title = element_text(size = 9),
+      axis.text = element_text(size = 8)
+    )
+  
+  return(p)
+}
+
+```
+
+```{r}
+# Example usage:
+# For Q2-Q4 panel
+ptau_threshold_q2q4 <- ptau217_quantiles[1]
+panel_data_q2q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q2q4)
+p1 <- ct_plot(panel_data_q2q4, "Plasma p-tau217\nQ2-Q4")
+
+# For Q3-Q4 panel
+ptau_threshold_q3q4 <- ptau217_quantiles[2]
+panel_data_q3q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q3q4)
+p2 <- ct_plot(panel_data_q3q4, "Plasma p-tau217\nQ3-Q4")
+
+# For Q4 panel
+ptau_threshold_q4 <- ptau217_quantiles[3]
+panel_data_q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q4)
+p3 <- ct_plot(panel_data_q4, "Plasma p-tau217\nQ4")
+
+# Combine all three plots
+library(gridExtra)
+final_plot <- grid.arrange(p1, p2, p3, ncol = 3)
+# Add legend manually (since we have custom colors and lines)
+legend_plot <- ggplot() +
+  geom_line(aes(x = c(1,2), y = c(1,1)), color = "red", size = 1.2) +
+  geom_line(aes(x = c(1,2), y = c(0.5,0.5)), color = "darkgreen", size = 1.2) +
+  geom_text(aes(x = 2.2, y = 1), label = "Step 1: plasma p-tau217", size = 3, hjust = 0) +
+  geom_text(aes(x = 2.2, y = 0.5), label = "Step 2: BrainAge delta", size = 3, hjust = 0) +
+  geom_text(aes(x = 4, y = 1), label = "BrainAge delta quartiles — Q2-Q4   - - Q3-Q4   ··· Q4", size = 3, hjust = 0) +
+  xlim(0, 8) + ylim(0, 1.5) +
+  theme_void()
+
+# Display the final plot with legend
+grid.arrange(final_plot, legend_plot, heights = c(4, 0.5))
+print(final_plot)
+```
