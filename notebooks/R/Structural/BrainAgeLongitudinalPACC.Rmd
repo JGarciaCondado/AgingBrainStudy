@@ -15,7 +15,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects);library(effsize)
+library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects);library(effsize);library(metafor)
 
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
@@ -114,10 +114,10 @@ PACC \~ time_mri\^2 + time_mriXdelta + Cumulative_Dose_Scaled + LMSTORY + time_m
 
 ```{r}
 # Create linear mixed effects model for A4 
-lme_a4 <- lme(PACC ~ I(time_mri^2) 
+lme_a4 <- lme(PACC ~ I(time_mri^2)
               + time_mri*delta 
-              + Cumulative_Dose_Scaled 
-              + time_mri*cohort 
+              + Cumulative_Dose_Scaled
+              + time_mri*cohort
               + LMSTORY, 
               data = data_a4, 
               random = ~time_mri|ID, 
@@ -135,7 +135,8 @@ a4_delta_effects <- data.frame(
     delta.lower_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_high"],
     delta.p_value = a4_results["time_mri:delta", "p-value"],
-    delta.n = lme_a4$dims$ngrps
+    delta.se = (a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_high"] - a4_standardized[a4_standardized$Parameter == "time_mri:delta", "CI_low"])/(2*1.96),
+    delta.n = lme_a4$dims$ngrps['ID']
   )
 cat("Delta effect:", signif(a4_delta_effects$delta.estimate[1], 2), 
     "[", signif(a4_delta_effects$delta.lower_ci[1], 2), ",",
@@ -285,8 +286,9 @@ a4_ab_effects <- data.frame(
     ab.estimate = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
+    ab.se = (a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"] - a4_ab_standardized[a4_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"])/(2*1.96),
     ab.p_value = a4_ab_results["time_mri:delta:ab_composite", "p-value"],
-    ab.n = lme_a4_ab$dims$ngrps
+    ab.n = lme_a4_ab$dims$ngrps['ID']
   )
 cat("BrainAge delta * AB effect:", signif(a4_ab_effects$ab.estimate[1], 2), 
     "[", signif(a4_ab_effects$ab.lower_ci[1], 2), ",",
@@ -415,8 +417,9 @@ a4_ptau_effects <- data.frame(
     ptau.estimate = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
+    ptau.se = (a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"] - a4_ptau_standardized[a4_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"])/(2*1.96),
     ptau.p_value = a4_ptau_results["time_mri:delta:ptau", "p-value"],
-    ptau.n = lme_a4_ptau$dims$ngrps
+    ptau.n = lme_a4_ptau$dims$ngrps['ID']
   )
 cat("BrainAge delta * pTau217 effect:", signif(a4_ptau_effects$ptau.estimate[1], 2), 
     "[", signif(a4_ptau_effects$ptau.lower_ci[1], 2), ",",
@@ -536,8 +539,9 @@ a4_tau_effects <- data.frame(
     tau.estimate = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
+    tau.se = (a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"] - a4_tau_standardized[a4_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"])/(2*1.96),
     tau.p_value = a4_tau_results["time_mri:delta:tau_composite", "p-value"],
-    tau.n = lme_a4_tau$dims$ngrps
+    tau.n = lme_a4_tau$dims$ngrps['ID']
   )
 cat("BrainAge delta * tau217 effect:", signif(a4_tau_effects$tau.estimate[1], 2), 
     "[", signif(a4_tau_effects$tau.lower_ci[1], 2), ",",
@@ -692,8 +696,9 @@ habs_delta_effects <- data.frame(
     delta.estimate = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_high"],
+    delta.se = (habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_high"] - habs_standardized[habs_standardized$Parameter == "time_mri:delta", "CI_low"])/(2*1.96),
     delta.p_value = habs_results["time_mri:delta", "p-value"],
-    delta.n = lme_habs$dims$ngrps
+    delta.n = lme_habs$dims$ngrps['ID']
   )
 cat("Delta effect:", signif(habs_delta_effects$delta.estimate[1], 2), 
     "[", signif(habs_delta_effects$delta.lower_ci[1], 2), ",",
@@ -816,8 +821,9 @@ habs_ab_effects <- data.frame(
     ab.estimate = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
+    ab.se = (habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"] - habs_ab_standardized[habs_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"])/(2*1.96),
     ab.p_value = habs_ab_results["time_mri:delta:ab_composite", "p-value"],
-    ab.n = lme_habs_ab$dims$ngrps
+    ab.n = lme_habs_ab$dims$ngrps['ID']
   )
 cat("BrainAge delta * AB effect:", signif(habs_ab_effects$ab.estimate[1], 2), 
     "[", signif(habs_ab_effects$ab.lower_ci[1], 2), ",",
@@ -927,8 +933,9 @@ habs_ptau_effects <- data.frame(
     ptau.estimate = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
+    ptau.se = (habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"] - habs_ptau_standardized[habs_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"])/(2*1.96),
     ptau.p_value = habs_ptau_results["time_mri:delta:ptau", "p-value"],
-    ptau.n = lme_habs_ptau$dims$ngrps
+    ptau.n = lme_habs_ptau$dims$ngrps['ID']
   )
 cat("BrainAge delta * pTau217 effect:", signif(habs_ptau_effects$ptau.estimate[1], 2), 
     "[", signif(habs_ptau_effects$ptau.lower_ci[1], 2), ",",
@@ -1039,8 +1046,9 @@ habs_tau_effects <- data.frame(
     tau.estimate = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
+    tau.se = (habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"] - habs_tau_standardized[habs_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"])/(2*1.96),
     tau.p_value = habs_tau_results["time_mri:delta:tau_composite", "p-value"],
-    tau.n = lme_habs_tau$dims$ngrps
+    tau.n = lme_habs_tau$dims$ngrps['ID']
   )
 cat("BrainAge delta * Tau-PET effect:", signif(habs_tau_effects$tau.estimate[1], 2), 
     "[", signif(habs_tau_effects$tau.lower_ci[1], 2), ",",
@@ -1189,8 +1197,9 @@ adni_cn_delta_effects <- data.frame(
     delta.estimate = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_high"],
+    delta.se = (adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_high"] - adni_cn_standardized[adni_cn_standardized$Parameter == "time_mri:delta", "CI_low"])/(2*1.96),
     delta.p_value = adni_cn_results["time_mri:delta", "p-value"],
-    delta.n = lme_adni_cn$dims$ngrps
+    delta.n = lme_adni_cn$dims$ngrps['ID']
   )
 cat("Delta effect:", signif(adni_cn_delta_effects$delta.estimate[1], 2), 
     "[", signif(adni_cn_delta_effects$delta.lower_ci[1], 2), ",",
@@ -1313,8 +1322,9 @@ adni_cn_ab_effects <- data.frame(
     ab.estimate = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
+    ab.se = (adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"] - adni_cn_ab_standardized[adni_cn_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"])/(2*1.96),
     ab.p_value = adni_cn_ab_results["time_mri:delta:ab_composite", "p-value"],
-    ab.n = lme_adni_cn_ab$dims$ngrps
+    ab.n = lme_adni_cn_ab$dims$ngrps['ID']
   )
 cat("BrainAge delta * AB effect:", signif(adni_cn_ab_effects$ab.estimate[1], 2), 
     "[", signif(adni_cn_ab_effects$ab.lower_ci[1], 2), ",",
@@ -1424,8 +1434,9 @@ adni_cn_ptau_effects <- data.frame(
     ptau.estimate = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
+    ptau.se = (adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"] - adni_cn_ptau_standardized[adni_cn_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"])/(2*1.96),
     ptau.p_value = adni_cn_ptau_results["time_mri:delta:ptau", "p-value"],
-    ptau.n = lme_adni_cn_ptau$dims$ngrps
+    ptau.n = lme_adni_cn_ptau$dims$ngrps['ID']
   )
 cat("BrainAge delta * pTau217 effect:", signif(adni_cn_ptau_effects$ptau.estimate[1], 2), 
     "[", signif(adni_cn_ptau_effects$ptau.lower_ci[1], 2), ",",
@@ -1536,8 +1547,9 @@ adni_cn_tau_effects <- data.frame(
     tau.estimate = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
+    tau.se = (adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"] - adni_cn_tau_standardized[adni_cn_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"])/(2*1.96),
     tau.p_value = adni_cn_tau_results["time_mri:delta:tau_composite", "p-value"],
-    tau.n = lme_adni_cn_tau$dims$ngrps
+    tau.n = lme_adni_cn_tau$dims$ngrps['ID']
   )
 cat("BrainAge delta * tau217 effect:", signif(adni_cn_tau_effects$tau.estimate[1], 2), 
     "[", signif(adni_cn_tau_effects$tau.lower_ci[1], 2), ",",
@@ -1686,8 +1698,9 @@ adni_mci_delta_effects <- data.frame(
     delta.estimate = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "Std_Coefficient"],
     delta.lower_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_low"],
     delta.upper_ci = adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_high"],
+    delta.se = (adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_high"] - adni_mci_standardized[adni_mci_standardized$Parameter == "time_mri:delta", "CI_low"])/(2*1.96),
     delta.p_value = adni_mci_results["time_mri:delta", "p-value"],
-    delta.n = lme_adni_mci$dims$ngrps
+    delta.n = lme_adni_mci$dims$ngrps['ID']
   )
 cat("Delta effect:", signif(adni_mci_delta_effects$delta.estimate[1], 2), 
     "[", signif(adni_mci_delta_effects$delta.lower_ci[1], 2), ",",
@@ -1809,8 +1822,9 @@ adni_mci_ab_effects <- data.frame(
     ab.estimate = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"],
     ab.lower_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"],
     ab.upper_ci = adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"],
+    ab.se = (adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_high"] - adni_mci_ab_standardized[adni_mci_ab_standardized$Parameter == "time_mri:delta:ab_composite", "CI_low"])/(2*1.96),
     ab.p_value = adni_mci_ab_results["time_mri:delta:ab_composite", "p-value"],
-    ab.n = lme_adni_mci_ab$dims$ngrps
+    ab.n = lme_adni_mci_ab$dims$ngrps['ID']
   )
 cat("BrainAge delta * AB effect:", signif(adni_mci_ab_effects$ab.estimate[1], 2), 
     "[", signif(adni_mci_ab_effects$ab.lower_ci[1], 2), ",",
@@ -1920,8 +1934,9 @@ adni_mci_ptau_effects <- data.frame(
     ptau.estimate = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "Std_Coefficient"],
     ptau.lower_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"],
     ptau.upper_ci = adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"],
+    ptau.se = (adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_high"] - adni_mci_ptau_standardized[adni_mci_ptau_standardized$Parameter == "time_mri:delta:ptau", "CI_low"])/(2*1.96),
     ptau.p_value = adni_mci_ptau_results["time_mri:delta:ptau", "p-value"],
-    ptau.n = lme_adni_mci_ptau$dims$ngrps
+    ptau.n = lme_adni_mci_ptau$dims$ngrps['ID']
   )
 cat("BrainAge delta * pTau217 effect:", signif(adni_mci_ptau_effects$ptau.estimate[1], 2), 
     "[", signif(adni_mci_ptau_effects$ptau.lower_ci[1], 2), ",",
@@ -2032,8 +2047,9 @@ adni_mci_tau_effects <- data.frame(
     tau.estimate = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "Std_Coefficient"],
     tau.lower_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"],
     tau.upper_ci = adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"],
+    tau.se = (adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_high"] - adni_mci_tau_standardized[adni_mci_tau_standardized$Parameter == "time_mri:delta:tau_composite", "CI_low"])/(2*1.96),
     tau.p_value = adni_mci_tau_results["time_mri:delta:tau_composite", "p-value"],
-    tau.n = lme_adni_mci_tau$dims$ngrps
+    tau.n = lme_adni_mci_tau$dims$ngrps['ID']
   )
 cat("BrainAge delta * tau217 effect:", signif(adni_mci_tau_effects$tau.estimate[1], 2), 
     "[", signif(adni_mci_tau_effects$tau.lower_ci[1], 2), ",",
@@ -2139,8 +2155,109 @@ delta_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+# Metaanalysis of all
+delta_model <- rma.uni(
+  yi = delta.estimate, 
+  sei = delta.se, 
+  data = delta_interaction_results,
+  method = "ML", 
+  test = "knha"
+)
+
+delta_sum <- summary(delta_model)
+
+delta_sum_row <- data.frame(
+  model = "All",  # or whatever label you want for this row
+  delta.term = "BrainAge delta",  # specify the appropriate term name
+  delta.estimate = delta_sum$beta,
+  delta.lower_ci = delta_sum$ci.lb,
+  delta.upper_ci = delta_sum$ci.ub,
+  delta.p_value = delta_sum$pval,
+  delta.se = delta_sum$se,
+  delta.n = NA # or specify if you have this value
+)
+
+cat("All Cohorts BrainAge delta effect:", signif(delta_sum$beta, 2), 
+    "[", signif(delta_sum$ci.lb, 2), ",",
+    signif(delta_sum$ci.ub, 2), "]",
+    " p-val:", signif(delta_sum$pval, 2), "\n")
+
+# Delta model CU (A4/LEARN, HABS or ADNI CU)
+delta_cu_model <- rma.uni(
+  yi = delta.estimate, 
+  sei = delta.se, 
+  data = delta_interaction_results %>% filter(model == "ADNI CU" | model == "HABS" | model == "A4/LEARN"),
+  method = "ML",
+  test = "knha"
+)
+
+delta_cu_sum <- summary(delta_cu_model)
+
+delta_cu_sum_row <- data.frame(
+  model = "CU",  # or whatever label you want for this row
+  delta.term = "BrainAge delta",  # specify the appropriate term name
+  delta.estimate = delta_cu_sum$beta,
+  delta.lower_ci = delta_cu_sum$ci.lb,
+  delta.upper_ci = delta_cu_sum$ci.ub,
+  delta.p_value = delta_cu_sum$pval,
+  delta.se = delta_cu_sum$se,
+  delta.n = NA  # or specify if you have this value
+)
+
+cat("CU Cohorts BrainAge delta effect:", signif(delta_cu_sum$beta, 2), 
+    "[", signif(delta_cu_sum$ci.lb, 2), ",",
+    signif(delta_cu_sum$ci.ub, 2), "]",
+    " p-val:", signif(delta_cu_sum$pval, 2), "\n")
+
+# Add to dataframe
+delta_interaction_results <- rbind(
+  delta_interaction_results,
+  delta_cu_sum_row,
+  delta_sum_row
+)
+
+delta_interaction_results$model <- factor(
+  delta_interaction_results$model, 
+  levels = c("All", "CU", "ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")
+)
+
+delta_interaction_results <- delta_interaction_results |>
+  mutate(
+    label_text = if_else(
+      row_number() %in% (n() - 1):n(),  # last two rows
+      sprintf("p = %.2g", delta.p_value),
+      sprintf("p = %.2g, N = %d", delta.p_value, delta.n)
+    )
+  )
+
+# Insert spacer row after the 2nd row
+spacer_row <- tibble(
+  model = " ",  # dummy label for spacing
+  delta.estimate = NA_real_,
+  delta.lower_ci = NA_real_,
+  delta.upper_ci = NA_real_,
+  delta.p_value = NA_real_,
+  delta.n = NA_integer_,
+  label_text = NA_character_
+)
+
+# Bind with spacer inserted between 2nd and 3rd rows
+delta_plot_data <- bind_rows(
+  delta_interaction_results[1:4, ],
+  spacer_row,
+  delta_interaction_results[5:nrow(delta_interaction_results), ]
+)
+
+# Ensure model is a factor and preserve order
+delta_plot_data <- delta_plot_data |>
+  mutate(model = factor(model, levels = rev(unique(model))))
+
+```
+
+```{r}
+
 # Create the forest plot
-forest_plot <- ggplot(delta_interaction_results, aes(x = delta.estimate, y = model)) +
+forest_plot <- ggplot(delta_plot_data, aes(x = delta.estimate, y = model)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = delta.lower_ci, xmax = delta.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
@@ -2150,12 +2267,17 @@ forest_plot <- ggplot(delta_interaction_results, aes(x = delta.estimate, y = mod
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = delta.estimate, 
-              label = sprintf("p = %.2g, N = %d", delta.p_value, delta.n)),
+  geom_text(aes(label = label_text),
           vjust = 2.5, size = 7 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
-  scale_x_continuous(limits = c(-0.5, 0.2))
+  scale_x_continuous(limits = c(-0.5, 0.2))  +
+  annotate(
+    "segment",
+    x = -0.5, xend = 0.2,
+    y = 3, yend = 3,  # between the 4th and 5th if reversed order
+    size = 0.5, color = "blue"
+  )
 
 # Print the plot
 print(forest_plot)
@@ -2186,8 +2308,107 @@ ab_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+# Metaanalysis of all
+ab_model <- rma.uni(
+  yi = ab.estimate, 
+  sei = ab.se, 
+  data = ab_interaction_results,
+  method = "ML", 
+  test = "knha"
+)
+
+ab_sum <- summary(ab_model)
+
+ab_sum_row <- data.frame(
+  model = "All",  # or whatever label you want for this row
+  ab.term = "BrainAge AB-PET",  # specify the appropriate term name
+  ab.estimate = ab_sum$beta,
+  ab.lower_ci = ab_sum$ci.lb,
+  ab.upper_ci = ab_sum$ci.ub,
+  ab.p_value = ab_sum$pval,
+  ab.se = ab_sum$se,
+  ab.n = NA # or specify if you have this value
+)
+
+cat("All Cohorts BrainAge AB-PET effect:", signif(ab_sum$beta, 2), 
+    "[", signif(ab_sum$ci.lb, 2), ",",
+    signif(ab_sum$ci.ub, 2), "]",
+    " p-val:", signif(ab_sum$pval, 2), "\n")
+
+# AB model CU (A4/LEARN, HABS or ADNI CU)
+ab_cu_model <- rma.uni(
+  yi = ab.estimate, 
+  sei = ab.se, 
+  data = ab_interaction_results %>% filter(model == "ADNI CU" | model == "HABS" | model == "A4/LEARN"),
+  method = "ML",
+  test = "knha"
+)
+
+ab_cu_sum <- summary(ab_cu_model)
+
+ab_cu_sum_row <- data.frame(
+  model = "CU",  # or whatever label you want for this row
+  ab.term = "BrainAge AB-PET",  # specify the appropriate term name
+  ab.estimate = ab_cu_sum$beta,
+  ab.lower_ci = ab_cu_sum$ci.lb,
+  ab.upper_ci = ab_cu_sum$ci.ub,
+  ab.p_value = ab_cu_sum$pval,
+  ab.se = ab_cu_sum$se,
+  ab.n = NA  # or specify if you have this value
+)
+
+cat("CU Cohorts BrainAge AB-PET effect:", signif(ab_cu_sum$beta, 2), 
+    "[", signif(ab_cu_sum$ci.lb, 2), ",",
+    signif(ab_cu_sum$ci.ub, 2), "]",
+    " p-val:", signif(ab_cu_sum$pval, 2), "\n")
+
+# Add to dataframe
+ab_interaction_results <- rbind(
+  ab_interaction_results,
+  ab_cu_sum_row,
+  ab_sum_row
+)
+
+ab_interaction_results$model <- factor(
+  ab_interaction_results$model, 
+  levels = c("All", "CU", "ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")
+)
+
+ab_interaction_results <- ab_interaction_results |>
+  mutate(
+    label_text = if_else(
+      row_number() %in% (n() - 1):n(),  # last two rows
+      sprintf("p = %.2g", ab.p_value),
+      sprintf("p = %.2g, N = %d", ab.p_value, ab.n)
+    )
+  )
+
+# Insert spacer row after the 2nd row
+spacer_row <- tibble(
+  model = " ",  # dummy label for spacing
+  ab.estimate = NA_real_,
+  ab.lower_ci = NA_real_,
+  ab.upper_ci = NA_real_,
+  ab.p_value = NA_real_,
+  ab.n = NA_integer_,
+  label_text = NA_character_
+)
+
+# Bind with spacer inserted between 2nd and 3rd rows
+ab_plot_data <- bind_rows(
+  ab_interaction_results[1:4, ],
+  spacer_row,
+  ab_interaction_results[5:nrow(ab_interaction_results), ]
+)
+
+# Ensure model is a factor and preserve order
+ab_plot_data <- ab_plot_data |>
+  mutate(model = factor(model, levels = rev(unique(model))))
+```
+
+```{r}
 # Create the forest plot
-forest_plot <- ggplot(ab_interaction_results, aes(x = ab.estimate, y = model)) +
+forest_plot <- ggplot(ab_plot_data, aes(x = ab.estimate, y = model)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = ab.lower_ci, xmax = ab.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
@@ -2197,13 +2418,17 @@ forest_plot <- ggplot(ab_interaction_results, aes(x = ab.estimate, y = model)) +
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = ab.estimate, 
-              label = sprintf("p = %.2g, N = %d", ab.p_value, ab.n)),
+  geom_text(aes(label = label_text),
           vjust = 2.5, size = 7 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
-  
-  scale_x_continuous(limits = c(-0.5, 0.2))
+  scale_x_continuous(limits = c(-0.5, 0.2)) +
+  annotate(
+    "segment",
+    x = -0.5, xend = 0.2,
+    y = 3, yend = 3,  # between the 4th and 5th if reversed order
+    size = 0.5, color = "blue"
+  )
 
 # Print the plot
 print(forest_plot)
@@ -2235,9 +2460,107 @@ ptau_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+# Metaanalysis of all
+ptau_model <- rma.uni(
+  yi = ptau.estimate, 
+  sei = ptau.se, 
+  data = ptau_interaction_results,
+  method = "ML", 
+  test = "knha"
+)
 
+ptau_sum <- summary(ptau_model)
+
+ptau_sum_row <- data.frame(
+  model = "All",  # or whatever label you want for this row
+  ptau.term = "BrainAge pTau217",  # specify the appropriate term name
+  ptau.estimate = ptau_sum$beta,
+  ptau.lower_ci = ptau_sum$ci.lb,
+  ptau.upper_ci = ptau_sum$ci.ub,
+  ptau.p_value = ptau_sum$pval,
+  ptau.se = ptau_sum$se,
+  ptau.n = NA # or specify if you have this value
+)
+
+cat("All Cohorts BrainAge pTau217 effect:", signif(ptau_sum$beta, 2), 
+    "[", signif(ptau_sum$ci.lb, 2), ",",
+    signif(ptau_sum$ci.ub, 2), "]",
+    " p-val:", signif(ptau_sum$pval, 2), "\n")
+
+# pTau model CU (A4/LEARN, HABS or ADNI CU)
+ptau_cu_model <- rma.uni(
+  yi = ptau.estimate, 
+  sei = ptau.se, 
+  data = ptau_interaction_results %>% filter(model == "ADNI CU" | model == "HABS" | model == "A4/LEARN"),
+  method = "ML",
+  test = "knha"
+)
+
+ptau_cu_sum <- summary(ptau_cu_model)
+
+ptau_cu_sum_row <- data.frame(
+  model = "CU",  # or whatever label you want for this row
+  ptau.term = "BrainAge pTau217",  # specify the appropriate term name
+  ptau.estimate = ptau_cu_sum$beta,
+  ptau.lower_ci = ptau_cu_sum$ci.lb,
+  ptau.upper_ci = ptau_cu_sum$ci.ub,
+  ptau.p_value = ptau_cu_sum$pval,
+  ptau.se = ptau_cu_sum$se,
+  ptau.n = NA  # or specify if you have this value
+)
+
+cat("CU Cohorts BrainAge pTau217 effect:", signif(ptau_cu_sum$beta, 2), 
+    "[", signif(ptau_cu_sum$ci.lb, 2), ",",
+    signif(ptau_cu_sum$ci.ub, 2), "]",
+    " p-val:", signif(ptau_cu_sum$pval, 2), "\n")
+
+# Add to dataframe
+ptau_interaction_results <- rbind(
+  ptau_interaction_results,
+  ptau_cu_sum_row,
+  ptau_sum_row
+)
+
+ptau_interaction_results$model <- factor(
+  ptau_interaction_results$model, 
+  levels = c("All", "CU", "ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")
+)
+
+ptau_interaction_results <- ptau_interaction_results |>
+  mutate(
+    label_text = if_else(
+      row_number() %in% (n() - 1):n(),  # last two rows
+      sprintf("p = %.2g", ptau.p_value),
+      sprintf("p = %.2g, N = %d", ptau.p_value, ptau.n)
+    )
+  )
+
+# Insert spacer row after the 2nd row
+spacer_row <- tibble(
+  model = " ",  # dummy label for spacing
+  ptau.estimate = NA_real_,
+  ptau.lower_ci = NA_real_,
+  ptau.upper_ci = NA_real_,
+  ptau.p_value = NA_real_,
+  ptau.n = NA_integer_,
+  label_text = NA_character_
+)
+
+# Bind with spacer inserted between 2nd and 3rd rows
+ptau_plot_data <- bind_rows(
+  ptau_interaction_results[1:4, ],
+  spacer_row,
+  ptau_interaction_results[5:nrow(ptau_interaction_results), ]
+)
+
+# Ensure model is a factor and preserve order
+ptau_plot_data <- ptau_plot_data |>
+  mutate(model = factor(model, levels = rev(unique(model))))
+```
+
+```{r}
 # Create the forest plot
-forest_plot <- ggplot(ptau_interaction_results, aes(x = ptau.estimate, y = model)) +
+forest_plot <- ggplot(ptau_plot_data, aes(x = ptau.estimate, y = model)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = ptau.lower_ci, xmax = ptau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
@@ -2247,12 +2570,17 @@ forest_plot <- ggplot(ptau_interaction_results, aes(x = ptau.estimate, y = model
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = ptau.estimate, 
-              label = sprintf("p = %.2g, N = %d", ptau.p_value, ptau.n)),
+  geom_text(aes(label = label_text),
           vjust = 2.5, size = 7 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
-  scale_x_continuous(limits = c(-0.5, 0.2))
+  scale_x_continuous(limits = c(-0.5, 0.2)) +
+  annotate(
+    "segment",
+    x = -0.5, xend = 0.2,
+    y = 3, yend = 3,  # between the 4th and 5th if reversed order
+    size = 0.5, color = "blue"
+  )
 
 # Print the plot
 print(forest_plot)
@@ -2283,8 +2611,107 @@ tau_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+# Metaanalysis of all
+tau_model <- rma.uni(
+  yi = tau.estimate, 
+  sei = tau.se, 
+  data = tau_interaction_results,
+  method = "ML", 
+  test = "knha"
+)
+
+tau_sum <- summary(tau_model)
+
+tau_sum_row <- data.frame(
+  model = "All",  # or whatever label you want for this row
+  tau.term = "BrainAge Tau-PET",  # specify the appropriate term name
+  tau.estimate = tau_sum$beta,
+  tau.lower_ci = tau_sum$ci.lb,
+  tau.upper_ci = tau_sum$ci.ub,
+  tau.p_value = tau_sum$pval,
+  tau.se = tau_sum$se,
+  tau.n = NA # or specify if you have this value
+)
+
+cat("All Cohorts BrainAge Tau-PET effect:", signif(tau_sum$beta, 2), 
+    "[", signif(tau_sum$ci.lb, 2), ",",
+    signif(tau_sum$ci.ub, 2), "]",
+    " p-val:", signif(tau_sum$pval, 2), "\n")
+
+# Tau model CU (A4/LEARN, HABS or ADNI CU)
+tau_cu_model <- rma.uni(
+  yi = tau.estimate, 
+  sei = tau.se, 
+  data = tau_interaction_results %>% filter(model == "ADNI CU" | model == "HABS" | model == "A4/LEARN"),
+  method = "ML",
+  test = "knha"
+)
+
+tau_cu_sum <- summary(tau_cu_model)
+
+tau_cu_sum_row <- data.frame(
+  model = "CU",  # or whatever label you want for this row
+  tau.term = "BrainAge Tau-PET",  # specify the appropriate term name
+  tau.estimate = tau_cu_sum$beta,
+  tau.lower_ci = tau_cu_sum$ci.lb,
+  tau.upper_ci = tau_cu_sum$ci.ub,
+  tau.p_value = tau_cu_sum$pval,
+  tau.se = tau_cu_sum$se,
+  tau.n = NA  # or specify if you have this value
+)
+
+cat("CU Cohorts BrainAge Tau-PET effect:", signif(tau_cu_sum$beta, 2), 
+    "[", signif(tau_cu_sum$ci.lb, 2), ",",
+    signif(tau_cu_sum$ci.ub, 2), "]",
+    " p-val:", signif(tau_cu_sum$pval, 2), "\n")
+
+# Add to dataframe
+tau_interaction_results <- rbind(
+  tau_interaction_results,
+  tau_cu_sum_row,
+  tau_sum_row
+)
+
+tau_interaction_results$model <- factor(
+  tau_interaction_results$model, 
+  levels = c("All", "CU", "ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")
+)
+
+tau_interaction_results <- tau_interaction_results |>
+  mutate(
+    label_text = if_else(
+      row_number() %in% (n() - 1):n(),  # last two rows
+      sprintf("p = %.2g", tau.p_value),
+      sprintf("p = %.2g, N = %d", tau.p_value, tau.n)
+    )
+  )
+
+# Insert spacer row after the 2nd row
+spacer_row <- tibble(
+  model = " ",  # dummy label for spacing
+  tau.estimate = NA_real_,
+  tau.lower_ci = NA_real_,
+  tau.upper_ci = NA_real_,
+  tau.p_value = NA_real_,
+  tau.n = NA_integer_,
+  label_text = NA_character_
+)
+
+# Bind with spacer inserted between 2nd and 3rd rows
+tau_plot_data <- bind_rows(
+  tau_interaction_results[1:4, ],
+  spacer_row,
+  tau_interaction_results[5:nrow(tau_interaction_results), ]
+)
+
+# Ensure model is a factor and preserve order
+tau_plot_data <- tau_plot_data |>
+  mutate(model = factor(model, levels = rev(unique(model))))
+```
+
+```{r}
 # Create the forest plot
-forest_plot <- ggplot(tau_interaction_results, aes(x = tau.estimate, y = model)) +
+forest_plot <- ggplot(tau_plot_data, aes(x = tau.estimate, y = model)) +
   geom_point(size = 3) +
   geom_errorbarh(aes(xmin = tau.lower_ci, xmax = tau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
@@ -2294,12 +2721,17 @@ forest_plot <- ggplot(tau_interaction_results, aes(x = tau.estimate, y = model))
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
-  geom_text(aes(x = tau.estimate, 
-              label = sprintf("p = %.2g, N = %d", tau.p_value, tau.n)),
+  geom_text(aes(label = label_text),
           vjust = 2.5, size = 7 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
-  scale_x_continuous(limits = c(-0.5, 0.2))
+  scale_x_continuous(limits = c(-0.5, 0.2)) +
+  annotate(
+    "segment",
+    x = -0.5, xend = 0.2,
+    y = 3, yend = 3,  # between the 4th and 5th if reversed order
+    size = 0.5, color = "blue"
+  )
 
 # Print the plot
 print(forest_plot)
