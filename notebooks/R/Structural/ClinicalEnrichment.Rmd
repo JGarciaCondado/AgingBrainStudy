@@ -15,7 +15,11 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot);library(longpower);library(ggeffects)
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot);library(longpower);library(ggeffects);library(emmeans);library(gridExtra)
+
+# Set global options
+emm_options(lmerTest.limit = 15872)
+emm_options(pbkrtest.limit = 15872)
 
 # Load cost of clinical trial
 source('~/Documents/Projects/AgingBrainStudy/scripts/calculate_drug_trial_costs.R')
@@ -236,15 +240,17 @@ cat("Treatment cost: ", cost_adni_median$treatment_cost, "\n")
 
 # A4
 
+Looking at AB+ with placebo treatment in the A4 trial. We will look at the PACC outcome.
+
 ```{r}
 # Load A4 data
 data_a4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/longitudinal.csv')
 
 # Placebo data
 data_placebo <- data_a4 %>% 
-  filter(cohort == 'A4 Placebo') %>% # Filter only with placebo
-  filter(ab_status == 'ab+') %>% # Only placebo
-  filter(VISCODE <= 60) # Only before the first 5 years
+  filter(cohort == 'A4 Placebo') %>% # Only placebo
+  filter(!is.na(PACC)) %>%
+  filter(VISCODE <= 60) # Only before the first 4 years
 
 # Extract those with delta_all above median
 data_a4_median <- data_placebo %>% 
@@ -266,13 +272,14 @@ Simple linear mixed effects model with random intercept and slope for each parti
 
 ```{r}
 # Create model
-lmm_a4_all <-lmer(as.formula(paste(outcome, "~time_mri + LMSTORY + (1 + time_mri | ID)")), data = data_placebo)
+
+lmm_a4_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + (1 + time_mri | ID)")), data = data_placebo)
 
 # Plot model
 a4_all_p <- plot(ggpredict(lmm_a4_all, terms = c("time_mri [all]"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
-  scale_y_continuous(limits = c(-1, 1)) +
+  scale_y_continuous(limits = c(-1.5, 1)) +
   labs(
     title = "",
     y = "PACC",
@@ -299,13 +306,13 @@ ggsave(paste(path, 'lme_a4_all.png'), a4_all_p,
 
 ```{r}
 # Create model
-lmm_a4_median <-lmer(as.formula(paste(outcome, "~time_mri + LMSTORY + (1 + time_mri | ID)")), data = data_a4_median)
+lmm_a4_median <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + (1 + time_mri | ID)")), data = data_a4_median)
 
 # Plot model
 a4_median_p <- plot(ggpredict(lmm_a4_median, terms = c("time_mri [all]"))) +
   theme_minimal() +
   scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
-  scale_y_continuous(limits = c(-1, 1)) +
+  scale_y_continuous(limits = c(-1.5, 1)) +
   labs(
     title = "",
     y = "PACC",
@@ -330,18 +337,28 @@ ggsave(paste(path, 'lme_a4_median.png'), a4_median_p,
 
 ## Sample and power caclulations {.tabset}
 
-Trial duration is 5 years with follow ups every 6 months.
+Trial duration is 4 years with follow ups every 6 months.
 
 ```{r}
 # Set parameters for A4 5 years
-t_visits_a4 = seq(0, 5, 0.5)
+trial_time = 4 # years
+n_visit_per_year = 2 
+t_visits_a4 = seq(0, trial_time, 1/n_visit_per_year)
 ```
 
 ### All
 
 ```{r}
-# calculate power / sample size using longpower package
-pwr_all_a4 <- lmmpower(lmm_a4_all, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+# First calculate linear slope of change from baseline to trial end
+pacc_baseline_all<- fixef(lmm_a4_median)["(Intercept)"]
+pacc_end_trial_all <- summary(emmeans(lmm_a4_all, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_all <- (pacc_end_trial_all - pacc_baseline_all) / trial_time
+
+# Calculate treatment effect
+effect_all = delta_change_per_year_all * treatment_eff
+
+# Power calculation
+pwr_all_a4 <- lmmpower(lmm_a4_all, delta = effect_all, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
 
 # Print number of subjects
 n_a4_all <- pwr_all_a4$N
@@ -351,8 +368,16 @@ cat("Number of participants required for clinical trial: ", n_a4_all, "\n")
 ### Median
 
 ```{r}
-# calculate power / sample size using longpower package
-pwr_median_a4 <- lmmpower(lmm_a4_median, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+# First calculate linear slope of change from baseline to trial end
+pacc_baseline_median <- fixef(lmm_a4_median)["(Intercept)"]
+pacc_end_trial_median <- summary(emmeans(lmm_a4_median, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_median <- (pacc_end_trial_median - pacc_baseline_median) / trial_time
+
+# Calculate treatment effect
+effect_median = delta_change_per_year_median * treatment_eff
+
+# Power calculation
+pwr_median_a4 <- lmmpower(lmm_a4_median, delta = effect_median, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
 
 # Print number of subjects
 n_a4_median <- pwr_median_a4$N
@@ -373,9 +398,7 @@ cat("MRI pass rate: ", mri_pass_rate_median, "\n")
 # Obtain subjects with ptau217 data
 data_a4_ptau217 <- data_a4 %>% 
   filter(!is.na(ptau)) %>% # Have ptau217
-  # filter(ab_status == 'ab+') %>% # Have ab+
   filter(VISCODE <= 60) # Only before the first 5 years
-
 n_a4_ptau217_participants <- length(unique(data_a4_ptau217$ID))
 
 # Obtain baseline data by grouping by ID, ordering by viscode and selecting firtst row
@@ -388,7 +411,6 @@ data_a4_ptau217_baseline <- data_a4_ptau217 %>%
 # Find quantiles for pTau217
 ptau217_quantiles <- quantile(data_a4_ptau217_baseline$ptau, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
 delta_quantiles <- quantile(data_a4_ptau217_baseline$delta, probs = c(0.0, 0.25, 0.5, 0.75), na.rm = TRUE)
-
 ```
 
 ```{r}
@@ -399,11 +421,23 @@ sig_level = 0.05
 n = NULL
 method = 'edland'
 outcome = 'PACC'
-t_visits_a4 = seq(0, 4, 0.5)
+trial_time = 4 # years
+n_visit_per_year = 2 
+t_visits_a4 = seq(0, trial_time, 1/n_visit_per_year)
 
 # Standard trail
-lme_ptau_all <-lmer(as.formula(paste(outcome, "~ time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort +  (1 + time_mri | ID)")), data = data_a4_ptau217)
-pwr_ptau_all <- lmmpower(lme_ptau_all, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+lme_ptau_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort +  (1 + time_mri | ID)")), data = data_a4_ptau217)
+
+# Calculate baseline and end trial values
+pacc_baseline_ptau_all <- fixef(lme_ptau_all)["(Intercept)"]
+pacc_end_trial_ptau_all <- summary(emmeans(lme_ptau_all, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_ptau_all <- (pacc_end_trial_ptau_all - pacc_baseline_ptau_all) / trial_time
+
+# Calculate treatment effect
+effect_ptau_all = delta_change_per_year_ptau_all * treatment_eff
+
+# Calculate power / sample size using longpower package
+pwr_ptau_all <- lmmpower(lme_ptau_all, delta = effect_ptau_all, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
 n_a4_ptau_all <- pwr_ptau_all$N
 ```
 
@@ -436,10 +470,18 @@ for (ptau_quantile in ptau217_quantiles) {
       filter(ptau >= ptau_quantile, delta >= delta_quantile)
     
     # Model
-    lme_ptau <- lmer(as.formula(paste(outcome, "~time_mri + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
+    lme_ptau <- lmer(as.formula(paste(outcome, "~  I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
+    
+    # Calculate baseline and end trial values
+    pacc_baseline_ptau <- fixef(lme_ptau)["(Intercept)"]
+    pacc_end_trial_ptau <- summary(emmeans(lme_ptau, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+    delta_change_per_year_ptau <- (pacc_end_trial_ptau - pacc_baseline_ptau) / trial_time
+    
+    # Calculate treatment effect
+    effect_ptau = delta_change_per_year_ptau * treatment_eff
     
     # Calculate power / sample size
-    pwr_ptau <- lmmpower(lme_ptau, pct.change = treatment_eff, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+    pwr_ptau <- lmmpower(lme_ptau, delta = effect_ptau, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
     n_a4_ptau <- pwr_ptau$N
     n_percentage <- n_a4_ptau / n_a4_ptau_all * 100
     
@@ -557,9 +599,9 @@ ptau_threshold_q4 <- ptau217_quantiles[3]
 panel_data_q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q4)
 p3 <- ct_plot(panel_data_q4, "Plasma p-tau217\nQ4")
 
-# Combine all three plots
-library(gridExtra)
-final_plot <- grid.arrange(p1, p2, p3, ncol = 3)
+# Combine all plots into one figure
+final_plot <- arrangeGrob(p1, p2, p3, ncol = 3)
+
 # Add legend manually (since we have custom colors and lines)
 legend_plot <- ggplot() +
   geom_line(aes(x = c(1,2), y = c(1,1)), color = "red", size = 1.2) +
@@ -572,5 +614,4 @@ legend_plot <- ggplot() +
 
 # Display the final plot with legend
 grid.arrange(final_plot, legend_plot, heights = c(4, 0.5))
-print(final_plot)
 ```
