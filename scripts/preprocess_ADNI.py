@@ -22,6 +22,8 @@ df_baseline = df_baseline[df_baseline.index.isin(long_ids)]
 # Extract followup time of subjects from longitudinal data
 max_followup = df_long.groupby('ID')['MonthsFromBaseline_raw'].max().to_dict()
 df_baseline['follow_up_time'] = df_baseline.index.map(max_followup)/12
+# Remove any subjects with follow-up time less than 0.5 years
+df_baseline = df_baseline[df_baseline['follow_up_time'] >= 0.5]
 
 # Only keep subjects that have MRI and Amyloid measures
 df_baseline = df_baseline[(df_baseline['SUMMARY_SUVR_AMYLOID'].notna()) & (df_baseline['MRI_Age'].notna())]
