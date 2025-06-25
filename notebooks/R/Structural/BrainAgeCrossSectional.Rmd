@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot)
+library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot);library(lm.beta);library(metafor)
 
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/crossectional/'
@@ -177,6 +177,9 @@ pacc_analysis = regression_analysis(cn_data,
 # Plot results
 pacc_analysis$scatter_plot
 
+# Store pacc analysis
+a4_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
                                 'PACC_mri', 
@@ -211,6 +214,9 @@ ab_analysis = regression_analysis(cn_data,
 
 # Plot results
 ab_analysis$scatter_plot
+
+# Save standrdized results
+a4_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -247,6 +253,9 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 # Plot results
 ptau_analysis$scatter_plot
 
+# Save standardized results
+a4_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
                               'ptau', 
@@ -280,6 +289,9 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 
 # Plot results
 tau_analysis$scatter_plot
+
+# Save standardized results
+a4_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -439,6 +451,9 @@ pacc_analysis = regression_analysis(cn_data,
 # Plot results
 pacc_analysis$scatter_plot
 
+# Store pacc analysis
+habs_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
                                 'PACC_mri', 
@@ -473,6 +488,9 @@ ab_analysis = regression_analysis(cn_data,
 
 # Plot results
 ab_analysis$scatter_plot
+
+# Save standrdized results
+habs_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -509,6 +527,9 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 # Plot results
 ptau_analysis$scatter_plot
 
+# Save standardized results
+habs_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
                               'ptau', 
@@ -543,6 +564,9 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 
 # Plot results
 tau_analysis$scatter_plot
+
+# Save standardized results
+habs_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -706,6 +730,9 @@ pacc_analysis = regression_analysis(cn_data,
 # Plot results
 pacc_analysis$scatter_plot
 
+# Store pacc analysis
+adni_cu_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
                                 'PACC_mri', 
@@ -740,6 +767,9 @@ ab_analysis = regression_analysis(cn_data,
 
 # Plot results
 ab_analysis$scatter_plot
+
+# Save standrdized results
+adni_cu_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -776,6 +806,9 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 # Plot results
 ptau_analysis$scatter_plot
 
+# Save standardized results
+adni_cu_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
                               'ptau', 
@@ -810,6 +843,9 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 
 # Plot results
 tau_analysis$scatter_plot
+
+# Save standardized results
+adni_cu_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -987,6 +1023,9 @@ pacc_analysis = regression_analysis(mci_data,
 # Plot results
 pacc_analysis$scatter_plot
 
+# Store pacc analysis
+adni_mci_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+
 # Time sensitivity analysis
 pacc_sens = regression_analysis(mci_data[mci_data$time_diff_pacc <=1 & mci_data$time_diff_pacc >=-1,],
                                 'PACC_mri', 
@@ -1022,6 +1061,9 @@ ab_analysis = regression_analysis(mci_data,
 # Plot results
 ab_analysis$scatter_plot
 
+# Save standrdized results
+adni_mci_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
+
 # Time sensitivity analysis
 ab_sens = regression_analysis(mci_data[mci_data$time_diff_ab <=1 & mci_data$time_diff_ab >=-1,],
                               'ab_composite', 
@@ -1055,6 +1097,9 @@ ptau_analysis = regression_analysis(mci_data[mci_data$exploratory == 1,],
 
 # Plot results
 ptau_analysis$scatter_plot
+
+# Save standardized results
+adni_mci_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
 
 # Time sensitivity analysis
 ptau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$time_diff_ptau <=1 & mci_data$time_diff_ptau >=-1,],
@@ -1091,6 +1136,9 @@ tau_analysis = regression_analysis(mci_data[mci_data$exploratory == 1,],
 # Plot results
 tau_analysis$scatter_plot
 
+# Save standardized results
+adni_mci_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
+
 # Time sensitivity analysis
 tau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$time_diff_tau <=1 & mci_data$time_diff_tau >=-1,],
                               'tau_composite', 
@@ -1112,4 +1160,134 @@ ggsave(paste(path, 'tau_adni_mci.png'), tau_analysis$scatter_plot,
        width = 50, height = 36, units = "mm", 
        dpi = 500,     # Higher resolution
        scale = 1) 
+```
+
+# Meta-analysis
+
+## PACC
+
+```{r}
+# Define model names and corresponding summary objects
+pacc_models <- list(
+  "A4/LEARN" = a4_pacc_standrdized,
+  "HABS" = habs_pacc_standrdized,
+  "ADNI CU" = adni_cu_pacc_standrdized,
+  "ADNI MCI" = adni_mci_pacc_standrdized
+)
+
+# Create the combined data frame
+pacc_results <- do.call(rbind, lapply(names(pacc_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = pacc_models[[name]]$coefficients["delta", "Standardized"],
+    se = pacc_models[[name]]$coefficients["delta", "Std. Error"],
+    pval = pacc_models[[name]]$coefficients["delta", "Pr(>|t|)"]
+  )
+}))
+
+# PACC meta-analysis ALL
+pacc_all <- rma(yi = estimate, sei = se, data = pacc_results, method = "ML", test = "knha")
+cat("PACC All:", pacc_all$beta, "(", pacc_all$pval, ") \n")
+
+# PACC meta-analysis CU
+pacc_cu <- rma(yi = estimate, sei = se, data = pacc_results[pacc_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("PACC CU:", pacc_cu$beta, "(", pacc_cu$pval, ") \n")
+
+print(pacc_results)
+```
+
+## AB
+
+```{r}
+# Define model names and corresponding summary objects
+ab_models <- list(
+  "A4/LEARN" = a4_ab_standrdized,
+  "HABS" = habs_ab_standrdized,
+  "ADNI CU" = adni_cu_ab_standrdized,
+  "ADNI MCI" = adni_mci_ab_standrdized
+)
+
+# Create the combined data frame
+ab_results <- do.call(rbind, lapply(names(ab_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = ab_models[[name]]$coefficients["delta", "Standardized"],
+    se = ab_models[[name]]$coefficients["delta", "Std. Error"]
+  )
+}))
+
+# AB meta-analysis ALL
+ab_all <- rma(yi = estimate, sei = se, data = ab_results, method = "ML", test = "knha")
+cat("AB All:", ab_all$beta, "(", ab_all$pval, ") \n")
+
+# AB meta-analysis CU
+ab_cu <- rma(yi = estimate, sei = se, data = ab_results[ab_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("AB CU:", ab_cu$beta, "(", ab_cu$pval, ") \n")
+
+# AB meta-analysis MCI
+ab_mci <- rma(yi = estimate, sei = se, data = ab_results[ab_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
+cat("AB MCI:", ab_mci$beta, "(", ab_mci$pval, ") \n")
+```
+
+## pTau217
+```{r}
+# Define model names and corresponding summary objects
+ptau_models <- list(
+  "A4/LEARN" = a4_ptau_standrdized,
+  "HABS" = habs_ptau_standrdized,
+  "ADNI CU" = adni_cu_ptau_standrdized,
+  "ADNI MCI" = adni_mci_ptau_standrdized
+)
+
+# Create the combined data frame
+ptau_results <- do.call(rbind, lapply(names(ptau_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = ptau_models[[name]]$coefficients["delta", "Standardized"],
+    se = ptau_models[[name]]$coefficients["delta", "Std. Error"]
+  )
+}))
+
+print(ptau_results)
+
+# pTau217 meta-analysis ALL
+ptau_all <- rma(yi = estimate, sei = se, data = ptau_results, method = "ML", test = "knha")
+cat("pTau217 All:", ptau_all$beta, "(", ptau_all$pval, ") \n")
+# pTau217 meta-analysis CU
+ptau_cu <- rma(yi = estimate, sei = se, data = ptau_results[ptau_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("pTau217 CU:", ptau_cu$beta, "(", ptau_cu$pval, ") \n")
+# pTau217 meta-analysis MCI
+ptau_mci <- rma(yi = estimate, sei = se, data = ptau_results[ptau_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
+cat("pTau217 MCI:", ptau_mci$beta, "(", ptau_mci$pval, ") \n")
+```
+
+## Tau
+
+```{r}
+# Define model names and corresponding summary objects
+tau_models <- list(
+  "A4/LEARN" = a4_tau_standrdized,
+  "HABS" = habs_tau_standrdized,
+  "ADNI CU" = adni_cu_tau_standrdized,
+  "ADNI MCI" = adni_mci_tau_standrdized
+)
+
+# Create the combined data frame
+tau_results <- do.call(rbind, lapply(names(tau_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = tau_models[[name]]$coefficients["delta", "Standardized"],
+    se = tau_models[[name]]$coefficients["delta", "Std. Error"]
+  )
+}))
+
+# Tau meta-analysis ALL
+tau_all <- rma(yi = estimate, sei = se, data = tau_results, method = "ML", test = "knha")
+cat("Tau All:", tau_all$beta, "(", tau_all$pval, ") \n")
+# Tau meta-analysis CU
+tau_cu <- rma(yi = estimate, sei = se, data = tau_results[tau_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("Tau CU:", tau_cu$beta, "(", tau_cu$pval, ") \n")
+# Tau meta-analysis MCI
+tau_mci <- rma(yi = estimate, sei = se, data = tau_results[tau_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
+cat("Tau MCI:", tau_mci$beta, "(", tau_mci$pval, ") \n")
 ```
