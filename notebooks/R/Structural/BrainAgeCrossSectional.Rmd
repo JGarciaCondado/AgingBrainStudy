@@ -14,7 +14,7 @@ knit: (
 ---
 
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
-library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot);library(lm.beta);library(metafor)
+library(ggplot2); library(ggpubr); library(dplyr); library(sjPlot);library(metafor)
 
 # Save path
 path <- '~/Documents/Projects/AgingBrainStudy/figures/crossectional/'
@@ -55,6 +55,19 @@ baseline <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/process
 
 # Merge data
 cn_data <- merge(deltas[, c('ID', 'delta')], baseline, by = 'ID')
+
+# Standardize data
+cn_data_std <- cn_data %>%
+  mutate(
+    delta = scale(delta),
+    e4_carrier = ifelse(e4_carrier == 'e4+', 1, 0),
+    sex = ifelse(sex == 'Female', 1, 0),
+    ab_status = ifelse(ab_status == 'ab+', 1, 0),
+    ab_composite = scale(ab_composite),
+    ptau = scale(ptau),
+    tau_composite = scale(tau_composite),
+  )
+
 ```
 
 ```{r}
@@ -72,6 +85,10 @@ cat("Delta std:", sqrt(var(cn_data$delta)), "\n")
 # Compute group means and their difference
 delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(cn_data, !is.na(e4_carrier)), mean)$delta))
 p_val_e4 <- t.test(delta ~ e4_carrier, data = cn_data)$p.value
+
+# Logistic regression
+a4_model_e4 <- glm(e4_carrier ~ delta, data = cn_data_std, family = binomial)
+a4_e4_standrdized <- summary(a4_model_e4)
 
 # Plot
 ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
@@ -106,6 +123,10 @@ ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
 delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(cn_data, !is.na(ab_status)), mean)$delta))
 p_val_ab <- t.test(delta ~ ab_status, data = cn_data)$p.value
 
+# Logistic regression
+a4_model_ab_status <- glm(ab_status ~ delta, data = cn_data_std, family = binomial)
+a4_ab_status_standrdized <- summary(a4_model_ab_status)
+
 # Plot
 ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
@@ -136,6 +157,10 @@ ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
 # Compute group means and their difference
 delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(cn_data, !is.na(sex)), mean)$delta))
 p_val_sex <- t.test(delta ~ sex, data = cn_data)$p.value
+
+# Logistic regression
+a4_sex_model <- glm(sex ~ delta, data = cn_data_std, family = binomial)
+a4_sex_standrdized <- summary(a4_sex_model)
 
 # Plot
 ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
@@ -178,7 +203,8 @@ pacc_analysis = regression_analysis(cn_data,
 pacc_analysis$scatter_plot
 
 # Store pacc analysis
-a4_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+a4_pacc_model = lm(ab_composite ~ delta, data = cn_data_std)
+a4_pacc_standrdized = summary(a4_pacc_model)
 
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
@@ -216,7 +242,8 @@ ab_analysis = regression_analysis(cn_data,
 ab_analysis$scatter_plot
 
 # Save standrdized results
-a4_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
+a4_ab_model = lm(ab_composite ~ delta, data = cn_data_std)
+a4_ab_standrdized = summary(a4_ab_model)
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -254,7 +281,8 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 ptau_analysis$scatter_plot
 
 # Save standardized results
-a4_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+a4_ptau_model = lm(ptau ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+a4_ptau_standrdized = summary(a4_ptau_model)
 
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
@@ -291,7 +319,8 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 tau_analysis$scatter_plot
 
 # Save standardized results
-a4_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
+a4_tau_model = lm(tau_composite ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+a4_tau_standrdized = summary(a4_tau_model)
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -329,6 +358,18 @@ baseline <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/habs/proce
 
 # Merge data
 cn_data <- merge(deltas[, c('ID', 'delta')], baseline, by = 'ID')
+
+# Standardize data
+cn_data_std <- cn_data %>%
+  mutate(
+    delta = scale(delta),
+    e4_carrier = ifelse(e4_carrier == 'e4+', 1, 0),
+    sex = ifelse(sex == 'Female', 1, 0),
+    ab_status = ifelse(ab_status == 'ab+', 1, 0),
+    ab_composite = scale(ab_composite),
+    ptau = scale(ptau),
+    tau_composite = scale(tau_composite)
+  )
 ```
 
 ```{r}
@@ -346,6 +387,10 @@ cat("Delta std:", sqrt(var(cn_data$delta)), "\n")
 # Compute group means and their difference
 delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(cn_data, !is.na(e4_carrier)), mean)$delta))
 p_val_e4 <- t.test(delta ~ e4_carrier, data = cn_data)$p.value
+
+# Logistic regression
+habs_model_e4 <- glm(e4_carrier ~ delta, data = cn_data_std, family = binomial)
+habs_e4_standrdized <- summary(habs_model_e4)
 
 # Plot
 ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
@@ -380,6 +425,10 @@ ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
 delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(cn_data, !is.na(ab_status)), mean)$delta))
 p_val_ab <- t.test(delta ~ ab_status, data = cn_data)$p.value
 
+# Logistic regression
+habs_model_ab_status <- glm(ab_status ~ delta, data = cn_data_std, family = binomial)
+habs_ab_status_standrdized <- summary(habs_model_ab_status)
+
 # Plot
 ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
@@ -410,6 +459,10 @@ ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
 # Compute group means and their difference
 delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(cn_data, !is.na(sex)), mean)$delta))
 p_val_sex <- t.test(delta ~ sex, data = cn_data)$p.value
+
+# Logistic regresion
+habs_sex_model <- glm(sex ~ delta, data = cn_data_std, family = binomial)
+habs_sex_standrdized <- summary(habs_sex_model)
 
 # Plot
 ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
@@ -452,7 +505,8 @@ pacc_analysis = regression_analysis(cn_data,
 pacc_analysis$scatter_plot
 
 # Store pacc analysis
-habs_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+habs_pacc_model = lm(PACC_mri ~ delta, data = cn_data_std)
+habs_pacc_standrdized = summary(habs_pacc_model)
 
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
@@ -490,7 +544,8 @@ ab_analysis = regression_analysis(cn_data,
 ab_analysis$scatter_plot
 
 # Save standrdized results
-habs_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
+habs_ab_model = lm(ab_composite ~ delta, data = cn_data_std)
+habs_ab_standrdized = summary(habs_ab_model)
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -528,7 +583,8 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 ptau_analysis$scatter_plot
 
 # Save standardized results
-habs_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+habs_ptau_model = lm(ptau ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+habs_ptau_standrdized = summary(habs_ptau_model)
 
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
@@ -566,7 +622,8 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 tau_analysis$scatter_plot
 
 # Save standardized results
-habs_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
+habs_tau_model = lm(tau_composite ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+habs_tau_standrdized = summary(habs_tau_model)
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -608,6 +665,21 @@ data <- merge(deltas[, c('ID', 'delta')], baseline, by = 'ID')
 # Seperate data for CN and MCI
 cn_data <- data[data$diagnosis == 'CN',]
 mci_data <- data[data$diagnosis == 'MCI',]
+
+# Standrdize data
+data_std <- data %>%
+  mutate(
+    delta = scale(delta),
+    e4_carrier = ifelse(e4_carrier == 'e4+', 1, 0),
+    sex = ifelse(sex == 'Female', 1, 0),
+    ab_status = ifelse(ab_status == 'ab+', 1, 0),
+    ab_composite = scale(ab_composite),
+    ptau = scale(ptau),
+    tau_composite = scale(tau_composite)
+  )
+cn_data_std <- data_std[data_std$diagnosis == 'CN',]
+mci_data_std <- data_std[data_std$diagnosis == 'MCI',]
+
 ```
 
 ```{r}
@@ -625,6 +697,10 @@ cat("Delta std:", sqrt(var(cn_data$delta)), "\n")
 # Compute group means and their difference
 delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(cn_data, !is.na(e4_carrier)), mean)$delta))
 p_val_e4 <- t.test(delta ~ e4_carrier, data = cn_data)$p.value
+
+# Logistic regression
+adni_cu_model_e4 <- glm(e4_carrier ~ delta, data = cn_data_std, family = binomial)
+adni_cu_e4_standrdized <- summary(adni_cu_model_e4)
 
 # Plot
 ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
@@ -659,6 +735,10 @@ ggplot(subset(cn_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
 delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(cn_data, !is.na(ab_status)), mean)$delta))
 p_val_ab <- t.test(delta ~ ab_status, data = cn_data)$p.value
 
+# Logistic regression
+adni_cu_model_ab_status <- glm(ab_status ~ delta, data = cn_data_std, family = binomial)
+adni_cu_ab_status_standrdized <- summary(adni_cu_model_ab_status)
+
 # Plot
 ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
@@ -689,6 +769,10 @@ ggplot(subset(cn_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
 # Compute group means and their difference
 delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(cn_data, !is.na(sex)), mean)$delta))
 p_val_sex <- t.test(delta ~ sex, data = cn_data)$p.value
+
+# Logistic regression
+adni_cu_sex_model <- glm(sex ~ delta, data = cn_data_std, family = binomial)
+adni_cu_sex_standrdized <- summary(adni_cu_sex_model)
 
 # Plot
 ggplot(subset(cn_data, !is.na(sex)), aes(x = sex, y = delta)) +
@@ -731,7 +815,8 @@ pacc_analysis = regression_analysis(cn_data,
 pacc_analysis$scatter_plot
 
 # Store pacc analysis
-adni_cu_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+adni_cu_pacc_model = lm(PACC_mri ~ delta, data = cn_data_std)
+adni_cu_pacc_standrdized = summary(adni_cu_pacc_model)
 
 # Time sensitivity analysis
 pacc_sens = regression_analysis(cn_data[cn_data$time_diff_pacc <=1 & cn_data$time_diff_pacc >=-1,],
@@ -769,7 +854,8 @@ ab_analysis = regression_analysis(cn_data,
 ab_analysis$scatter_plot
 
 # Save standrdized results
-adni_cu_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
+adni_cu_ab_model = lm(ab_composite ~ delta, data = cn_data_std)
+adni_cu_ab_standrdized = summary(adni_cu_ab_model)
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(cn_data[cn_data$time_diff_ab <=1 & cn_data$time_diff_ab >=-1,],
@@ -807,7 +893,8 @@ ptau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 ptau_analysis$scatter_plot
 
 # Save standardized results
-adni_cu_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+adni_cu_ptau_model = lm(ptau ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+adni_cu_ptau_standrdized = summary(adni_cu_ptau_model)
 
 # Time sensitivity analysis
 ptau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_ptau <=1 & cn_data$time_diff_ptau >=-1,],
@@ -845,7 +932,8 @@ tau_analysis = regression_analysis(cn_data[cn_data$exploratory == 1,],
 tau_analysis$scatter_plot
 
 # Save standardized results
-adni_cu_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
+adni_cu_tau_model = lm(tau_composite ~ delta, data = cn_data_std[cn_data$exploratory == 1,])
+adni_cu_tau_standrdized = summary(adni_cu_tau_model)
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(cn_data[cn_data$exploratory == 1 & cn_data$time_diff_tau <=1 & cn_data$time_diff_tau >=-1,],
@@ -888,6 +976,10 @@ cat("Delta std:", sqrt(var(mci_data$delta)), "\n")
 delta_diff_e4 <- abs(diff(aggregate(delta ~ e4_carrier, data = subset(mci_data, !is.na(e4_carrier)), mean)$delta))
 p_val_e4 <- t.test(delta ~ e4_carrier, data = mci_data)$p.value
 
+# Linear regression model preddicintg e4_carriership
+adni_mci_e4_model <- glm(e4_carrier ~ delta, data = mci_data_std, family = "binomial")
+adni_mci_e4_standrdized <- summary(adni_mci_e4_model)
+
 # Plot
 ggplot(subset(mci_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
   geom_boxplot() +
@@ -921,6 +1013,10 @@ ggplot(subset(mci_data, !is.na(e4_carrier)), aes(x = e4_carrier, y = delta)) +
 delta_diff_ab <- abs(diff(aggregate(delta ~ ab_status, data = subset(mci_data, !is.na(ab_status)), mean)$delta))
 p_val_ab <- t.test(delta ~ ab_status, data = mci_data)$p.value
 
+# Logistic regresison
+adni_mci_ab_status_model <- glm(ab_status ~ delta, data = mci_data_std, family = "binomial")
+adni_mci_ab_status_standrdized <- summary(adni_mci_ab_status_model)
+
 # Plot
 ggplot(subset(mci_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
   geom_boxplot() +
@@ -952,6 +1048,10 @@ ggplot(subset(mci_data, !is.na(ab_status)), aes(x = ab_status, y = delta)) +
 delta_diff_sex <- abs(diff(aggregate(delta ~ sex, data = subset(mci_data, !is.na(sex)), mean)$delta))
 p_val_sex <- t.test(delta ~ sex, data = mci_data)$p.value
 
+# Logistic regression
+adni_mci_sex_model <- glm(sex ~ delta, data = mci_data_std, family = binomial)
+adni_mci_sex_standrdized <- summary(adni_mci_sex_model)
+
 # Plot
 ggplot(subset(mci_data, !is.na(sex)), aes(x = sex, y = delta)) +
   geom_boxplot() +
@@ -982,6 +1082,16 @@ ggplot(subset(mci_data, !is.na(sex)), aes(x = sex, y = delta)) +
 # Compute group means and their difference
 delta_diff_mci <- abs(diff(aggregate(delta ~ diagnosis, data = data, mean)$delta))
 p_val_mci <- t.test(delta ~ diagnosis, data = data)$p.value
+
+# Logistic regression
+data$mci <- ifelse(data$diagnosis == 'MCI', 1, 0)
+classification_model <- glm(mci ~ scale(delta), data = data, family = "binomial")
+adni_mci_cu_standrdized <- summary(classification_model)
+
+# Print beta coefficient, standard error and p-value
+cat("Beta coefficient:", classification_model$coefficients[2], "\n")
+cat("Standard error:", summary(classification_model)$coefficients[2, 2], "\n")
+cat("p-value:", summary(classification_model)$coefficients[2, 4], "\n")
 
 # Plot
 ggplot(data, aes(x = diagnosis, y = delta)) +
@@ -1024,7 +1134,8 @@ pacc_analysis = regression_analysis(mci_data,
 pacc_analysis$scatter_plot
 
 # Store pacc analysis
-adni_mci_pacc_standrdized = summary(lm.beta(pacc_analysis$simple_model))
+adni_mci_pacc_model = lm(PACC_mri ~ delta, data = mci_data_std)
+adni_mci_pacc_standrdized = summary(adni_mci_pacc_model)
 
 # Time sensitivity analysis
 pacc_sens = regression_analysis(mci_data[mci_data$time_diff_pacc <=1 & mci_data$time_diff_pacc >=-1,],
@@ -1062,7 +1173,8 @@ ab_analysis = regression_analysis(mci_data,
 ab_analysis$scatter_plot
 
 # Save standrdized results
-adni_mci_ab_standrdized = summary(lm.beta(ab_analysis$simple_model))
+adni_mci_ab_model = lm(ab_composite ~ delta, data = mci_data_std)
+adni_mci_ab_standrdized = summary(adni_mci_ab_model)
 
 # Time sensitivity analysis
 ab_sens = regression_analysis(mci_data[mci_data$time_diff_ab <=1 & mci_data$time_diff_ab >=-1,],
@@ -1099,7 +1211,8 @@ ptau_analysis = regression_analysis(mci_data[mci_data$exploratory == 1,],
 ptau_analysis$scatter_plot
 
 # Save standardized results
-adni_mci_ptau_standrdized = summary(lm.beta(ptau_analysis$simple_model))
+adni_mci_ptau_model = lm(ptau ~ delta, data = mci_data_std[mci_data$exploratory == 1,])
+adni_mci_ptau_standrdized = summary(adni_mci_ptau_model)
 
 # Time sensitivity analysis
 ptau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$time_diff_ptau <=1 & mci_data$time_diff_ptau >=-1,],
@@ -1137,7 +1250,8 @@ tau_analysis = regression_analysis(mci_data[mci_data$exploratory == 1,],
 tau_analysis$scatter_plot
 
 # Save standardized results
-adni_mci_tau_standrdized = summary(lm.beta(tau_analysis$simple_model))
+adni_mci_tau_model = lm(tau_composite ~ delta, data = mci_data_std[mci_data$exploratory == 1,])
+adni_mci_tau_standrdized = summary(adni_mci_tau_model)
 
 # Time sensitivity analysis
 tau_sens = regression_analysis(mci_data[mci_data$exploratory == 1 & mci_data$time_diff_tau <=1 & mci_data$time_diff_tau >=-1,],
@@ -1164,6 +1278,92 @@ ggsave(paste(path, 'tau_adni_mci.png'), tau_analysis$scatter_plot,
 
 # Meta-analysis
 
+## E4 status
+```{r}
+# Define model names and corresponding summary objects
+e4_models <- list(
+  "A4/LEARN" = a4_e4_standrdized,
+  "HABS" = habs_e4_standrdized,
+  "ADNI CU" = adni_cu_e4_standrdized,
+  "ADNI MCI" = adni_mci_e4_standrdized
+)
+
+# Create the combined data frame
+e4_results <- do.call(rbind, lapply(names(e4_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = e4_models[[name]]$coefficients["delta", "Estimate"],
+    se = e4_models[[name]]$coefficients["delta", "Std. Error"],
+    pval = e4_models[[name]]$coefficients["delta", "Pr(>|z|)"]
+  )
+}))
+
+# E4 meta-analysis ALL
+e4_all <- rma(yi = estimate, sei = se, data = e4_results, method = "ML", test = "knha")
+cat("E4 All:", e4_all$beta, "(", e4_all$pval, ") \n")
+# E4 meta-analysis CU
+e4_cu <- rma(yi = estimate, sei = se, data = e4_results[e4_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("E4 CU:", e4_cu$beta, "(", e4_cu$pval, ") \n")
+```
+
+## AB status
+
+```{r}
+# Define model names and corresponding summary objects
+ab_status_models <- list(
+  "A4/LEARN" = a4_ab_status_standrdized,
+  "HABS" = habs_ab_status_standrdized,
+  "ADNI CU" = adni_cu_ab_status_standrdized,
+  "ADNI MCI" = adni_mci_ab_status_standrdized
+)
+
+# Create the combined data frame
+ab_status_results <- do.call(rbind, lapply(names(ab_status_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = ab_status_models[[name]]$coefficients["delta", "Estimate"],
+    se = ab_status_models[[name]]$coefficients["delta", "Std. Error"],
+    pval = ab_status_models[[name]]$coefficients["delta", "Pr(>|z|)"]
+  )
+}))
+
+# AB status meta-analysis ALL
+ab_status_all <- rma(yi = estimate, sei = se, data = ab_status_results, method = "ML", test = "knha")
+cat("AB status All:", ab_status_all$beta, "(", ab_status_all$pval, ") \n")
+# AB status meta-analysis CU
+ab_status_cu <- rma(yi = estimate, sei = se, data = ab_status_results[ab_status_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("AB status CU:", ab_status_cu$beta, "(", ab_status_cu$pval, ") \n")
+```
+
+## Sex
+
+```{r}
+# Define model names and corresponding summary objects
+sex_models <- list(
+  "A4/LEARN" = a4_sex_standrdized,
+  "HABS" = habs_sex_standrdized,
+  "ADNI CU" = adni_cu_sex_standrdized,
+  "ADNI MCI" = adni_mci_sex_standrdized
+)
+
+# Create the combined data frame
+sex_results <- do.call(rbind, lapply(names(sex_models), function(name) {
+  data.frame(
+    model = name,
+    estimate = sex_models[[name]]$coefficients["delta", "Estimate"],
+    se = sex_models[[name]]$coefficients["delta", "Std. Error"],
+    pval = sex_models[[name]]$coefficients["delta", "Pr(>|z|)"]
+  )
+}))
+
+# Sex meta-analysis ALL
+sex_all <- rma(yi = estimate, sei = se, data = sex_results, method = "ML", test = "knha")
+cat("Sex All:", sex_all$beta, "(", sex_all$pval, ") \n")
+# Sex meta-analysis CU
+sex_cu <- rma(yi = estimate, sei = se, data = sex_results[sex_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
+cat("Sex CU:", sex_cu$beta, "(", sex_cu$pval, ") \n")
+```
+
 ## PACC
 
 ```{r}
@@ -1179,7 +1379,7 @@ pacc_models <- list(
 pacc_results <- do.call(rbind, lapply(names(pacc_models), function(name) {
   data.frame(
     model = name,
-    estimate = pacc_models[[name]]$coefficients["delta", "Standardized"],
+    estimate = pacc_models[[name]]$coefficients["delta", "Estimate"],
     se = pacc_models[[name]]$coefficients["delta", "Std. Error"],
     pval = pacc_models[[name]]$coefficients["delta", "Pr(>|t|)"]
   )
@@ -1192,8 +1392,6 @@ cat("PACC All:", pacc_all$beta, "(", pacc_all$pval, ") \n")
 # PACC meta-analysis CU
 pacc_cu <- rma(yi = estimate, sei = se, data = pacc_results[pacc_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
 cat("PACC CU:", pacc_cu$beta, "(", pacc_cu$pval, ") \n")
-
-print(pacc_results)
 ```
 
 ## AB
@@ -1211,7 +1409,7 @@ ab_models <- list(
 ab_results <- do.call(rbind, lapply(names(ab_models), function(name) {
   data.frame(
     model = name,
-    estimate = ab_models[[name]]$coefficients["delta", "Standardized"],
+    estimate = ab_models[[name]]$coefficients["delta", "Estimate"],
     se = ab_models[[name]]$coefficients["delta", "Std. Error"]
   )
 }))
@@ -1223,10 +1421,6 @@ cat("AB All:", ab_all$beta, "(", ab_all$pval, ") \n")
 # AB meta-analysis CU
 ab_cu <- rma(yi = estimate, sei = se, data = ab_results[ab_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
 cat("AB CU:", ab_cu$beta, "(", ab_cu$pval, ") \n")
-
-# AB meta-analysis MCI
-ab_mci <- rma(yi = estimate, sei = se, data = ab_results[ab_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
-cat("AB MCI:", ab_mci$beta, "(", ab_mci$pval, ") \n")
 ```
 
 ## pTau217
@@ -1243,12 +1437,10 @@ ptau_models <- list(
 ptau_results <- do.call(rbind, lapply(names(ptau_models), function(name) {
   data.frame(
     model = name,
-    estimate = ptau_models[[name]]$coefficients["delta", "Standardized"],
+    estimate = ptau_models[[name]]$coefficients["delta", "Estimate"],
     se = ptau_models[[name]]$coefficients["delta", "Std. Error"]
   )
 }))
-
-print(ptau_results)
 
 # pTau217 meta-analysis ALL
 ptau_all <- rma(yi = estimate, sei = se, data = ptau_results, method = "ML", test = "knha")
@@ -1256,9 +1448,6 @@ cat("pTau217 All:", ptau_all$beta, "(", ptau_all$pval, ") \n")
 # pTau217 meta-analysis CU
 ptau_cu <- rma(yi = estimate, sei = se, data = ptau_results[ptau_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
 cat("pTau217 CU:", ptau_cu$beta, "(", ptau_cu$pval, ") \n")
-# pTau217 meta-analysis MCI
-ptau_mci <- rma(yi = estimate, sei = se, data = ptau_results[ptau_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
-cat("pTau217 MCI:", ptau_mci$beta, "(", ptau_mci$pval, ") \n")
 ```
 
 ## Tau
@@ -1276,7 +1465,7 @@ tau_models <- list(
 tau_results <- do.call(rbind, lapply(names(tau_models), function(name) {
   data.frame(
     model = name,
-    estimate = tau_models[[name]]$coefficients["delta", "Standardized"],
+    estimate = tau_models[[name]]$coefficients["delta", "Estimate"],
     se = tau_models[[name]]$coefficients["delta", "Std. Error"]
   )
 }))
@@ -1287,7 +1476,102 @@ cat("Tau All:", tau_all$beta, "(", tau_all$pval, ") \n")
 # Tau meta-analysis CU
 tau_cu <- rma(yi = estimate, sei = se, data = tau_results[tau_results$model %in% c("ADNI CU", "HABS"), ], method = "ML", test = "knha")
 cat("Tau CU:", tau_cu$beta, "(", tau_cu$pval, ") \n")
-# Tau meta-analysis MCI
-tau_mci <- rma(yi = estimate, sei = se, data = tau_results[tau_results$model %in% c("ADNI MCI"), ], method = "ML", test = "z")
-cat("Tau MCI:", tau_mci$beta, "(", tau_mci$pval, ") \n")
+```
+
+## CU results
+
+```{r}
+# List of your meta-analysis results
+meta_results <- list(e4_cu, sex_cu, pacc_cu, ab_cu, ptau_cu, tau_cu)
+
+# Corresponding labels for y-axis
+labels <- c("APOEe4+", "Female", "PACC", "AB-PET", "pTau217", "Tau-PET")
+
+# Extract estimates, confidence intervals, and p-values
+estimates <- sapply(meta_results, function(x) x$beta)
+ci_lower <- sapply(meta_results, function(x) x$ci.lb)
+ci_upper <- sapply(meta_results, function(x) x$ci.ub)
+pvals <- sapply(meta_results, function(x) x$pval)
+
+# Create a data frame for plotting
+forest_data_cu <- data.frame(
+  labels = labels,
+  estimates = estimates,
+  ci_lower = ci_lower,
+  ci_upper = ci_upper,
+  pvals = pvals
+)
+
+# Plot the forest plot
+forest_plot <- ggplot(forest_data_cu, aes(x = estimates, y = labels)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β (Standardized Coefficients)",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  xlim(-2.5, 2.5)
+
+# Print the plot
+print(forest_plot)
+```
+
+## MCI results
+
+```{r}
+# List of your meta-analysis results
+meta_results <- list(adni_mci_e4_standrdized,
+                     adni_mci_sex_standrdized,
+                     adni_mci_pacc_standrdized,
+                     adni_mci_ab_standrdized,
+                     adni_mci_ptau_standrdized,
+                     adni_mci_tau_standrdized)
+
+# Corresponding labels for y-axis
+labels <- c("APOEe4+", "Female", "PACC", "AB-PET", "pTau217", "Tau-PET")
+
+# Define which coefficient to use for each model
+coef_names <- c("Estimate", "Estimate", "Estimate", "Standardized", "Standardized", "Standardized", "Standardized")
+
+# Define which p-value column to use for each model
+pval_cols <- c("Pr(>|z|)", "Pr(>|z|)", "Pr(>|t|)", "Pr(>|t|)", "Pr(>|t|)", "Pr(>|t|)")
+
+# Extract estimates
+estimates <- sapply(meta_results, function(x) x$coefficients["delta", "Estimate"])
+std_errors <- sapply(meta_results, function(x) x$coefficients["delta", "Std. Error"])
+
+# Calculate confidence intervals
+ci_lower <- estimates - 1.96 * std_errors
+ci_upper <- estimates + 1.96 * std_errors
+
+# Extract p-values
+pvals <- sapply(1:length(meta_results), function(i) {
+  meta_results[[i]]$coefficients["delta", pval_cols[i]]
+})
+
+# Create a data frame for plotting
+forest_data_mci <- data.frame(
+  labels = labels,
+  estimates = estimates,
+  ci_lower = ci_lower,
+  ci_upper = ci_upper,
+  pvals = pvals
+)
+
+# Plot the forest plot
+forest_plot <- ggplot(forest_data_mci, aes(x = estimates, y = labels)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper), height = 0.2) +   # 95% confidence intervals
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  labs(
+    x = "β (Standardized Coefficients)",
+    y = "Cohort"
+  ) +
+  theme_minimal() +
+  xlim(-2.5, 2.5) 
+
+# Print the plot
+print(forest_plot)
 ```
