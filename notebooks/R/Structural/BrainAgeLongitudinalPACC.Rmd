@@ -22,6 +22,16 @@ path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
+
+graph_th <- theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
 ```
 
 We will explore how baseline Brain Age delta moderates longitudinal PACC through a linear mixed effects model on four cohorts:
@@ -94,12 +104,8 @@ trajectories_a4 + geom_line() + geom_point()
 trajectories_a4 <- trajectories_a4 + 
   geom_line(linewidth = 0.2) +
   geom_point(size = 0.2) +
-    theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+  graph_th
+
 ggsave(paste(path, 'trajectories_a4.png'), trajectories_a4, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -166,13 +172,7 @@ a4_p <- plot(ggpredict(lme_a4, terms = c("time_mri [all]", "delta"))) +
 a4_p
 
 # Save model
-a4_p <- a4_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+a4_p <- a4_p + graph_th
 ggsave(paste(path, 'lme_a4.png'), a4_p,
        width = 125, height = 50, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -334,19 +334,11 @@ a4_ab_p$data$facet <- ab_levels
 a4_ab_p
 
 # Save model
-a4_ab_p <- a4_ab_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+a4_ab_p <- a4_ab_p + graph_th
 ggsave(paste(path, 'lme_a4_ab.png'), a4_ab_p, 
        width = 125, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
        scale = 1)
-a4_ab_p$data$facet
 ```
 
 Adding Age, Sex, Education, E4 Status as covariates
@@ -457,14 +449,7 @@ a4_ptau_p$data$facet <- ptau_levels
 a4_ptau_p
 
 # Save model
-a4_ptau_p <- a4_ptau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+a4_ptau_p <- a4_ptau_p + graph_th
 ggsave(paste(path, 'lme_a4_ptau.png'), a4_ptau_p, 
        width = 125, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -579,14 +564,7 @@ a4_tau_p$data$facet <- tau_levels
 a4_tau_p
 
 # Save model
-a4_tau_p <- a4_tau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+a4_tau_p <- a4_tau_p + graph_th
 ggsave(paste(path, 'lme_a4_tau.png'), a4_tau_p, 
        width = 125, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -658,13 +636,7 @@ trajectories_habs + geom_line() + geom_point()
 # Save plot
 trajectories_habs <- trajectories_habs + 
   geom_line(linewidth = 0.2) +
-  geom_point(size = 0.2) +
-    theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+  geom_point(size = 0.2) + graph_th
 ggsave(paste(path, 'trajectories_habs.png'), trajectories_habs, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -729,13 +701,7 @@ habs_p <- plot(ggpredict(lme_habs, terms = c("time_mri [all]", "delta"))) +
 habs_p
 
 # Save model
-habs_p <- habs_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+habs_p <- habs_p + graph_th
 ggsave(paste(path, 'lme_habs.png'), habs_p, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -852,23 +818,16 @@ habs_ab_p <- plot(ggpredict(lme_habs_ab, terms = c("time_mri [all]", "delta", "a
 habs_ab_mean = mean(data_habs$ab_composite, na.rm = TRUE)
 habs_ab_sd = sd(data_habs$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = \n %.2f (-1 SD)", habs_ab_mean - habs_ab_sd),
-  sprintf("Aβ-PET = \n %.2f (Mean)", habs_ab_mean),
-  sprintf("Aβ-PET = \n %.2f (+1 SD) ", habs_ab_mean + habs_ab_sd)
+  sprintf("Aβ-PET = \n %.0f (-1 SD)", habs_ab_mean - habs_ab_sd),
+  sprintf("Aβ-PET = \n %.0f (Mean)", habs_ab_mean),
+  sprintf("Aβ-PET = \n %.0f (+1 SD) ", habs_ab_mean + habs_ab_sd)
 )
 habs_ab_p$data$facet <- ab_levels
 
 habs_ab_p
 
 # Save model
-habs_ab_p <- habs_ab_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+habs_ab_p <- habs_ab_p + graph_th
 ggsave(paste(path, 'lme_habs_ab.png'), habs_ab_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -973,14 +932,7 @@ habs_ptau_p$data$facet <- ptau_levels
 habs_ptau_p
 
 # Save model
-habs_ptau_p <- habs_ptau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+habs_ptau_p <- habs_ptau_p + graph_th
 ggsave(paste(path, 'lme_habs_ptau.png'), habs_ptau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1086,14 +1038,7 @@ habs_tau_p$data$facet <- tau_levels
 habs_tau_p
 
 # Save model
-habs_tau_p <- habs_tau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+habs_tau_p <- habs_tau_p + graph_th
 ggsave(paste(path, 'lme_habs_tau.png'), habs_tau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1159,13 +1104,7 @@ trajectories_adni_cn + geom_line() + geom_point()
 # Save plot
 trajectories_adni_cn <- trajectories_adni_cn + 
   geom_line(linewidth = 0.2) +
-  geom_point(size = 0.2) +
-    theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+  geom_point(size = 0.2) + graph_th
 ggsave(paste(path, 'trajectories_adni_cn.png'), trajectories_adni_cn, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -1230,13 +1169,7 @@ adni_cn_p <- plot(ggpredict(lme_adni_cn, terms = c("time_mri [all]", "delta"))) 
 adni_cn_p
 
 # Save model
-adni_cn_p <- adni_cn_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_cn_p <- adni_cn_p + graph_th
 ggsave(paste(path, 'lme_adni_cn.png'), adni_cn_p, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -1353,23 +1286,16 @@ adni_cn_ab_p <- plot(ggpredict(lme_adni_cn_ab, terms = c("time_mri [all]", "delt
 adni_cn_ab_mean = mean(data_adni_cn$ab_composite, na.rm = TRUE)
 adni_cn_ab_sd = sd(data_adni_cn$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = \n %.2f (-1 SD)", adni_cn_ab_mean - adni_cn_ab_sd),
-  sprintf("Aβ-PET = \n %.2f (Mean)", adni_cn_ab_mean),
-  sprintf("Aβ-PET = \n %.2f (+1 SD)", adni_cn_ab_mean + adni_cn_ab_sd)
+  sprintf("Aβ-PET = \n %.0f (-1 SD)", adni_cn_ab_mean - adni_cn_ab_sd),
+  sprintf("Aβ-PET = \n %.0f (Mean)", adni_cn_ab_mean),
+  sprintf("Aβ-PET = \n %.0f (+1 SD)", adni_cn_ab_mean + adni_cn_ab_sd)
 )
 adni_cn_ab_p$data$facet <- ab_levels
 
 adni_cn_ab_p
 
 # Save model
-adni_cn_ab_p <- adni_cn_ab_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_cn_ab_p <- adni_cn_ab_p + graph_th
 ggsave(paste(path, 'lme_adni_cn_ab.png'), adni_cn_ab_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1474,14 +1400,7 @@ adni_cn_ptau_p$data$facet <- ptau_levels
 adni_cn_ptau_p
 
 # Save model
-adni_cn_ptau_p <- adni_cn_ptau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_cn_ptau_p <- adni_cn_ptau_p + graph_th
 ggsave(paste(path, 'lme_adni_cn_ptau.png'), adni_cn_ptau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1587,14 +1506,7 @@ adni_cn_tau_p$data$facet <- tau_levels
 adni_cn_tau_p
 
 # Save model
-adni_cn_tau_p <- adni_cn_tau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_cn_tau_p <- adni_cn_tau_p + graph_th
 ggsave(paste(path, 'lme_adni_cn_tau.png'), adni_cn_tau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1660,13 +1572,7 @@ trajectories_adni_mci + geom_line() + geom_point()
 # Save plot
 trajectories_adni_mci <- trajectories_adni_mci + 
   geom_line(linewidth = 0.2) +
-  geom_point(size = 0.2) +
-    theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+  geom_point(size = 0.2) + graph_th
 ggsave(paste(path, 'trajectories_adni_mci.png'), trajectories_adni_mci, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -1730,14 +1636,8 @@ adni_mci_p <- plot(ggpredict(lme_adni_mci, terms = c("time_mri [all]", "delta"))
 adni_mci_p
 
 # Save model
-adni_mci <- adni_mci_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
-ggsave(paste(path, 'lme_adni_mci.png'), adni_mci_p, 
+adni_mci <- adni_mci_p + graph_th
+ggsave(paste(path, 'lme_adni_mci.png'), adni_mci, 
        width = 125, height = 50, units = "mm", 
        dpi = 500,     # Higher resolution
        scale = 1) 
@@ -1853,23 +1753,16 @@ adni_mci_ab_p <- plot(ggpredict(lme_adni_mci_ab, terms = c("time_mri [all]", "de
 adni_mci_ab_mean = mean(data_adni_mci$ab_composite, na.rm = TRUE)
 adni_mci_ab_sd = sd(data_adni_mci$ab_composite, na.rm = TRUE)
 ab_levels <- c(
-  sprintf("Aβ-PET = \n %.2f (-1 SD)", adni_mci_ab_mean - adni_mci_ab_sd),
-  sprintf("Aβ-PET = \n %.2f (Mean)", adni_mci_ab_mean),
-  sprintf("Aβ-PET = \n %.2f (+1 SD)", adni_mci_ab_mean + adni_mci_ab_sd)
+  sprintf("Aβ-PET = \n %.0f (-1 SD)", adni_mci_ab_mean - adni_mci_ab_sd),
+  sprintf("Aβ-PET = \n %.0f (Mean)", adni_mci_ab_mean),
+  sprintf("Aβ-PET = \n %.0f (+1 SD)", adni_mci_ab_mean + adni_mci_ab_sd)
 )
 adni_mci_ab_p$data$facet <- ab_levels
 
 adni_mci_ab_p
 
 # Save model
-adni_mci_ab_p <- adni_mci_ab_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_mci_ab_p <- adni_mci_ab_p + graph_th
 ggsave(paste(path, 'lme_adni_mci_ab.png'), adni_mci_ab_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -1974,14 +1867,7 @@ adni_mci_ptau_p$data$facet <- ptau_levels
 adni_mci_ptau_p
 
 # Save model
-adni_mci_ptau_p <- adni_mci_ptau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_mci_ptau_p <- adni_mci_ptau_p + graph_th
 ggsave(paste(path, 'lme_adni_mci_ptau.png'), adni_mci_ptau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -2087,14 +1973,7 @@ adni_mci_tau_p$data$facet <- tau_levels
 adni_mci_tau_p
 
 # Save model
-adni_mci_tau_p <- adni_mci_tau_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      strip.text = element_text(family = "Times New Roman", size = 8),
-      plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm"),
-    ) 
+adni_mci_tau_p <- adni_mci_tau_p + graph_th
 ggsave(paste(path, 'lme_adni_mci_tau.png'), adni_mci_tau_p, 
        width = 95, height = 55, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -2155,6 +2034,12 @@ delta_interaction_results <- rbind(
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
 
+delta_interaction_results <- delta_interaction_results %>%
+  mutate(
+    delta.i2 = NA_real_,
+    delta.t2 = NA_real_
+  )
+
 # Metaanalysis of all
 delta_model <- rma.uni(
   yi = delta.estimate, 
@@ -2174,7 +2059,9 @@ delta_sum_row <- data.frame(
   delta.upper_ci = delta_sum$ci.ub,
   delta.p_value = delta_sum$pval,
   delta.se = delta_sum$se,
-  delta.n = NA # or specify if you have this value
+  delta.n = NA, # or specify if you have this value
+  delta.i2 = delta_sum$I2,  # I2 statistic for heterogeneity
+  delta.t2 = delta_sum$tau2   # H2 statistic for heterogeneity
 )
 
 cat("All Cohorts BrainAge delta effect:", signif(delta_sum$beta, 2), 
@@ -2201,7 +2088,9 @@ delta_cu_sum_row <- data.frame(
   delta.upper_ci = delta_cu_sum$ci.ub,
   delta.p_value = delta_cu_sum$pval,
   delta.se = delta_cu_sum$se,
-  delta.n = NA  # or specify if you have this value
+  delta.n = NA,  # or specify if you have this value
+  delta.i2 = delta_cu_sum$I2,  # I2 statistic for heterogeneity
+  delta.t2 = delta_cu_sum$tau2   # H2 statistic for heterogeneity
 )
 
 cat("CU Cohorts BrainAge delta effect:", signif(delta_cu_sum$beta, 2), 
@@ -2225,7 +2114,7 @@ delta_interaction_results <- delta_interaction_results |>
   mutate(
     label_text = if_else(
       row_number() %in% (n() - 1):n(),  # last two rows
-      sprintf("p = %.2g", delta.p_value),
+      sprintf("p = %.2g, I\u00B2 = %.2f, \u03C4\u00B2 = %.2f", delta.p_value, delta.i2, delta.t2),
       sprintf("p = %.2g, N = %d", delta.p_value, delta.n)
     )
   )
@@ -2263,7 +2152,7 @@ forest_plot <- ggplot(delta_plot_data, aes(x = delta.estimate, y = model)) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
@@ -2283,15 +2172,9 @@ forest_plot <- ggplot(delta_plot_data, aes(x = delta.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'delta_forest.png'), forest_plot, 
-       width = 125, height = 45, units = "mm", 
+       width = 125, height = 80, units = "mm", 
        dpi = 500,     # Higher resolution
        scale = 1)
 ```
@@ -2307,6 +2190,12 @@ ab_interaction_results <- rbind(
   adni_mci_ab_effects
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+ab_interaction_results <- ab_interaction_results %>%
+  mutate(
+    ab.i2 = NA_real_,
+    ab.t2 = NA_real_
+  )
 
 # Metaanalysis of all
 ab_model <- rma.uni(
@@ -2327,7 +2216,9 @@ ab_sum_row <- data.frame(
   ab.upper_ci = ab_sum$ci.ub,
   ab.p_value = ab_sum$pval,
   ab.se = ab_sum$se,
-  ab.n = NA # or specify if you have this value
+  ab.n = NA, # or specify if you have this value
+  ab.i2 = ab_sum$I2,
+  ab.t2 = ab_sum$tau2
 )
 
 cat("All Cohorts BrainAge AB-PET effect:", signif(ab_sum$beta, 2), 
@@ -2354,7 +2245,9 @@ ab_cu_sum_row <- data.frame(
   ab.upper_ci = ab_cu_sum$ci.ub,
   ab.p_value = ab_cu_sum$pval,
   ab.se = ab_cu_sum$se,
-  ab.n = NA  # or specify if you have this value
+  ab.n = NA,  # or specify if you have this value
+  ab.i2 = ab_cu_sum$I2,
+  ab.t2 = ab_cu_sum$tau2
 )
 
 cat("CU Cohorts BrainAge AB-PET effect:", signif(ab_cu_sum$beta, 2), 
@@ -2378,7 +2271,7 @@ ab_interaction_results <- ab_interaction_results |>
   mutate(
     label_text = if_else(
       row_number() %in% (n() - 1):n(),  # last two rows
-      sprintf("p = %.2g", ab.p_value),
+      sprintf("p = %.2g, I\u00B2 = %.2f, \u03C4\u00B2 = %.2f", ab.p_value, ab.i2, ab.t2),
       sprintf("p = %.2g, N = %d", ab.p_value, ab.n)
     )
   )
@@ -2409,17 +2302,17 @@ ab_plot_data <- ab_plot_data |>
 ```{r}
 # Create the forest plot
 forest_plot <- ggplot(ab_plot_data, aes(x = ab.estimate, y = model)) +
-  geom_point(size = 3) +
+  geom_point(size = 2) +
   geom_errorbarh(aes(xmin = ab.lower_ci, xmax = ab.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
   geom_text(aes(label = label_text),
-          vjust = 2.5, size = 7 / .pt,
+          vjust = 2, size = 6 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2)) +
@@ -2434,13 +2327,7 @@ forest_plot <- ggplot(ab_plot_data, aes(x = ab.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'ab_forest.png'), forest_plot, 
        width = 90, height = 55, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -2459,6 +2346,13 @@ ptau_interaction_results <- rbind(
   adni_mci_ptau_effects
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+# Add empty columns for i2 and t2
+ptau_interaction_results <- ptau_interaction_results %>%
+  mutate(
+    ptau.i2 = NA_real_,
+    ptau.t2 = NA_real_
+  )
 
 # Metaanalysis of all
 ptau_model <- rma.uni(
@@ -2479,7 +2373,9 @@ ptau_sum_row <- data.frame(
   ptau.upper_ci = ptau_sum$ci.ub,
   ptau.p_value = ptau_sum$pval,
   ptau.se = ptau_sum$se,
-  ptau.n = NA # or specify if you have this value
+  ptau.n = NA,
+  ptau.i2 = ptau_sum$I2,
+  ptau.t2 = ptau_sum$tau2
 )
 
 cat("All Cohorts BrainAge pTau217 effect:", signif(ptau_sum$beta, 2), 
@@ -2506,7 +2402,9 @@ ptau_cu_sum_row <- data.frame(
   ptau.upper_ci = ptau_cu_sum$ci.ub,
   ptau.p_value = ptau_cu_sum$pval,
   ptau.se = ptau_cu_sum$se,
-  ptau.n = NA  # or specify if you have this value
+  ptau.n = NA,
+  ptau.i2 = ptau_cu_sum$I2,
+  ptau.t2 = ptau_cu_sum$tau2
 )
 
 cat("CU Cohorts BrainAge pTau217 effect:", signif(ptau_cu_sum$beta, 2), 
@@ -2530,7 +2428,7 @@ ptau_interaction_results <- ptau_interaction_results |>
   mutate(
     label_text = if_else(
       row_number() %in% (n() - 1):n(),  # last two rows
-      sprintf("p = %.2g", ptau.p_value),
+      sprintf("p = %.2g, I\u00B2 = %.2f, \u03C4\u00B2 = %.2f", ptau.p_value, ptau.i2, ptau.t2),
       sprintf("p = %.2g, N = %d", ptau.p_value, ptau.n)
     )
   )
@@ -2561,17 +2459,17 @@ ptau_plot_data <- ptau_plot_data |>
 ```{r}
 # Create the forest plot
 forest_plot <- ggplot(ptau_plot_data, aes(x = ptau.estimate, y = model)) +
-  geom_point(size = 3) +
+  geom_point(size = 2) +
   geom_errorbarh(aes(xmin = ptau.lower_ci, xmax = ptau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
   geom_text(aes(label = label_text),
-          vjust = 2.5, size = 7 / .pt,
+          vjust = 2, size = 6 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2)) +
@@ -2586,13 +2484,7 @@ forest_plot <- ggplot(ptau_plot_data, aes(x = ptau.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'ptau_forest.png'), forest_plot, 
        width = 90, height = 55, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -2610,6 +2502,12 @@ tau_interaction_results <- rbind(
   adni_mci_tau_effects
 ) %>% 
   mutate(model = factor(model, levels = c("ADNI MCI", "ADNI CU", "HABS", "A4/LEARN")))
+
+tau_interaction_results <- tau_interaction_results %>%
+  mutate(
+    tau.i2 = NA_real_,
+    tau.t2 = NA_real_
+  )
 
 # Metaanalysis of all
 tau_model <- rma.uni(
@@ -2630,7 +2528,9 @@ tau_sum_row <- data.frame(
   tau.upper_ci = tau_sum$ci.ub,
   tau.p_value = tau_sum$pval,
   tau.se = tau_sum$se,
-  tau.n = NA # or specify if you have this value
+  tau.n = NA,
+  tau.i2 = tau_sum$I2,
+  tau.t2 = tau_sum$tau2
 )
 
 cat("All Cohorts BrainAge Tau-PET effect:", signif(tau_sum$beta, 2), 
@@ -2657,7 +2557,9 @@ tau_cu_sum_row <- data.frame(
   tau.upper_ci = tau_cu_sum$ci.ub,
   tau.p_value = tau_cu_sum$pval,
   tau.se = tau_cu_sum$se,
-  tau.n = NA  # or specify if you have this value
+  tau.n = NA,
+  tau.i2 = tau_cu_sum$I2,
+  tau.t2 = tau_cu_sum$tau2
 )
 
 cat("CU Cohorts BrainAge Tau-PET effect:", signif(tau_cu_sum$beta, 2), 
@@ -2681,7 +2583,7 @@ tau_interaction_results <- tau_interaction_results |>
   mutate(
     label_text = if_else(
       row_number() %in% (n() - 1):n(),  # last two rows
-      sprintf("p = %.2g", tau.p_value),
+      sprintf("p = %.2g, I\u00B2 = %.2f, \u03C4\u00B2 = %.2f", tau.p_value, tau.i2, tau.t2),
       sprintf("p = %.2g, N = %d", tau.p_value, tau.n)
     )
   )
@@ -2712,17 +2614,17 @@ tau_plot_data <- tau_plot_data |>
 ```{r}
 # Create the forest plot
 forest_plot <- ggplot(tau_plot_data, aes(x = tau.estimate, y = model)) +
-  geom_point(size = 3) +
+  geom_point(size = 2) +
   geom_errorbarh(aes(xmin = tau.lower_ci, xmax = tau.upper_ci), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
   # Add effect size values to the plot 
   geom_text(aes(label = label_text),
-          vjust = 2.5, size = 7 / .pt,
+          vjust = 2, size = 6 / .pt,
           inherit.aes = TRUE,
           check_overlap = TRUE) +
   scale_x_continuous(limits = c(-0.5, 0.2)) +
@@ -2737,13 +2639,7 @@ forest_plot <- ggplot(tau_plot_data, aes(x = tau.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'tau_forest.png'), forest_plot, 
        width = 90, height = 55, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -2985,13 +2881,7 @@ forest_plot <- ggplot(ptau_plot_data, aes(x = ptau.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'ptau_forest.png'), forest_plot, 
        width = 90, height = 55, units = "mm", 
        dpi = 500,     # Higher resolution
@@ -3229,13 +3119,7 @@ forest_plot <- ggplot(tau_plot_data, aes(x = tau.estimate, y = model)) +
 print(forest_plot)
 
 # Save summary
-forest_plot <- forest_plot +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 8),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.25, 0.25, 0.25, 0.25), "cm"),
-    ) 
+forest_plot <- forest_plot + graph_th
 ggsave(paste(path, 'tau_forest.png'), forest_plot, 
        width = 90, height = 55, units = "mm", 
        dpi = 500,     # Higher resolution

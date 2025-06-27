@@ -25,6 +25,16 @@ source('~/Documents/Projects/AgingBrainStudy/scripts/improve_figure.R')
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
+
+graph_th <- theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
 ```
 
 # BrainAge modelling
@@ -1482,16 +1492,18 @@ cat("Tau CU:", tau_cu$beta, "(", tau_cu$pval, ") \n")
 
 ```{r}
 # List of your meta-analysis results
-meta_results <- list(e4_cu, sex_cu, pacc_cu, ab_cu, ptau_cu, tau_cu)
+meta_results_cu <- list(e4_cu, sex_cu, pacc_cu, ab_cu, ptau_cu, tau_cu)
 
 # Corresponding labels for y-axis
-labels <- c("APOEe4+", "Female", "PACC", "AB-PET", "pTau217", "Tau-PET")
+labels <- c("APOEe4+", "Female", "PACC", "Aβ-PET", "pTau217", "Tau-PET")
 
 # Extract estimates, confidence intervals, and p-values
-estimates <- sapply(meta_results, function(x) x$beta)
-ci_lower <- sapply(meta_results, function(x) x$ci.lb)
-ci_upper <- sapply(meta_results, function(x) x$ci.ub)
-pvals <- sapply(meta_results, function(x) x$pval)
+estimates <- sapply(meta_results_cu, function(x) x$beta)
+ci_lower <- sapply(meta_results_cu, function(x) x$ci.lb)
+ci_upper <- sapply(meta_results_cu, function(x) x$ci.ub)
+pvals <- sapply(meta_results_cu, function(x) x$pval)
+i2 <- sapply(meta_results_cu, function(x) x$I2)
+tau2 <- sapply(meta_results_cu, function(x) x$tau2)
 
 # Create a data frame for plotting
 forest_data_cu <- data.frame(
@@ -1499,30 +1511,50 @@ forest_data_cu <- data.frame(
   estimates = estimates,
   ci_lower = ci_lower,
   ci_upper = ci_upper,
-  pvals = pvals
+  pvals = pvals,
+  i2 = i2,
+  tau2 = tau2
 )
 
+# Make labels into levels
+forest_data_cu$labels <- factor(forest_data_cu$labels, levels = rev(labels))
+
 # Plot the forest plot
-forest_plot <- ggplot(forest_data_cu, aes(x = estimates, y = labels)) +
-  geom_point(size = 3) +
+forest_plot_cu <- ggplot(forest_data_cu, aes(x = estimates, y = labels)) +
+  geom_point(size = 1.5) +
   geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
-  xlim(-2.5, 2.5)
+  xlim(-2, 2) +
+  # Add p-values below each point
+  geom_text(aes(label = ifelse(pvals < 0.001, "p < 0.001", sprintf("p = %.3f", pvals))), 
+          vjust = 2.5, size = 7 / .pt,
+          inherit.aes = TRUE,
+          check_overlap = TRUE)
+  
 
 # Print the plot
-print(forest_plot)
+print(forest_data_cu)
+print(forest_plot_cu)
+
+# Save figure
+forest_plot_cu <- forest_plot_cu + 
+  graph_th
+ggsave(paste(path, 'forest_plot_cu.png'), forest_plot_cu, 
+       width = 80, height = 80, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
 ```
 
 ## MCI results
 
 ```{r}
 # List of your meta-analysis results
-meta_results <- list(adni_mci_e4_standrdized,
+meta_results_mci <- list(adni_mci_e4_standrdized,
                      adni_mci_sex_standrdized,
                      adni_mci_pacc_standrdized,
                      adni_mci_ab_standrdized,
@@ -1530,7 +1562,7 @@ meta_results <- list(adni_mci_e4_standrdized,
                      adni_mci_tau_standrdized)
 
 # Corresponding labels for y-axis
-labels <- c("APOEe4+", "Female", "PACC", "AB-PET", "pTau217", "Tau-PET")
+labels <- c("APOEe4+", "Female", "PACC", "Aβ-PET", "pTau217", "Tau-PET")
 
 # Define which coefficient to use for each model
 coef_names <- c("Estimate", "Estimate", "Estimate", "Standardized", "Standardized", "Standardized", "Standardized")
@@ -1539,16 +1571,16 @@ coef_names <- c("Estimate", "Estimate", "Estimate", "Standardized", "Standardize
 pval_cols <- c("Pr(>|z|)", "Pr(>|z|)", "Pr(>|t|)", "Pr(>|t|)", "Pr(>|t|)", "Pr(>|t|)")
 
 # Extract estimates
-estimates <- sapply(meta_results, function(x) x$coefficients["delta", "Estimate"])
-std_errors <- sapply(meta_results, function(x) x$coefficients["delta", "Std. Error"])
+estimates <- sapply(meta_results_mci, function(x) x$coefficients["delta", "Estimate"])
+std_errors <- sapply(meta_results_mci, function(x) x$coefficients["delta", "Std. Error"])
 
 # Calculate confidence intervals
 ci_lower <- estimates - 1.96 * std_errors
 ci_upper <- estimates + 1.96 * std_errors
 
 # Extract p-values
-pvals <- sapply(1:length(meta_results), function(i) {
-  meta_results[[i]]$coefficients["delta", pval_cols[i]]
+pvals <- sapply(1:length(meta_results_mci), function(i) {
+  meta_results_mci[[i]]$coefficients["delta", pval_cols[i]]
 })
 
 # Create a data frame for plotting
@@ -1559,19 +1591,34 @@ forest_data_mci <- data.frame(
   ci_upper = ci_upper,
   pvals = pvals
 )
+forest_data_mci$labels <- factor(forest_data_mci$labels, levels = rev(labels))
 
 # Plot the forest plot
-forest_plot <- ggplot(forest_data_mci, aes(x = estimates, y = labels)) +
-  geom_point(size = 3) +
+forest_plot_mci <- ggplot(forest_data_mci, aes(x = estimates, y = labels)) +
+  geom_point(size = 1.5) +
   geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper), height = 0.2) +   # 95% confidence intervals
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
   labs(
     x = "β (Standardized Coefficients)",
-    y = "Cohort"
+    y = ""
   ) +
   theme_minimal() +
-  xlim(-2.5, 2.5) 
+  xlim(-2, 2) +
+  # Add p-values below each point
+  geom_text(aes(label = ifelse(pvals < 0.001, "p < 0.001", sprintf("p = %.3f", pvals))), 
+            vjust = 2.5, size = 7 / .pt,
+            inherit.aes = TRUE,
+            check_overlap = TRUE)
 
 # Print the plot
-print(forest_plot)
+print(forest_data_mci)
+print(forest_plot_mci)
+
+# Save figure
+forest_plot_mci <- forest_plot_mci + 
+  graph_th
+ggsave(paste(path, 'forest_plot_mci.png'), forest_plot_mci, 
+       width = 80, height = 80, units = "mm", 
+       dpi = 500,     # Higher resolution
+       scale = 1)
 ```
