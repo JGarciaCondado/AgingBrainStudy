@@ -29,6 +29,16 @@ path = '~/Documents/Projects/AgingBrainStudy/figures/clinical_enrichment/'
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
+
+graph_th <- theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
 ```
 
 # Brain Age in Clinical Trials
@@ -104,13 +114,7 @@ adni_all_p <- plot(ggpredict(lmm_adni_all, terms = c("time_mri [all]"))) +
 print(adni_all_p)
 
 # Save model
-adni_all_p <- adni_all_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
+adni_all_p <- adni_all_p + graph_th
 ggsave(paste(path, 'lme_adni_all.png'), adni_all_p, 
        width = 70, height = 70, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -137,13 +141,7 @@ adni_median_p <- plot(ggpredict(lmm_adni_median, terms = c("time_mri [all]"))) +
 print(adni_median_p)
 
 # Save model
-adni_median_p <- adni_median_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
+adni_median_p <- adni_median_p + graph_th
 ggsave(paste(path, 'lme_adni_median.png'), adni_median_p, 
        width = 70, height = 70, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -289,13 +287,7 @@ a4_all_p <- plot(ggpredict(lmm_a4_all, terms = c("time_mri [all]"))) +
 print(a4_all_p)
 
 # Save model
-a4_all_p <- a4_all_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
+a4_all_p <- a4_all_p + graph_th
 ggsave(paste(path, 'lme_a4_all.png'), a4_all_p, 
        width = 70, height = 70, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -322,13 +314,7 @@ a4_median_p <- plot(ggpredict(lmm_a4_median, terms = c("time_mri [all]"))) +
 print(a4_median_p)
 
 # Save model
-a4_median_p <- a4_median_p +
-  theme(
-      text = element_text(family = "Times New Roman", size = 12),
-      axis.text = element_text(family = "Times New Roman", size = 12),
-      axis.title = element_text(family = "Times New Roman", size = 12),
-      plot.margin = unit(c(0.15, 0.15, 0.15, 0.15), "cm"),
-    ) 
+a4_median_p <- a4_median_p + graph_th
 ggsave(paste(path, 'lme_a4_median.png'), a4_median_p, 
        width = 70, height = 70, units = "mm", 
        dpi = 500,   # Higher resolution
@@ -456,10 +442,10 @@ results_ptau_df <- data.frame(
 cat("\n", paste(rep("=", 80), collapse=""), "\n")
 cat("POWER ANALYSIS RESULTS\n")
 cat(paste(rep("=", 80), collapse=""), "\n")
-cat(sprintf("%-12s %-12s %-12s %-15s %-12s\n", 
-            "pTau217", "Delta", "Available", "Trial Required", "Reduction"))
-cat(sprintf("%-12s %-12s %-12s %-15s %-12s\n", 
-            "Threshold", "Threshold", "Participants", "Sample Size", "(%)"))
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s %-12s %-12s %-15s %-15s \n", 
+            "pTau217", "Delta", "Available", "Trial Required", "Reduction", "CI Lower", "CI Upper", "Reduction Lower", "Reduction Upper"))
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s %-12s %-12s %-15s %-15s \n", 
+            "Threshold", "Threshold", "Participants", "Sample Size", "(%)", "Sample Size", "Sample Size", "(%)", "(%)"))
 cat(paste(rep("-", 80), collapse=""), "\n")
 
 # Do for loop over ptau217 quantiles and delta quantiles
@@ -485,6 +471,12 @@ for (ptau_quantile in ptau217_quantiles) {
     n_a4_ptau <- pwr_ptau$N
     n_percentage <- n_a4_ptau / n_a4_ptau_all * 100
     
+    # Calculate confidence intervals
+    ni_ci_upper <- 2*pwr_ptau$n.CI[1]
+    ni_ci_lower <- 2*pwr_ptau$n.CI[3]
+    reduction_lower <-  ni_ci_lower / n_a4_ptau_all * 100
+    reduction_upper <-  ni_ci_upper / n_a4_ptau_all * 100
+    
     # Calculate number of participants
     n_participants <- length(unique(data_filtered$ID))
     
@@ -494,12 +486,16 @@ for (ptau_quantile in ptau217_quantiles) {
       delta_threshold = delta_quantile,
       n_participants = n_participants,
       n_trial_required = n_a4_ptau,
-      reduction_percentage = n_percentage
+      reduction_percentage = n_percentage,
+      n_ci_lower = ni_ci_lower,
+      n_ci_upper = ni_ci_upper,
+      reduction_lower = reduction_lower,
+      reduction_upper = reduction_upper
     ))
     
     # Print results in formatted table
-    cat(sprintf("%-12.2f %-12.2f %-12d %-15.0f %-12.1f\n", 
-                ptau_quantile, delta_quantile, n_participants, n_a4_ptau, n_percentage))
+    cat(sprintf("%-12.2f %-12.2f %-12d %-15.0f %-12.1f %-15.0f %-15.0f %-12.1f %-12.1f \n ", 
+                ptau_quantile, delta_quantile, n_participants, n_a4_ptau, n_percentage, ni_ci_lower, ni_ci_upper, reduction_lower, reduction_upper))
   }
 }
 
@@ -515,13 +511,28 @@ cat(sprintf("Sample size reduction range: %.1f%% - %.1f%%\n",
 
 
 ```{r}
+graph_th_screening <- theme(
+      title = element_text(family = "Times New Roman", size = 10),
+      plot.title = element_text(hjust = 0.5),
+      text = element_text(family = "Times New Roman", size = 10),
+      axis.text = element_text(family = "Times New Roman", size = 10),
+      axis.title = element_text(family = "Times New Roman", size = 10),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
+
+
 ct_plot <- function(panel_data, title) {
   
   # Create plot data using existing reduction_percentage values
   # We need 5 points: All (100%), then the 4 combinations from panel_data
   plot_data <- data.frame(
     step_numeric = c(1, 2, 3, 3, 3),  # All, Plasma, 3x BrainAge
-    participants_pct = c(100, panel_data$reduction_percentage)  # Start with 100% for "All"
+    participants_pct = c(100, panel_data$reduction_percentage),  # Start with 100% for "All"
+    participants_ci_low = c(100, panel_data$reduction_lower),
+    participants_ci_high = c(100, panel_data$reduction_upper)
   )
   
   # Create separate data for lines
@@ -532,6 +543,8 @@ ct_plot <- function(panel_data, title) {
   point_data <- data.frame(
     x = c(1, 2, 3, 3, 3),
     y = c(100, plot_data$participants_pct[2:5]),
+    y_min = c(100, plot_data$participants_ci_low[2:5]),
+    y_max = c(100, plot_data$participants_ci_high[2:5]),
     color = c("grey50", "red", "darkgreen", "darkgreen", "darkgreen")
   )
   
@@ -547,17 +560,19 @@ ct_plot <- function(panel_data, title) {
     
     # Points
     geom_point(aes(x = x, y = y, color = color), data = point_data, size = 3) +
+    geom_errorbar(aes(x = x, ymin = y_min, ymax = y_max, color = color), 
+                  data = point_data, width = 0.1, size = 0.5) +
     scale_color_identity() +
     
     # Percentage labels
     geom_text(aes(x = 2.3, y = plot_data$participants_pct[2], 
                   label = paste0(round(abs(plot_data$participants_pct[2]), 0), "%")), 
-              vjust = -1.5, size = 3.5, color = "red") +
+              vjust = -2, size = 2, color = "red") +
     geom_text(aes(x = rep(3.35, 3), y = plot_data$participants_pct[3:5], 
                   label = paste0(round(abs(plot_data$participants_pct[3:5]), 0), "%")), 
-                 size = 3.5, color = "darkgreen") +
+                 size = 2, color = "darkgreen") +
     geom_text(aes(x = 1, y = 100, label = "100%"), 
-              vjust = -1.5, size = 3.5, color = "gray50") +
+              vjust = -2, size = 2, color = "gray50") +
     
     # Horizontal reference line at 100
     geom_hline(yintercept = 100, linetype = "dashed", color = "gray50", alpha = 0.7) +
@@ -568,14 +583,7 @@ ct_plot <- function(panel_data, title) {
     labs(title = title, 
          x = "Step", 
          y = "Participants (%)") +
-    theme_minimal() +
-    theme(
-      panel.grid.minor = element_blank(),
-      panel.grid.major.x = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 10),
-      axis.title = element_text(size = 9),
-      axis.text = element_text(size = 8)
-    )
+    theme_minimal() + graph_th_screening
   
   return(p)
 }
@@ -608,10 +616,17 @@ legend_plot <- ggplot() +
   geom_line(aes(x = c(1,2), y = c(0.5,0.5)), color = "darkgreen", size = 1.2) +
   geom_text(aes(x = 2.2, y = 1), label = "Step 1: plasma p-tau217", size = 3, hjust = 0) +
   geom_text(aes(x = 2.2, y = 0.5), label = "Step 2: BrainAge delta", size = 3, hjust = 0) +
-  geom_text(aes(x = 4, y = 1), label = "BrainAge delta quartiles — Q2-Q4   - - Q3-Q4   ··· Q4", size = 3, hjust = 0) +
+  geom_text(aes(x = 4, y = 0.5), label = "BrainAge delta quartiles — Q2-Q4   - - Q3-Q4   ··· Q4", size = 3, hjust = 0) +
   xlim(0, 8) + ylim(0, 1.5) +
   theme_void()
 
 # Display the final plot with legend
 grid.arrange(final_plot, legend_plot, heights = c(4, 0.5))
+
+# Save the final plot
+ggsave(paste(path, 'ptau217_screening.png'), 
+       arrangeGrob(final_plot, legend_plot, heights = c(4, 0.5)), 
+       width = 160, height = 100, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
 ```
