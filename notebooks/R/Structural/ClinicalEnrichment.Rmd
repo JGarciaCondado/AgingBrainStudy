@@ -147,6 +147,47 @@ ggsave(paste(path, 'lme_adni_median.png'), adni_median_p,
        dpi = 500,   # Higher resolution
        scale = 1)
 ```
+### Comparison
+
+```{r}
+# Get predictions from both models
+pred_all <- ggpredict(lmm_adni_all, terms = c("time_mri [all]"))
+pred_median <- ggpredict(lmm_adni_median, terms = c("time_mri [all]"))
+
+# Convert to data frames and add model identifier
+pred_all_df <- as.data.frame(pred_all)
+pred_all_df$model <- "All Participants"
+
+pred_median_df <- as.data.frame(pred_median)
+pred_median_df$model <- "Participants with BrainAge delta > Median"
+
+# Combine predictions
+combined_pred <- rbind(pred_all_df, pred_median_df)
+
+# Create combined plot
+combined_plot <- ggplot(combined_pred, aes(x = x, y = predicted, color = model, fill = model)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color=NA) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data$time_mri))) + 
+  scale_y_continuous(limits = c(0, 4.5)) +
+  labs(
+    title = "",
+    y = "CDRSUM",
+    x = "Time from MRI (years)",
+    color = "Model",
+    fill = "Model"
+  ) +
+  theme(legend.position = "bottom")
+
+print(combined_plot)
+
+# Save combined plot
+combined_plot <- combined_plot + graph_th
+ggsave(paste(path, 'lme_adni_combined.png'), combined_plot, 
+       width = 135, height = 70, units = "mm", 
+       dpi = 500)
+```
 
 ## Sample and power caclulations {.tabset}
 
@@ -321,6 +362,48 @@ ggsave(paste(path, 'lme_a4_median.png'), a4_median_p,
        scale = 1)
 ```
 
+### Comparison
+
+```{r}
+# Get predictions from both models
+pred_all <- ggpredict(lmm_a4_all, terms = c("time_mri [all]"))
+pred_median <- ggpredict(lmm_a4_median, terms = c("time_mri [all]"))
+
+# Convert to data frames and add model identifier
+pred_all_df <- as.data.frame(pred_all)
+pred_all_df$model <- "All Participants"
+
+pred_median_df <- as.data.frame(pred_median)
+pred_median_df$model <- "Participants with BrainAge delta > Median"
+
+# Combine predictions
+combined_pred <- rbind(pred_all_df, pred_median_df)
+
+# Create combined plot
+combined_plot <- ggplot(combined_pred, aes(x = x, y = predicted, color = model, fill = model)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color=NA) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
+  scale_y_continuous(limits = c(-1.5, 1)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "Model",
+    fill = "Model"
+  ) +
+  theme(legend.position = "bottom")
+
+print(combined_plot)
+
+# Save combined plot
+combined_plot <- combined_plot + graph_th
+ggsave(paste(path, 'lme_a4_combined.png'), combined_plot, 
+       width = 135, height = 70, units = "mm", 
+       dpi = 500)
+```
+
 ## Sample and power caclulations {.tabset}
 
 Trial duration is 4 years with follow ups every 6 months.
@@ -384,6 +467,7 @@ cat("MRI pass rate: ", mri_pass_rate_median, "\n")
 # Obtain subjects with ptau217 data
 data_a4_ptau217 <- data_a4 %>% 
   filter(!is.na(ptau)) %>% # Have ptau217
+  #filter(cohort == "A4 Placebo") %>% # Only A4
   filter(VISCODE <= 60) # Only before the first 5 years
 n_a4_ptau217_participants <- length(unique(data_a4_ptau217$ID))
 
@@ -412,7 +496,7 @@ n_visit_per_year = 2
 t_visits_a4 = seq(0, trial_time, 1/n_visit_per_year)
 
 # Standard trail
-lme_ptau_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort +  (1 + time_mri | ID)")), data = data_a4_ptau217)
+lme_ptau_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled +  (1 + time_mri | ID)")), data = data_a4_ptau217)
 
 # Calculate baseline and end trial values
 pacc_baseline_ptau_all <- fixef(lme_ptau_all)["(Intercept)"]
@@ -456,7 +540,7 @@ for (ptau_quantile in ptau217_quantiles) {
       filter(ptau >= ptau_quantile, delta >= delta_quantile)
     
     # Model
-    lme_ptau <- lmer(as.formula(paste(outcome, "~  I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + time_mri*cohort + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
+    lme_ptau <- lmer(as.formula(paste(outcome, "~  I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
     
     # Calculate baseline and end trial values
     pacc_baseline_ptau <- fixef(lme_ptau)["(Intercept)"]
