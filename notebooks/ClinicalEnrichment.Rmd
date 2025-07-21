@@ -1,0 +1,716 @@
+---
+title: "Clinical Enrichment with BrainAge"
+author: "Jorge Garcia Condado"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    self_contained: true
+knit: (
+  function(inputFile, encoding) { 
+    rmarkdown::render('ClinicalEnrichment.Rmd',
+      output_file = paste('~/Documents/Projects/AgingBrainStudy/results/ClinicalEnrichment', '.html', sep=''))
+      })
+---
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+library(ggplot2); library(ggpubr); library(dplyr);library(nlme); library(sjPlot);library(longpower);library(ggeffects);library(emmeans);library(gridExtra)
+
+# Set global options
+emm_options(lmerTest.limit = 15872)
+emm_options(pbkrtest.limit = 15872)
+
+# Load cost of clinical trial
+source('~/Documents/Projects/AgingBrainStudy/scripts/calculate_drug_trial_costs.R')
+
+# Path to save figures
+path = '~/Documents/Projects/AgingBrainStudy/figures/clinical_enrichment/'
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+theme_set(theme_bw())
+
+graph_th <- theme(
+      text = element_text(family = "Times New Roman", size = 12),
+      axis.text = element_text(family = "Times New Roman", size = 12),
+      axis.title = element_text(family = "Times New Roman", size = 12),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
+```
+
+# Brain Age in Clinical Trials
+
+We will explore usign BrainAge as a clinical enrichment biomarker in two clinical trials:
+
+-   ADNI: MCI participants with amyloid positivity in two year trial looking at CDR sum of boxes
+-   A4: Preclinical AD participants with amyloid positivity in five year trial looking at PACC
+
+```{r}
+# Trial variables
+treatment_eff = 0.27
+power = 0.9
+sig_level = 0.05
+n = NULL
+method = 'edland'
+
+# Lecanemab costs
+screened_lecanemab = 5967
+recruited_lecanemab = 1796
+treatment_cost_per_year = 26500
+scren_cost = 6957
+screen_cost_mri = 353
+screen_pass_lecanemab = recruited_lecanemab / screened_lecanemab
+```
+
+# ADNI
+
+```{r}
+
+# Load ADNI data for MCI
+data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/longitudinal.csv')
+
+# Filter only MCI, Amyloid Positive and first 24 months
+data <- data_adni %>% 
+  filter(VISCODE %in% c('bl', 'm06', 'm12', 'm18', 'm24')) %>%
+  filter(ab_status == 'ab+') %>%
+  filter(diagnosis == 'MCI')
+
+# Extract those with delta_all above median
+data_median <- data %>% 
+  filter(delta > median(data$delta))
+
+# Total number of unique participants in each
+n_adni_participants <- length(unique(data$ID))
+n_adni_participants_median <- length(unique(data_median$ID))
+
+# Outcome of interest
+outcome = 'CDRSUM'
+```
+
+## Linear Mixed Effects Model {.tabset}
+
+Simple linear mixed effects model with random intercept and slope for each particpant for the three subsets.
+
+### All
+
+```{r}
+# Create model
+lmm_adni_all <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data)
+
+# Plot model
+adni_all_p <- plot(ggpredict(lmm_adni_all, terms = c("time_mri [all]"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data$time_mri))) + 
+  scale_y_continuous(limits = c(0, 4.5)) +
+  labs(
+    title = "",
+    y = "CDRSUM",
+    x = "Time from MRI (years)",
+  )
+  
+print(adni_all_p)
+
+# Save model
+adni_all_p <- adni_all_p + graph_th
+ggsave(paste(path, 'lme_adni_all.png'), adni_all_p, 
+       width = 70, height = 70, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
+```
+
+### Median
+
+```{r}
+# Create model
+lmm_adni_median <-lmer(as.formula(paste(outcome, "~ time_mri + (1 + time_mri | ID)")), data = data_median)
+
+# Plot model
+adni_median_p <- plot(ggpredict(lmm_adni_median, terms = c("time_mri [all]"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data$time_mri))) + 
+  scale_y_continuous(limits = c(0, 4.5)) +
+  labs(
+    title = "",
+    y = "CDRSUM",
+    x = "Time from MRI (years)",
+  )
+  
+print(adni_median_p)
+
+# Save model
+adni_median_p <- adni_median_p + graph_th
+ggsave(paste(path, 'lme_adni_median.png'), adni_median_p, 
+       width = 70, height = 70, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
+```
+### Comparison
+
+```{r}
+# Get predictions from both models
+pred_all <- ggpredict(lmm_adni_all, terms = c("time_mri [all]"))
+pred_median <- ggpredict(lmm_adni_median, terms = c("time_mri [all]"))
+
+# Convert to data frames and add model identifier
+pred_all_df <- as.data.frame(pred_all)
+pred_all_df$model <- "All Participants"
+
+pred_median_df <- as.data.frame(pred_median)
+pred_median_df$model <- "Participants with BrainAge delta > Median"
+
+# Combine predictions
+combined_pred <- rbind(pred_all_df, pred_median_df)
+
+# Create combined plot
+combined_plot <- ggplot(combined_pred, aes(x = x, y = predicted, color = model, fill = model)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color=NA) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data$time_mri))) + 
+  scale_y_continuous(limits = c(0, 4.5)) +
+  labs(
+    title = "",
+    y = "CDRSUM",
+    x = "Time from MRI (years)",
+    color = "Model",
+    fill = "Model"
+  ) +
+  theme(legend.position = "bottom")
+
+print(combined_plot)
+
+# Save combined plot
+combined_plot <- combined_plot + graph_th
+ggsave(paste(path, 'lme_adni_combined.png'), combined_plot, 
+       width = 135, height = 70, units = "mm", 
+       dpi = 500)
+```
+
+## Sample and power caclulations {.tabset}
+
+The trial will last 2 years with follow ups every 6 months.
+
+```{r}
+# Set parameters for ADNI two years
+t_visits_adni = seq(0, 2, 0.5)
+```
+
+### All
+
+```{r}
+# calculate power / sample size using longpower package
+pwr_all <- lmmpower(lmm_adni_all, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+
+# Print number of subjects
+n_adni_all <- pwr_all$N
+cat("Number of participants required for clinical trial: ", n_adni_all, "\n")
+```
+
+### Median
+
+```{r}
+# calculate power / sample size using longpower package
+pwr_median <- lmmpower(lmm_adni_median, pct.change = treatment_eff, t = t_visits_adni, power = power, sig.level = sig_level, n = n, method = method)
+
+# Print number of subjects
+n_adni_median <- pwr_median$N
+cat("Number of participants required for clinical trial: ", n_adni_median, "\n")
+
+# Reduction percentage
+reduction_median <- (n_adni_all - n_adni_median) / n_adni_all * 100
+cat("Reduction in number of participants required: ", reduction_median, "%\n")
+```
+
+## Calculate savings {.tabset}
+
+Calculate costs of the trail
+
+### All
+
+```{r}
+
+#Calculate cost
+cost_adni_all <- calculate_drug_trial_costs(
+  years = 2,
+  participants_required = n_adni_all,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = FALSE,
+  mri_pass_rate = 0
+)
+
+cat("Total cost of the trial: ", cost_adni_all$total_cost, "\n")
+cat("Screening cost: ", cost_adni_all$screening_cost, "\n")
+cat("Participants to screen: ", cost_adni_all$participants_to_screen, "\n")
+cat("Treatment cost: ", cost_adni_all$treatment_cost, "\n")
+```
+
+### Median
+
+```{r}
+
+# Calculate pass rate for MRI
+mri_pass_rate_median = n_adni_participants_median / n_adni_participants
+cat("MRI pass rate: ", mri_pass_rate_median, "\n")
+
+# Calculate cost
+cost_adni_median <- calculate_drug_trial_costs(
+  years = 2,
+  participants_required = n_adni_median,
+  screen_pass_rate = screen_pass_lecanemab,
+  screen_cost = scren_cost,
+  mri_cost = screen_cost_mri,
+  treatment_cost_per_year = treatment_cost_per_year,
+  has_mri_screening = TRUE,
+  mri_pass_rate = mri_pass_rate_median
+)
+
+cat("Total cost of the trial: ", cost_adni_median$total_cost, "\n")
+cat("Screening cost: ", cost_adni_median$screening_cost, "\n")
+cat("Participants to screen: ", cost_adni_median$participants_to_screen, "\n")
+cat("Treatment cost: ", cost_adni_median$treatment_cost, "\n")
+```
+
+
+# A4
+
+Looking at AB+ with placebo treatment in the A4 trial. We will look at the PACC outcome.
+
+```{r}
+# Load A4 data
+data_a4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/longitudinal.csv')
+
+# Placebo data
+data_placebo <- data_a4 %>% 
+  filter(cohort == 'A4 Placebo') %>% # Only placebo
+  filter(!is.na(PACC)) %>%
+  filter(VISCODE <= 60) # Only before the first 4 years
+
+# Extract those with delta_all above median
+data_a4_median <- data_placebo %>% 
+  filter(delta > median(data_placebo$delta, na.rm = TRUE))
+
+# Total number of unique participants in each
+n_a4_participants <- length(unique(data_placebo$ID))
+n_a4_participants_median <- length(unique(data_a4_median$ID))
+
+# Outcome of interest
+outcome = 'PACC'
+```
+
+## Linear Mixed Effects Model {.tabset}
+
+Simple linear mixed effects model with random intercept and slope for each particpant for the three subsets.
+
+### All
+
+```{r}
+# Create model
+
+lmm_a4_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + (1 + time_mri | ID)")), data = data_placebo)
+
+# Plot model
+a4_all_p <- plot(ggpredict(lmm_a4_all, terms = c("time_mri [all]"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
+  scale_y_continuous(limits = c(-1.5, 1)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+  )
+  
+print(a4_all_p)
+
+# Save model
+a4_all_p <- a4_all_p + graph_th
+ggsave(paste(path, 'lme_a4_all.png'), a4_all_p, 
+       width = 70, height = 70, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
+```
+
+### Median
+
+```{r}
+# Create model
+lmm_a4_median <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + (1 + time_mri | ID)")), data = data_a4_median)
+
+# Plot model
+a4_median_p <- plot(ggpredict(lmm_a4_median, terms = c("time_mri [all]"))) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
+  scale_y_continuous(limits = c(-1.5, 1)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+  )
+  
+print(a4_median_p)
+
+# Save model
+a4_median_p <- a4_median_p + graph_th
+ggsave(paste(path, 'lme_a4_median.png'), a4_median_p, 
+       width = 70, height = 70, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
+```
+
+### Comparison
+
+```{r}
+# Get predictions from both models
+pred_all <- ggpredict(lmm_a4_all, terms = c("time_mri [all]"))
+pred_median <- ggpredict(lmm_a4_median, terms = c("time_mri [all]"))
+
+# Convert to data frames and add model identifier
+pred_all_df <- as.data.frame(pred_all)
+pred_all_df$model <- "All Participants"
+
+pred_median_df <- as.data.frame(pred_median)
+pred_median_df$model <- "Participants with BrainAge delta > Median"
+
+# Combine predictions
+combined_pred <- rbind(pred_all_df, pred_median_df)
+
+# Create combined plot
+combined_plot <- ggplot(combined_pred, aes(x = x, y = predicted, color = model, fill = model)) +
+  geom_line(size = 1) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, color=NA) +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, max(data_placebo$time_mri))) + 
+  scale_y_continuous(limits = c(-1.5, 1)) +
+  labs(
+    title = "",
+    y = "PACC",
+    x = "Time from MRI (years)",
+    color = "Model",
+    fill = "Model"
+  ) +
+  theme(legend.position = "bottom")
+
+print(combined_plot)
+
+# Save combined plot
+combined_plot <- combined_plot + graph_th
+ggsave(paste(path, 'lme_a4_combined.png'), combined_plot, 
+       width = 135, height = 70, units = "mm", 
+       dpi = 500)
+```
+
+## Sample and power caclulations {.tabset}
+
+Trial duration is 4 years with follow ups every 6 months.
+
+```{r}
+# Set parameters for A4 5 years
+trial_time = 4 # years
+n_visit_per_year = 2 
+t_visits_a4 = seq(0, trial_time, 1/n_visit_per_year)
+```
+
+### All
+
+```{r}
+# First calculate linear slope of change from baseline to trial end
+pacc_baseline_all<- fixef(lmm_a4_median)["(Intercept)"]
+pacc_end_trial_all <- summary(emmeans(lmm_a4_all, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_all <- (pacc_end_trial_all - pacc_baseline_all) / trial_time
+
+# Calculate treatment effect
+effect_all = delta_change_per_year_all * treatment_eff
+
+# Power calculation
+pwr_all_a4 <- lmmpower(lmm_a4_all, delta = effect_all, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+
+# Print number of subjects
+n_a4_all <- pwr_all_a4$N
+cat("Number of participants required for clinical trial: ", n_a4_all, "\n")
+```
+
+### Median
+
+```{r}
+# First calculate linear slope of change from baseline to trial end
+pacc_baseline_median <- fixef(lmm_a4_median)["(Intercept)"]
+pacc_end_trial_median <- summary(emmeans(lmm_a4_median, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_median <- (pacc_end_trial_median - pacc_baseline_median) / trial_time
+
+# Calculate treatment effect
+effect_median = delta_change_per_year_median * treatment_eff
+
+# Power calculation
+pwr_median_a4 <- lmmpower(lmm_a4_median, delta = effect_median, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+
+# Print number of subjects
+n_a4_median <- pwr_median_a4$N
+cat("Number of participants required for clinical trial: ", n_a4_median, "\n")
+
+# Reduction percentage
+reduction_median <- (n_a4_all - n_a4_median) / n_a4_all * 100
+cat("Reduction in number of participants required: ", reduction_median, "%\n")
+
+# Screen fails for MRI
+mri_pass_rate_median = n_a4_participants_median / n_a4_participants
+cat("MRI pass rate: ", mri_pass_rate_median, "\n")
+```
+
+# Ptau217 screening
+
+```{r}
+# Obtain subjects with ptau217 data
+data_a4_ptau217 <- data_a4 %>% 
+  filter(!is.na(ptau)) %>% # Have ptau217
+  #filter(cohort == "A4 Placebo") %>% # Only A4
+  filter(VISCODE <= 60) # Only before the first 5 years
+n_a4_ptau217_participants <- length(unique(data_a4_ptau217$ID))
+
+# Obtain baseline data by grouping by ID, ordering by viscode and selecting firtst row
+data_a4_ptau217_baseline <- data_a4_ptau217 %>% 
+  group_by(ID) %>% 
+  arrange(VISCODE) %>% 
+  slice(1) %>% 
+  ungroup()
+
+# Find quantiles for pTau217
+ptau217_quantiles <- quantile(data_a4_ptau217_baseline$ptau, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+delta_quantiles <- quantile(data_a4_ptau217_baseline$delta, probs = c(0.0, 0.25, 0.5, 0.75), na.rm = TRUE)
+```
+
+```{r}
+# Trial variables
+treatment_eff = 0.30
+power = 0.8
+sig_level = 0.05
+n = NULL
+method = 'edland'
+outcome = 'PACC'
+trial_time = 4 # years
+n_visit_per_year = 2 
+t_visits_a4 = seq(0, trial_time, 1/n_visit_per_year)
+
+# Standard trail
+lme_ptau_all <-lmer(as.formula(paste(outcome, "~ I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled +  (1 + time_mri | ID)")), data = data_a4_ptau217)
+
+# Calculate baseline and end trial values
+pacc_baseline_ptau_all <- fixef(lme_ptau_all)["(Intercept)"]
+pacc_end_trial_ptau_all <- summary(emmeans(lme_ptau_all, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+delta_change_per_year_ptau_all <- (pacc_end_trial_ptau_all - pacc_baseline_ptau_all) / trial_time
+
+# Calculate treatment effect
+effect_ptau_all = delta_change_per_year_ptau_all * treatment_eff
+
+# Calculate power / sample size using longpower package
+pwr_ptau_all <- lmmpower(lme_ptau_all, delta = effect_ptau_all, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+n_a4_ptau_all <- pwr_ptau_all$N
+```
+
+```{r}
+# Initialize results storage
+results_ptau_df <- data.frame(
+  ptau_threshold = numeric(),
+  delta_threshold = numeric(),
+  n_participants = integer(),
+  n_trial_required = numeric(),
+  reduction_percentage = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Print header
+cat("\n", paste(rep("=", 80), collapse=""), "\n")
+cat("POWER ANALYSIS RESULTS\n")
+cat(paste(rep("=", 80), collapse=""), "\n")
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s %-12s %-12s %-15s %-15s \n", 
+            "pTau217", "Delta", "Available", "Trial Required", "Reduction", "CI Lower", "CI Upper", "Reduction Lower", "Reduction Upper"))
+cat(sprintf("%-12s %-12s %-12s %-15s %-12s %-12s %-12s %-15s %-15s \n", 
+            "Threshold", "Threshold", "Participants", "Sample Size", "(%)", "Sample Size", "Sample Size", "(%)", "(%)"))
+cat(paste(rep("-", 80), collapse=""), "\n")
+
+# Do for loop over ptau217 quantiles and delta quantiles
+for (ptau_quantile in ptau217_quantiles) {
+  for (delta_quantile in delta_quantiles) {
+    # Filter data
+    data_filtered <- data_a4_ptau217 %>%
+      filter(ptau >= ptau_quantile, delta >= delta_quantile)
+    
+    # Model
+    lme_ptau <- lmer(as.formula(paste(outcome, "~  I(time_mri^2) + time_mri + LMSTORY + Cumulative_Dose_Scaled + LMSTORY + (1 + time_mri | ID)")), data = data_filtered)
+    
+    # Calculate baseline and end trial values
+    pacc_baseline_ptau <- fixef(lme_ptau)["(Intercept)"]
+    pacc_end_trial_ptau <- summary(emmeans(lme_ptau, specs = ~ time_mri, at = list(time_mri = trial_time, pbkrtest.limit = 15872)))$emmean
+    delta_change_per_year_ptau <- (pacc_end_trial_ptau - pacc_baseline_ptau) / trial_time
+    
+    # Calculate treatment effect
+    effect_ptau = delta_change_per_year_ptau * treatment_eff
+    
+    # Calculate power / sample size
+    pwr_ptau <- lmmpower(lme_ptau, delta = effect_ptau, t = t_visits_a4, power = power, sig.level = sig_level, n = n, method = method)
+    n_a4_ptau <- pwr_ptau$N
+    n_percentage <- n_a4_ptau / n_a4_ptau_all * 100
+    
+    # Calculate confidence intervals
+    ni_ci_upper <- 2*pwr_ptau$n.CI[1]
+    ni_ci_lower <- 2*pwr_ptau$n.CI[3]
+    reduction_lower <-  ni_ci_lower / n_a4_ptau_all * 100
+    reduction_upper <-  ni_ci_upper / n_a4_ptau_all * 100
+    
+    # Calculate number of participants
+    n_participants <- length(unique(data_filtered$ID))
+    
+    # Store results
+    results_ptau_df <- rbind(results_ptau_df, data.frame(
+      ptau_threshold = ptau_quantile,
+      delta_threshold = delta_quantile,
+      n_participants = n_participants,
+      n_trial_required = n_a4_ptau,
+      reduction_percentage = n_percentage,
+      n_ci_lower = ni_ci_lower,
+      n_ci_upper = ni_ci_upper,
+      reduction_lower = reduction_lower,
+      reduction_upper = reduction_upper
+    ))
+    
+    # Print results in formatted table
+    cat(sprintf("%-12.2f %-12.2f %-12d %-15.0f %-12.1f %-15.0f %-15.0f %-12.1f %-12.1f \n ", 
+                ptau_quantile, delta_quantile, n_participants, n_a4_ptau, n_percentage, ni_ci_lower, ni_ci_upper, reduction_lower, reduction_upper))
+  }
+}
+
+# Optional: Show summary statistics
+cat("SUMMARY STATISTICS:\n")
+cat(sprintf("Trial sample size range: %.0f - %.0f participants\n", 
+            min(results_ptau_df$n_trial_required), max(results_ptau_df$n_trial_required)))
+cat(sprintf("Available participants range: %d - %d\n", 
+            min(results_ptau_df$n_participants), max(results_ptau_df$n_participants)))
+cat(sprintf("Sample size reduction range: %.1f%% - %.1f%%\n", 
+            min(results_ptau_df$reduction_percentage), max(results_ptau_df$reduction_percentage)))
+```
+
+
+```{r}
+graph_th_screening <- theme(
+      title = element_text(family = "Times New Roman", size = 10),
+      plot.title = element_text(hjust = 0.5),
+      text = element_text(family = "Times New Roman", size = 10),
+      axis.text = element_text(family = "Times New Roman", size = 10),
+      axis.title = element_text(family = "Times New Roman", size = 10),
+      strip.text = element_text(family = "Times New Roman", size = 8),
+      plot.margin = unit(c(0.2, 0.2, 0.2, 0.2), "cm"),
+      axis.title.y = element_text(margin = margin(r = 2, unit = "mm")),
+      axis.title.x = element_text(margin = margin(t = 2, unit = "mm"))
+    ) 
+
+
+ct_plot <- function(panel_data, title) {
+  
+  # Create plot data using existing reduction_percentage values
+  # We need 5 points: All (100%), then the 4 combinations from panel_data
+  plot_data <- data.frame(
+    step_numeric = c(1, 2, 3, 3, 3),  # All, Plasma, 3x BrainAge
+    participants_pct = c(100, panel_data$reduction_percentage),  # Start with 100% for "All"
+    participants_ci_low = c(100, panel_data$reduction_lower),
+    participants_ci_high = c(100, panel_data$reduction_upper)
+  )
+  
+  # Create separate data for lines
+  red_line_data <- data.frame(x = c(1, 2), y = c(100, plot_data$participants_pct[2]))
+  green_line1_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[3]))
+  green_line2_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[4]))  
+  green_line3_data <- data.frame(x = c(2, 3), y = c(plot_data$participants_pct[2], plot_data$participants_pct[5]))
+  point_data <- data.frame(
+    x = c(1, 2, 3, 3, 3),
+    y = c(100, plot_data$participants_pct[2:5]),
+    y_min = c(100, plot_data$participants_ci_low[2:5]),
+    y_max = c(100, plot_data$participants_ci_high[2:5]),
+    color = c("grey50", "red", "darkgreen", "darkgreen", "darkgreen")
+  )
+  
+  # Create the plot
+  p <- ggplot() +
+    # Red line for plasma step
+    geom_line(aes(x = x, y = y), data = red_line_data, color = "red", size = 1.2) +
+    
+    # Green lines for BrainAge steps (different line types)
+    geom_line(aes(x = x, y = y), data = green_line1_data, color = "darkgreen", size = 1.2, linetype = "solid") +
+    geom_line(aes(x = x, y = y), data = green_line2_data, color = "darkgreen", size = 1.2, linetype = "dashed") +
+    geom_line(aes(x = x, y = y), data = green_line3_data, color = "darkgreen", size = 1.2, linetype = "dotted") +
+    
+    # Points
+    geom_point(aes(x = x, y = y, color = color), data = point_data, size = 3) +
+    geom_errorbar(aes(x = x, ymin = y_min, ymax = y_max, color = color), 
+                  data = point_data, width = 0.1, size = 0.5) +
+    scale_color_identity() +
+    
+    # Percentage labels
+    geom_text(aes(x = 2.3, y = plot_data$participants_pct[2], 
+                  label = paste0(round(abs(plot_data$participants_pct[2]), 0), "%")), 
+              vjust = -2, size = 2, color = "red") +
+    geom_text(aes(x = rep(3.35, 3), y = plot_data$participants_pct[3:5], 
+                  label = paste0(round(abs(plot_data$participants_pct[3:5]), 0), "%")), 
+                 size = 2, color = "darkgreen") +
+    geom_text(aes(x = 1, y = 100, label = "100%"), 
+              vjust = -2, size = 2, color = "gray50") +
+    
+    # Horizontal reference line at 100
+    geom_hline(yintercept = 100, linetype = "dashed", color = "gray50", alpha = 0.7) +
+    
+    # Styling
+    scale_x_continuous(breaks = c(1, 2, 3), labels = c("All", "Plasma", "BrainAge"), limits = c(0.8, 3.5)) +
+    scale_y_continuous(limits = c(0, 105), breaks = seq(0, 100, 25)) +
+    labs(title = title, 
+         x = "Step", 
+         y = "Participants (%)") +
+    theme_minimal() + graph_th_screening
+  
+  return(p)
+}
+
+```
+
+```{r}
+# Example usage:
+# For Q2-Q4 panel
+ptau_threshold_q2q4 <- ptau217_quantiles[1]
+panel_data_q2q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q2q4)
+p1 <- ct_plot(panel_data_q2q4, "Plasma p-tau217\nQ2-Q4")
+
+# For Q3-Q4 panel
+ptau_threshold_q3q4 <- ptau217_quantiles[2]
+panel_data_q3q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q3q4)
+p2 <- ct_plot(panel_data_q3q4, "Plasma p-tau217\nQ3-Q4")
+
+# For Q4 panel
+ptau_threshold_q4 <- ptau217_quantiles[3]
+panel_data_q4 <- results_ptau_df %>% filter(ptau_threshold == ptau_threshold_q4)
+p3 <- ct_plot(panel_data_q4, "Plasma p-tau217\nQ4")
+
+# Combine all plots into one figure
+final_plot <- arrangeGrob(p1, p2, p3, ncol = 3)
+
+# Add legend manually (since we have custom colors and lines)
+legend_plot <- ggplot() +
+  geom_line(aes(x = c(1,2), y = c(1,1)), color = "red", size = 1.2) +
+  geom_line(aes(x = c(1,2), y = c(0.5,0.5)), color = "darkgreen", size = 1.2) +
+  geom_text(aes(x = 2.2, y = 1), label = "Step 1: plasma p-tau217", size = 3, hjust = 0) +
+  geom_text(aes(x = 2.2, y = 0.5), label = "Step 2: BrainAge delta", size = 3, hjust = 0) +
+  geom_text(aes(x = 4, y = 0.5), label = "BrainAge delta quartiles — Q2-Q4   - - Q3-Q4   ··· Q4", size = 3, hjust = 0) +
+  xlim(0, 8) + ylim(0, 1.5) +
+  theme_void()
+
+# Display the final plot with legend
+grid.arrange(final_plot, legend_plot, heights = c(4, 0.5))
+
+# Save the final plot
+ggsave(paste(path, 'ptau217_screening.png'), 
+       arrangeGrob(final_plot, legend_plot, heights = c(4, 0.5)), 
+       width = 160, height = 100, units = "mm", 
+       dpi = 500,   # Higher resolution
+       scale = 1)
+```
