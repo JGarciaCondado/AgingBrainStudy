@@ -24,6 +24,7 @@ Conceptual framework of a sequential two-step recruitment strategy of a clinical
 
 J. Garcia Condado, H. M. Klinger, C. Birkenbihl, M. Cuppels, A. Liu, I. Tellaetxe Elorriaga, M. Seto, G. T. Couglan, M. J. Properzi, D. M. Rentz, A. P. Schultz, A. Erramuzpe, H. Yang, J. Chhatwal, K. A. Johnson, B. C. Healy, J. M. Cortes, R. A. Sperling, M. Donohue, T. J. Hohman, I. Diez, R. F. Buckley, the Alzheimer’s Disease Neuroimaging Initiative, "BrainAge moderates associations between Alzheimer’s disease biomarkers and cognitive decline: a meta-analysis across A4/LEARN, HABS and ADNI cohorts" *medRxiv*, doi: 10.1101/2025.07.07.25331026
 
+```
 @article {Garcia Condado2025.07.07.25331026,
 	author = {Garcia Condado, Jorge and Klinger, Hannah M and Birkenbihl, Colin and Cuppels, Madison and Liu, Annie and Tellaetxe Elorriaga, I{\~n}igo and Seto, Mabel and Couglan, Gillian T. and Properzi, Michael J. and Rentz, Dorene M. and Schultz, Aaron P. and Erramuzpe, Asier and Yang, Hyun-Sik and Chhatwal, Jasmeer and Johnson, Keith A. and Healy, Brian C. and Cortes, Jesus M. and Sperling, Reisa A. and Donohue, Michael and Hohman, Timothy J. and Diez, Ibai and Buckley, Rachel F. and the Alzheimer{\textquoteright}s Disease Neuroimaging Initiative},
 	title = {BrainAge moderates associations between Alzheimer{\textquoteright}s disease biomarkers and cognitive decline: a meta-analysis across A4/LEARN, HABS and ADNI cohorts},
@@ -35,3 +36,4 @@ J. Garcia Condado, H. M. Klinger, C. Birkenbihl, M. Cuppels, A. Liu, I. Tellaetx
 	eprint = {https://www.medrxiv.org/content/early/2025/07/10/2025.07.07.25331026.full.pdf},
 	journal = {medRxiv}
 }
+```
