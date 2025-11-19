@@ -17,6 +17,9 @@ data/
 analysis/
 tables/
 
+# R data
+.Rhistory
+
 # Distribution / packaging
 .Python
 build/

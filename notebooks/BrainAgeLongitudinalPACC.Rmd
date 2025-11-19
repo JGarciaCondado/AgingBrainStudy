@@ -17,8 +17,12 @@ knit: (
 ```{r, include = FALSE, warning = FALSE, message = FALSE}
 library(ggplot2); library(ggpubr);library(dplyr);library(nlme);library(sjPlot);library(gtsummary);library(MuMIn);library(gt);library(ggeffects);library(effsize);library(metafor)
 
+# Working directory
+wd <- getwd()
+project_root <- dirname(wd)
+
 # Save path
-path <- '~/Documents/Projects/AgingBrainStudy/figures/longitudinal/'
+path <- file.path(project_root, 'figures', 'longitudinal')
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 theme_set(theme_bw())
@@ -42,7 +46,7 @@ We will explore how baseline Brain Age delta moderates longitudinal PACC through
 
 ```{r}
 # Load A4 data
-data_a4 <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/a4/processed/longitudinal.csv') %>%
+data_a4 <- read.csv(file.path(project_root, 'data', 'final', 'a4', 'processed', 'longitudinal.csv')) %>%
   mutate_at(vars(sex, e4_carrier, ab_status, cohort, LMSTORY), factor)
 
 # Placebo data
@@ -52,13 +56,13 @@ data_placebo <- data_a4 %>%
 
 ```{r}
 # Load HABS data
-data_habs <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/habs/processed/longitudinal.csv') %>%
+data_habs <- read.csv(file.path(project_root, 'data', 'final', 'habs', 'processed', 'longitudinal.csv')) %>%
   mutate_at(vars(sex, e4_carrier, ab_status), factor)
 ```
 
 ```{r}
 # Load ADNI data
-data_adni <- read.csv('~/Documents/Projects/AgingBrainStudy/data/final/adni/processed/longitudinal.csv') %>%
+data_adni <- read.csv(file.path(project_root, 'data', 'final', 'adni', 'processed', 'longitudinal.csv')) %>%
   mutate_at(vars(sex, e4_carrier, ab_status), factor)
 
 # Devide between Baseline_diagnosis CN and MCI
@@ -74,7 +78,7 @@ data_adni_cn <- data_adni %>%
 # Time
 a4_max_time   <- max(data_a4$time_mri, na.rm = TRUE)
 adni_max_time <- max(data_adni$time_mri, na.rm = TRUE)
-habs_max_time <- max(data_habs$time_mri, na.rm = TRUE)
+habs_max_time <- 14 #max(data_habs$time_mri, na.rm = TRUE)
 max_time <- max(c(a4_max_time, adni_max_time, habs_max_time), na.rm = TRUE)
 
 # PACC
@@ -759,7 +763,8 @@ lme_habs_sens_change <- lme(PACC_change ~ I(time_mri^2)
                           data = data_habs, 
                           random = ~ 0 + time_mri|ID, 
                           na.action = 'na.omit', 
-                          method = c('ML'));
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 habs_sens_change_standardized <- effectsize::standardize_parameters(lme_habs_sens_change)
 cat("Change from baseline estimated coefficient:" , habs_sens_change_standardized[habs_sens_change_standardized$Parameter == "time_mri:delta", "Std_Coefficient"], "\n")
 cat("Change from baseline p-value:" , summary(lme_habs_sens_change)$tTable["time_mri:delta", "p-value"])
@@ -776,7 +781,8 @@ lme_habs_ab <- lme(PACC ~ I(time_mri^2)
                   data = data_habs, 
                   random = ~time_mri|ID, 
                   na.action = 'na.omit', 
-                  method = c('ML'));
+                  method = c('ML'),
+                  control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 
 # Extract information of interest
 habs_ab_results = summary(lme_habs_ab)$tTable
@@ -846,7 +852,8 @@ lme_habs_ab_sens_demo <- lme(PACC~ I(time_mri^2)
                           data = data_habs, 
                           random = ~time_mri|ID, 
                           na.action = 'na.omit', 
-                          method = c('ML'));
+                          method = c('ML'),
+                          control = lmeControl(opt = "optim", maxIter = 500, msMaxIter = 1000));
 habs_ab_sens_demo_standardized <- effectsize::standardize_parameters(lme_habs_ab_sens_demo)
 cat("Adding demographics estimated coefficient:" , habs_ab_sens_demo_standardized[habs_ab_sens_demo_standardized$Parameter == "time_mri:delta:ab_composite", "Std_Coefficient"], "\n")
 cat("Adding gemographcis p-value:" , summary(lme_habs_ab_sens_demo)$tTable["time_mri:delta:ab_composite", "p-value"])
@@ -2067,7 +2074,8 @@ delta_sum_row <- data.frame(
 cat("All Cohorts BrainAge delta effect:", signif(delta_sum$beta, 2), 
     "[", signif(delta_sum$ci.lb, 2), ",",
     signif(delta_sum$ci.ub, 2), "]",
-    " p-val:", signif(delta_sum$pval, 2), "\n")
+    " p-val:", signif(delta_sum$pval, 2),
+    " I2:", signif(delta_sum$I2, 3), "\n")
 
 # Delta model CU (A4/LEARN, HABS or ADNI CU)
 delta_cu_model <- rma.uni(
@@ -2096,7 +2104,8 @@ delta_cu_sum_row <- data.frame(
 cat("CU Cohorts BrainAge delta effect:", signif(delta_cu_sum$beta, 2), 
     "[", signif(delta_cu_sum$ci.lb, 2), ",",
     signif(delta_cu_sum$ci.ub, 2), "]",
-    " p-val:", signif(delta_cu_sum$pval, 2), "\n")
+    " p-val:", signif(delta_cu_sum$pval, 2),
+    " I2:", signif(delta_cu_sum$I2, 3), "\n")
 
 # Add to dataframe
 delta_interaction_results <- rbind(
@@ -2141,6 +2150,59 @@ delta_plot_data <- bind_rows(
 delta_plot_data <- delta_plot_data |>
   mutate(model = factor(model, levels = rev(unique(model))))
 
+```
+
+```{r}
+# Function to create forest plot
+forest.plot.delta <- function(model_all, summary_lab, model_cu_sum) {
+  forest.rma(model_all,
+             slab = c("A4/LEARN", "HABS", "ADNI CU", "ADNI MCI"),
+             xlab = "Standardized \u03B2", 
+             header = FALSE,  # Turn off automatic header
+             addpred = TRUE, 
+             order = c(1, 2, 3, 4),
+             lwd = 2, 
+             cex = 1.3, 
+             xlim = c(-1.2, 0.65),
+             at = seq(-0.5, 0.2, by = 0.1),
+             mlab = summary_lab,
+             rows = c(4, 3, 2, 1),  
+             ylim = c(-3, 6.5),
+             top = 2.75)
+  
+  # Add separator line between studies and summary estimates
+  abline(h = 0, lwd = 1)
+  
+  # Manually add header text at desired position
+  text(x = -1.2, y = 5.5, labels = "Cohort", pos = 4, cex = 1.3, font = 2)
+  text(x = 0.65, y = 5.5, labels = "Estimate [95% CI]", pos = 2, cex = 1.3, font = 2)
+  
+  # Add CU summary polygon
+  addpoly(
+    x = model_cu_sum$beta,
+    ci.lb = model_cu_sum$ci.lb,
+    ci.ub = model_cu_sum$ci.ub,
+    row = -2,
+    mlab = sprintf("CU: p = %.2f, I² = %.1f%%", 
+                   model_cu_sum$pval, 
+                   model_cu_sum$I2),
+    cex = 1.3
+  )
+}
+
+# Generate label
+summary_lab <- sprintf("All: p = %.2f, I² = %.1f%%", 
+                       delta_sum$pval, 
+                       delta_sum$I2)
+
+# Save to file
+outfile <- file.path(path, "delta_brainage_forest_new.png")
+png(outfile, width = 20, height = 14, units = "cm", res = 500)
+forest.plot.delta(delta_model, summary_lab, delta_cu_sum)
+invisible(dev.off())  # Close the PNG device silently
+
+# Display
+forest.plot.delta(delta_model, summary_lab, delta_cu_sum)
 ```
 
 ```{r}
@@ -2297,6 +2359,22 @@ ab_plot_data <- bind_rows(
 # Ensure model is a factor and preserve order
 ab_plot_data <- ab_plot_data |>
   mutate(model = factor(model, levels = rev(unique(model))))
+```
+
+```{r}
+# Generate label
+summary_lab <- sprintf("All: p = %.2f, I² = %.1f%%", 
+                       ab_sum$pval, 
+                       ab_sum$I2)
+
+# Save to file
+outfile <- file.path(path, "ab_forest_new.png")
+png(outfile, width = 20, height = 14, units = "cm", res = 500)
+forest.plot.delta(ab_model, summary_lab, ab_cu_sum)
+invisible(dev.off())  # Close the PNG device silently
+
+# Display
+forest.plot.delta(ab_model, summary_lab, ab_cu_sum)
 ```
 
 ```{r}
@@ -2457,6 +2535,22 @@ ptau_plot_data <- ptau_plot_data |>
 ```
 
 ```{r}
+# Generate label
+summary_lab <- sprintf("All: p = %.2f, I² = %.1f%%", 
+                       ptau_sum$pval, 
+                       ptau_sum$I2)
+
+# Save to file
+outfile <- file.path(path, "ptau_forest_new.png")
+png(outfile, width = 20, height = 14, units = "cm", res = 500)
+forest.plot.delta(ptau_model, summary_lab, ptau_cu_sum)
+invisible(dev.off())  # Close the PNG device silently
+
+# Display
+forest.plot.delta(ptau_model, summary_lab, ptau_cu_sum)
+```
+
+```{r}
 # Create the forest plot
 forest_plot <- ggplot(ptau_plot_data, aes(x = ptau.estimate, y = model)) +
   geom_point(size = 2) +
@@ -2609,6 +2703,22 @@ tau_plot_data <- bind_rows(
 # Ensure model is a factor and preserve order
 tau_plot_data <- tau_plot_data |>
   mutate(model = factor(model, levels = rev(unique(model))))
+```
+
+```{r}
+# Generate label
+summary_lab <- sprintf("All: p = %.2f, I² = %.1f%%", 
+                       tau_sum$pval, 
+                       tau_sum$I2)
+
+# Save to file
+outfile <- file.path(path, "tau_forest_new.png")
+png(outfile, width = 20, height = 14, units = "cm", res = 500)
+forest.plot.delta(tau_model, summary_lab, tau_cu_sum)
+invisible(dev.off())  # Close the PNG device silently
+
+# Display
+forest.plot.delta(tau_model, summary_lab, tau_cu_sum)
 ```
 
 ```{r}
