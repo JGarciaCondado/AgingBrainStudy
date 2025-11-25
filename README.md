@@ -1,4 +1,4 @@
-# BrainAge moderates associations between Alzheimer's diseases biomarkers and longitudinal cognitive decline
+# BrainAge moderates associations between Alzheimer's disease biomarkers and longitudinal cognitive decline
 
 [![DOI](https://img.shields.io/badge/DOI-10.1101%2F2025.07.19.543210-blue.svg)](https://doi.org/10.1101/2025.07.07.253310260)
 
