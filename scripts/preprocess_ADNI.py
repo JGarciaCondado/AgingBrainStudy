@@ -128,7 +128,7 @@ df_baseline['ab_status'] = df_baseline['ab_status'].map({1: 'ab+', 0: 'ab-'})
 df_baseline['exploratory'] = ((df_baseline['ptau'].notna()) & (df_baseline['tau_composite'].notna())).astype(int)
 
 # Columns of interest with all the other data
-common_cols = ['mri_age', 'sex', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
+common_cols = ['mri_age', 'sex', 'Race', 'e4_carrier', 'ab_status', 'edu', 'diagnosis', 'mri_date', 'PACC_mri', 'time_diff_pacc', 'follow_up_time',
                'ab_composite', 'time_diff_ab', 'ptau', 'time_diff_ptau', 'tau_composite', 'time_diff_tau', 'exploratory']
 df_baseline = df_baseline[common_cols]
 

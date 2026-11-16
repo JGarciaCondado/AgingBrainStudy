@@ -49,11 +49,16 @@ data_all <- bind_rows(data_a4, data_habs, data_adni)
 # Change NaN in e4_carrier and ab_status to Unknown
 data_all <- data_all %>%
   mutate(e4_carrier = ifelse(is.na(e4_carrier), 'Unknown', e4_carrier),
-         ab_status = ifelse(is.na(ab_status), 'Unknown', ab_status))
+         ab_status = ifelse(is.na(ab_status), 'Unknown', ab_status),
+         Race = ifelse(is.na(Race), 'Unknown', Race))
 
 # Ensure factors
 data_all <- data_all %>%
-  mutate_at(vars(sex, e4_carrier, ab_status), factor)
+  mutate_at(vars(sex, Race, e4_carrier, ab_status), factor)
+
+# Footnotes shared by the tables
+pacc_footnote <- "PACC: Preclinical Alzheimer's Cognitive Composite."
+pacc_time_footnote <- "Time between the PACC assessment and the MRI scan (PACC date minus MRI date)."
 ```
 
 
@@ -66,13 +71,14 @@ Demographics split by cohort: A4/LEARN, HABS, ADNI CU and ADNI MCI
 data_all$cohort <- factor(data_all$cohort, levels = c("A4/LEARN", "HABS", "ADNI CU", "ADNI MCI"))
 
 demo_table <- tbl_summary(data_all,
-            include = c(mri_age, sex, edu, e4_carrier, ab_status,  PACC_mri, time_diff_pacc, follow_up_time, ab_composite, time_diff_ab, ptau, time_diff_ptau, tau_composite, time_diff_tau),
+            include = c(mri_age, sex, Race, edu, e4_carrier, ab_status,  PACC_mri, time_diff_pacc, follow_up_time, ab_composite, time_diff_ab, ptau, time_diff_ptau, tau_composite, time_diff_tau),
             missing = "no",
             statistic = list(all_continuous()  ~ c("{mean} ({sd})")),
             label = list(
               mri_age ~ "Age", 
               edu ~ "Education (Years)", 
               sex ~ "Sex",
+              Race ~ "Ethnicity",
               e4_carrier ~ "APOEe4",
               ab_status ~ "AB status",
               PACC_mri ~ "PACC at MRI",
@@ -105,6 +111,16 @@ demo_table <- tbl_summary(data_all,
           columns = label,
           rows = label == "Tau-PET",
           footnote = "A4/LEARN, HABS and ADNI all use 18F-Flortaucipir (FTP) and PVC SUVR."
+        ) %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "PACC at MRI",
+          footnote = pacc_footnote
+        ) %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "PACC Time from MRI (Years)",
+          footnote = pacc_time_footnote
         ) 
 
 # Print table
@@ -163,13 +179,14 @@ analysis_table <- data_combined %>%
     .tbl_fun =
       ~ .x %>%
         tbl_summary(  # Then create summary tables with analysis as the by variable
-          include = c(mri_age, sex, edu, e4_carrier, ab_status, PACC_mri, time_diff_pacc, follow_up_time),
+          include = c(mri_age, sex, Race, edu, e4_carrier, ab_status, PACC_mri, time_diff_pacc, follow_up_time),
           missing = "no",
           statistic = list(all_continuous() ~ c("{mean} ({sd})")),
           label = list(
             mri_age ~ "Age", 
             edu ~ "Education (Years)", 
             sex ~ "Sex",
+            Race ~ "Ethnicity",
             e4_carrier ~ "APOEe4",
             ab_status ~ "AB status",
             PACC_mri ~ "PACC at MRI",
@@ -178,7 +195,17 @@ analysis_table <- data_combined %>%
           digits = list(all_continuous() ~ 2, all_categorical() ~ c(0,2)),
           by = analysis) %>%
         bold_labels() %>%
-        add_p()
+        add_p() %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "PACC at MRI",
+          footnote = pacc_footnote
+        ) %>%
+        modify_table_styling(
+          columns = label,
+          rows = label == "PACC Time from MRI (Years)",
+          footnote = pacc_time_footnote
+        )
     )
 
 # Print the table
